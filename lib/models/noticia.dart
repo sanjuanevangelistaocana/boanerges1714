@@ -7,6 +7,7 @@ class Noticia {
   final DateTime fecha;
   final String? imagenUrl;
   final bool publicado;
+  final bool soloCofrades;
   final DateTime? fechaCreacion;
 
   Noticia({
@@ -16,6 +17,7 @@ class Noticia {
     required this.fecha,
     this.imagenUrl,
     this.publicado = true,
+    this.soloCofrades = false,
     this.fechaCreacion,
   });
 
@@ -28,6 +30,7 @@ class Noticia {
       fecha: (data['fecha'] as Timestamp).toDate(),
       imagenUrl: data['imagen_url'],
       publicado: data['publicado'] ?? true,
+      soloCofrades: data['solo_cofrades'] ?? false,
       fechaCreacion: (data['fecha_creacion'] as Timestamp?)?.toDate(),
     );
   }
@@ -39,6 +42,7 @@ class Noticia {
       'fecha': Timestamp.fromDate(fecha),
       'imagen_url': imagenUrl,
       'publicado': publicado,
+      'solo_cofrades': soloCofrades,
       'fecha_creacion': fechaCreacion != null
           ? Timestamp.fromDate(fechaCreacion!)
           : FieldValue.serverTimestamp(),

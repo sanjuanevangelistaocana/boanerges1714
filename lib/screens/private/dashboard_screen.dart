@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/cuota.dart';
+import 'package:boanerges1714/models/noticia.dart';
+import 'package:boanerges1714/models/convocatoria.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -89,6 +92,12 @@ class DashboardScreen extends StatelessWidget {
                   subtitle: 'Próximas actividades',
                   onTap: () => context.go('/events'),
                 ),
+                _DashboardCard(
+                  icon: Icons.how_to_vote,
+                  title: 'Convocatorias',
+                  subtitle: 'Responde consultas',
+                  onTap: () => context.go('/convocatorias'),
+                ),
                 if (authService.isAdmin)
                   _DashboardCard(
                     icon: Icons.admin_panel_settings,
@@ -99,6 +108,15 @@ class DashboardScreen extends StatelessWidget {
                   ),
               ],
             ),
+            const SizedBox(height: 32),
+            // Cofradía stats
+            _CofradiaStatsSection(firestoreService: firestoreService),
+            const SizedBox(height: 32),
+            // Active convocatorias
+            _ActiveConvocatoriasSection(firestoreService: firestoreService),
+            const SizedBox(height: 32),
+            // Private news
+            _PrivateNewsSection(firestoreService: firestoreService),
             const SizedBox(height: 32),
             // Cuotas summary
             if (cofrade != null) ...[
@@ -157,6 +175,186 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CofradiaStatsSection extends StatelessWidget {
+  final FirestoreService firestoreService;
+
+  const _CofradiaStatsSection({required this.firestoreService});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Tu Cofradía',
+            style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 12),
+        FutureBuilder<List<int>>(
+          future: Future.wait([
+            firestoreService.getCofradesActivosCount(),
+            firestoreService.getTotalCofradesCount(),
+          ]),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+            final activos = snapshot.data?[0] ?? 0;
+            final total = snapshot.data?[1] ?? 0;
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _CuotaStat(
+                      label: 'Activos',
+                      count: activos,
+                      color: Colors.green,
+                      icon: Icons.people,
+                    ),
+                    _CuotaStat(
+                      label: 'Total',
+                      count: total,
+                      color: AppTheme.primaryColor,
+                      icon: Icons.groups,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ActiveConvocatoriasSection extends StatelessWidget {
+  final FirestoreService firestoreService;
+
+  const _ActiveConvocatoriasSection({required this.firestoreService});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text('Convocatorias Activas',
+                  style: Theme.of(context).textTheme.headlineSmall),
+            ),
+            TextButton(
+              onPressed: () => context.go('/convocatorias'),
+              child: const Text('Ver todas'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        StreamBuilder<List<Convocatoria>>(
+          stream: firestoreService.getConvocatoriasActivas(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final convocatorias = snapshot.data ?? [];
+            if (convocatorias.isEmpty) {
+              return const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No hay convocatorias activas.'),
+                ),
+              );
+            }
+            return Column(
+              children: convocatorias.take(3).map((c) {
+                final dateFormat = DateFormat('dd/MM/yyyy');
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: Icon(
+                      c.tipo == 'procesion'
+                          ? Icons.church
+                          : c.tipo == 'evento'
+                              ? Icons.event
+                              : Icons.how_to_vote,
+                      color: AppTheme.primaryColor,
+                    ),
+                    title: Text(c.titulo),
+                    subtitle: Text(
+                        'Límite: ${dateFormat.format(c.fechaLimite)} · '
+                        '${c.totalRespuestas} respuestas'),
+                    trailing:
+                        const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => context.go('/convocatorias'),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _PrivateNewsSection extends StatelessWidget {
+  final FirestoreService firestoreService;
+
+  const _PrivateNewsSection({required this.firestoreService});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Noticias para Cofrades',
+            style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 12),
+        StreamBuilder<List<Noticia>>(
+          stream: firestoreService.getNoticiasCofrades(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final noticias = snapshot.data ?? [];
+            if (noticias.isEmpty) {
+              return const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No hay noticias privadas.'),
+                ),
+              );
+            }
+            return Column(
+              children: noticias.map((n) {
+                final dateFormat = DateFormat('dd/MM/yyyy');
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.article,
+                        color: AppTheme.primaryColor),
+                    title: Text(n.titulo),
+                    subtitle: Text(dateFormat.format(n.fecha)),
+                    trailing:
+                        const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => context.go('/news'),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 }

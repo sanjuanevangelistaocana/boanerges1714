@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/cofrade.dart';
+import 'package:boanerges1714/models/solicitud.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -57,6 +58,29 @@ class AdminDashboardScreen extends StatelessWidget {
                 );
               },
             ),
+            const SizedBox(height: 12),
+            // Solicitudes pendientes badge
+            StreamBuilder<List<Solicitud>>(
+              stream: firestoreService.getSolicitudesPendientes(),
+              builder: (context, snapshot) {
+                final pendientes = snapshot.data?.length ?? 0;
+                if (pendientes == 0) return const SizedBox.shrink();
+                return Card(
+                  color: Colors.orange[50],
+                  child: ListTile(
+                    leading: Badge(
+                      label: Text('$pendientes'),
+                      child: const Icon(Icons.person_add,
+                          color: Colors.orange),
+                    ),
+                    title: Text(
+                        '$pendientes solicitud${pendientes > 1 ? 'es' : ''} de alta pendiente${pendientes > 1 ? 's' : ''}'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () => context.go('/admin/solicitudes'),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 32),
             // Quick actions
             Text('Gestión',
@@ -89,6 +113,18 @@ class AdminDashboardScreen extends StatelessWidget {
                   title: 'Enviar Notificación',
                   subtitle: 'Notificar a los cofrades',
                   onTap: () => context.go('/admin/notifications'),
+                ),
+                _AdminActionCard(
+                  icon: Icons.person_add,
+                  title: 'Solicitudes de Alta',
+                  subtitle: 'Aprobar o rechazar solicitudes',
+                  onTap: () => context.go('/admin/solicitudes'),
+                ),
+                _AdminActionCard(
+                  icon: Icons.how_to_vote,
+                  title: 'Convocatorias',
+                  subtitle: 'Crear y gestionar convocatorias',
+                  onTap: () => context.go('/admin/convocatorias'),
                 ),
               ],
             ),

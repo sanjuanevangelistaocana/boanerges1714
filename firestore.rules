@@ -86,5 +86,35 @@ service cloud.firestore {
       // Only admins can manage documents
       allow create, update, delete: if isAdmin();
     }
+
+    // Solicitudes de alta collection
+    match /solicitudes/{solicitudId} {
+      // Anyone can create a solicitud (public registration form)
+      allow create: if true;
+
+      // Only admins can read, update, delete solicitudes
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Convocatorias collection
+    match /convocatorias/{convocatoriaId} {
+      // Authenticated users can read convocatorias
+      allow read: if isAuth();
+
+      // Only admins can create, update, delete convocatorias
+      allow create, update, delete: if isAdmin();
+
+      // Respuestas subcollection
+      match /respuestas/{respuestaId} {
+        // Authenticated users can read all responses
+        allow read: if isAuth();
+
+        // Authenticated users can create/update their own response
+        allow create, update: if isAuth();
+
+        // Only admins can delete responses
+        allow delete: if isAdmin();
+      }
+    }
   }
 }

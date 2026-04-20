@@ -4,6 +4,8 @@ import 'package:boanerges1714/models/evento.dart';
 import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/models/cuota.dart';
 import 'package:boanerges1714/models/documento.dart';
+import 'package:boanerges1714/models/solicitud.dart';
+import 'package:boanerges1714/models/convocatoria.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -146,5 +148,211 @@ class FirestoreService {
 
   Future<void> deleteDocumento(String id) async {
     await _db.collection('documentos').doc(id).delete();
+  }
+
+  // --- Aggregated stats ---
+  Future<int> getCofradesActivosCount() async {
+    final snapshot = await _db
+        .collection('cofrades')
+        .where('estado', isEqualTo: 'Activo')
+        .count()
+        .get();
+    return snapshot.count ?? 0;
+  }
+
+  Future<int> getTotalCofradesCount() async {
+    final snapshot = await _db.collection('cofrades').count().get();
+    return snapshot.count ?? 0;
+  }
+
+  // --- Noticias privadas (solo cofrades) ---
+  Stream<List<Noticia>> getNoticiasCofrades() {
+    return _db
+        .collection('noticias')
+        .where('publicado', isEqualTo: true)
+        .where('solo_cofrades', isEqualTo: true)
+        .orderBy('fecha', descending: true)
+        .limit(5)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList());
+  }
+
+  // --- Solicitudes de alta ---
+  Stream<List<Solicitud>> getSolicitudes({String? estado}) {
+    Query query = _db
+        .collection('solicitudes')
+        .orderBy('fecha_solicitud', descending: true);
+    if (estado != null) {
+      query = query.where('estado', isEqualTo: estado);
+    }
+    return query.snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Solicitud.fromFirestore(doc)).toList());
+  }
+
+  Stream<List<Solicitud>> getSolicitudesPendientes() {
+    return getSolicitudes(estado: 'pendiente');
+  }
+
+  Future<void> createSolicitud(Solicitud solicitud) async {
+    await _db.collection('solicitudes').add(solicitud.toFirestore());
+  }
+
+  Future<void> aprobarSolicitud(String solicitudId, String aprobadaPor) async {
+    final solicitudDoc =
+        await _db.collection('solicitudes').doc(solicitudId).get();
+    if (!solicitudDoc.exists) return;
+
+    final solicitud = Solicitud.fromFirestore(solicitudDoc);
+
+    await _db.collection('solicitudes').doc(solicitudId).update({
+      'estado': 'aprobada',
+      'aprobada_por': aprobadaPor,
+      'fecha_resolucion': FieldValue.serverTimestamp(),
+    });
+
+    final lastNum = await _db
+        .collection('cofrades')
+        .orderBy('numero', descending: true)
+        .limit(1)
+        .get();
+    final nextNum =
+        lastNum.docs.isNotEmpty ? ((lastNum.docs.first.data()['numero'] ?? 0) + 1) : 1;
+
+    await _db.collection('cofrades').add({
+      'numero': nextNum,
+      'nombre': solicitud.nombre,
+      'apellidos': solicitud.apellidos,
+      'email': solicitud.email,
+      'telefono_movil': solicitud.telefono ?? '',
+      'domicilio': solicitud.domicilio ?? '',
+      'localidad': solicitud.localidad ?? '',
+      'codigo_postal': solicitud.codigoPostal ?? '',
+      'fecha_nacimiento': solicitud.fechaNacimiento != null
+          ? Timestamp.fromDate(solicitud.fechaNacimiento!)
+          : null,
+      'dni': solicitud.dni ?? '',
+      'estado': 'Activo',
+      'anio_alta': DateTime.now().year,
+      'genero': '',
+      'tiene_cuota': false,
+      'gdpr_firmado': false,
+      'gdpr_firmado_digital': false,
+      'notificaciones_activas': true,
+      'tiene_tunica_propia': false,
+      'rol': 'cofrade',
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> rechazarSolicitud(
+      String solicitudId, String motivoRechazo) async {
+    await _db.collection('solicitudes').doc(solicitudId).update({
+      'estado': 'rechazada',
+      'motivo_rechazo': motivoRechazo,
+      'fecha_resolucion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // --- Convocatorias ---
+  Stream<List<Convocatoria>> getConvocatorias({bool soloActivas = false}) {
+    Query query = _db
+        .collection('convocatorias')
+        .orderBy('fecha_evento', descending: true);
+    if (soloActivas) {
+      query = query.where('activa', isEqualTo: true);
+    }
+    return query.snapshots().map((snapshot) => snapshot.docs
+        .map((doc) => Convocatoria.fromFirestore(doc))
+        .toList());
+  }
+
+  Stream<List<Convocatoria>> getConvocatoriasActivas() {
+    return _db
+        .collection('convocatorias')
+        .where('activa', isEqualTo: true)
+        .orderBy('fecha_evento')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Convocatoria.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<void> createConvocatoria(Convocatoria convocatoria) async {
+    await _db.collection('convocatorias').add(convocatoria.toFirestore());
+  }
+
+  Future<void> updateConvocatoria(
+      String id, Map<String, dynamic> data) async {
+    await _db.collection('convocatorias').doc(id).update(data);
+  }
+
+  Future<void> deleteConvocatoria(String id) async {
+    await _db.collection('convocatorias').doc(id).delete();
+  }
+
+  // --- Respuestas a convocatorias ---
+  Stream<List<RespuestaConvocatoria>> getRespuestas(String convocatoriaId) {
+    return _db
+        .collection('convocatorias')
+        .doc(convocatoriaId)
+        .collection('respuestas')
+        .orderBy('fecha_respuesta', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => RespuestaConvocatoria.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<RespuestaConvocatoria?> getMiRespuesta(
+      String convocatoriaId, String cofradeId) async {
+    final snapshot = await _db
+        .collection('convocatorias')
+        .doc(convocatoriaId)
+        .collection('respuestas')
+        .where('cofrade_id', isEqualTo: cofradeId)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isNotEmpty) {
+      return RespuestaConvocatoria.fromFirestore(snapshot.docs.first);
+    }
+    return null;
+  }
+
+  Future<void> responderConvocatoria({
+    required String convocatoriaId,
+    required String cofradeId,
+    required String cofradeNombre,
+    required String respuesta,
+    String? comentario,
+  }) async {
+    final existing = await _db
+        .collection('convocatorias')
+        .doc(convocatoriaId)
+        .collection('respuestas')
+        .where('cofrade_id', isEqualTo: cofradeId)
+        .limit(1)
+        .get();
+
+    final data = {
+      'cofrade_id': cofradeId,
+      'cofrade_nombre': cofradeNombre,
+      'respuesta': respuesta,
+      'comentario': comentario,
+      'fecha_respuesta': FieldValue.serverTimestamp(),
+    };
+
+    if (existing.docs.isNotEmpty) {
+      await existing.docs.first.reference.update(data);
+    } else {
+      await _db
+          .collection('convocatorias')
+          .doc(convocatoriaId)
+          .collection('respuestas')
+          .add(data);
+      await _db.collection('convocatorias').doc(convocatoriaId).update({
+        'total_respuestas': FieldValue.increment(1),
+      });
+    }
   }
 }

@@ -137,10 +137,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('¿No tienes cuenta? '),
+                    const Text('¿Eres cofrade y no tienes cuenta? '),
                     TextButton(
                       onPressed: () => context.go('/register'),
                       child: const Text('Regístrate'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('¿No eres cofrade? '),
+                    TextButton(
+                      onPressed: () => context.go('/solicitud-alta'),
+                      child: const Text('Solicita el alta'),
                     ),
                   ],
                 ),

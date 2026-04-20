@@ -17,6 +17,10 @@ import 'package:boanerges1714/screens/admin/manage_cofrades_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_events_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_news_screen.dart';
 import 'package:boanerges1714/screens/admin/send_notification_screen.dart';
+import 'package:boanerges1714/screens/admin/manage_solicitudes_screen.dart';
+import 'package:boanerges1714/screens/admin/manage_convocatorias_screen.dart';
+import 'package:boanerges1714/screens/private/convocatorias_screen.dart';
+import 'package:boanerges1714/screens/public/solicitud_alta_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 
@@ -33,7 +37,7 @@ GoRouter createRouter(AuthService authService) {
       final isAdmin = authService.isAdmin;
       final path = state.matchedLocation;
 
-      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents'];
+      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias'];
       if (privateRoutes.any((r) => path.startsWith(r)) && !isLoggedIn) {
         return '/login';
       }
@@ -68,10 +72,14 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(path: '/admin/events', builder: (context, state) => const ManageEventsScreen()),
           GoRoute(path: '/admin/news', builder: (context, state) => const ManageNewsScreen()),
           GoRoute(path: '/admin/notifications', builder: (context, state) => const SendNotificationScreen()),
+          GoRoute(path: '/admin/solicitudes', builder: (context, state) => const ManageSolicitudesScreen()),
+          GoRoute(path: '/admin/convocatorias', builder: (context, state) => const ManageConvocatoriasScreen()),
+          GoRoute(path: '/convocatorias', builder: (context, state) => const ConvocatoriasScreen()),
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/register', builder: (context, state) => const RegisterScreen()),
+      GoRoute(path: '/solicitud-alta', builder: (context, state) => const SolicitudAltaScreen()),
     ],
   );
 }

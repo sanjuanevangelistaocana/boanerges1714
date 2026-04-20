@@ -396,6 +396,66 @@ exports.sendNotification = functions
 // Auto-assign FCM topics on cofrade status change
 // ============================================================
 
+/**
+ * Notify admins when a new solicitud de alta is created.
+ */
+exports.onNewSolicitud = functions
+    .region("europe-west1")
+    .firestore.document("solicitudes/{solicitudId}")
+    .onCreate(async (snap, context) => {
+      const data = snap.data();
+      console.log(`New solicitud from ${data.nombre} ${data.apellidos}`);
+
+      try {
+        const message = {
+          notification: {
+            title: "Nueva solicitud de alta",
+            body: `${data.nombre} ${data.apellidos} quiere ser cofrade.`,
+          },
+          topic: "junta_directiva",
+          data: {
+            click_action: "FLUTTER_NOTIFICATION_CLICK",
+            type: "nueva_solicitud",
+            solicitud_id: context.params.solicitudId,
+          },
+        };
+        await admin.messaging().send(message);
+        console.log("Solicitud notification sent to junta_directiva");
+      } catch (err) {
+        console.error("Error sending solicitud notification:", err);
+      }
+    });
+
+/**
+ * Notify all cofrades when a new convocatoria is created.
+ */
+exports.onNewConvocatoria = functions
+    .region("europe-west1")
+    .firestore.document("convocatorias/{convocatoriaId}")
+    .onCreate(async (snap, context) => {
+      const data = snap.data();
+      console.log(`New convocatoria: ${data.titulo}`);
+
+      try {
+        const message = {
+          notification: {
+            title: data.titulo,
+            body: data.descripcion.substring(0, 100),
+          },
+          topic: "all_cofrades",
+          data: {
+            click_action: "FLUTTER_NOTIFICATION_CLICK",
+            type: "nueva_convocatoria",
+            convocatoria_id: context.params.convocatoriaId,
+          },
+        };
+        await admin.messaging().send(message);
+        console.log("Convocatoria notification sent to all_cofrades");
+      } catch (err) {
+        console.error("Error sending convocatoria notification:", err);
+      }
+    });
+
 exports.manageFcmTopics = functions
     .region("europe-west1")
     .firestore.document("cofrades/{cofradeId}")
