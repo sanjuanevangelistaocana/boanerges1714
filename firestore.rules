@@ -27,7 +27,10 @@ service cloud.firestore {
       // Cofrades can update their own non-sensitive fields
       allow update: if isOwner(cofradeId) &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['rol', 'estado', 'cargo']);
+          .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
+                   'anio_mayordomia', 'fecha_baja', 'causa_baja',
+                   'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
+                   'iban', 'titular_iban', 'gdpr_firmado']);
 
       // Admins can create, update, delete any cofrade
       allow create, update, delete: if isAdmin();

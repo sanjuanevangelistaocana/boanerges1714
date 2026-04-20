@@ -5,9 +5,13 @@
 ///   2. Place the CSV file as 'cofrades_data.csv' in this directory
 ///   3. Run: dart run scripts/migrate_sheet_to_firestore.dart
 ///
-/// The CSV should have columns:
-///   Nombre, Apellidos, Email, Teléfono, Dirección, Localidad,
-///   Código Postal, Fecha Ingreso, Cargo, Estado
+/// The CSV should have columns (matching your Google Sheet):
+///   Nº, Nombre, Apellidos, Tutelado Digital, Fecha Nacimiento, Edad,
+///   Género, Año Alta, Años Hermandad, Año Mayordomía, Estado,
+///   Fecha Baja, Causa Baja, Domicilio, Localidad, Código Postal,
+///   Teléfono Fijo, Teléfono Móvil, Email, Estatura, Talla,
+///   ¿Cuota?, Cuota Metálico, Cuota Domiciliada, IBAN,
+///   Titular IBAN, GDPR Firmado, Comentarios
 ///
 /// This script reads the CSV and imports each row as a document
 /// in the Firestore 'cofrades' collection.
@@ -32,8 +36,12 @@ void main() async {
     print('4. Vuelve a ejecutar este script');
     print('');
     print('El CSV debe tener estas columnas (en este orden):');
-    print('Nombre, Apellidos, Email, Teléfono, Dirección, Localidad,');
-    print('Código Postal, Fecha Ingreso, Cargo, Estado');
+    print('Nº, Nombre, Apellidos, Tutelado Digital, Fecha Nacimiento,');
+    print('Edad, Género, Año Alta, Años Hermandad, Año Mayordomía,');
+    print('Estado, Fecha Baja, Causa Baja, Domicilio, Localidad,');
+    print('Código Postal, Teléfono Fijo, Teléfono Móvil, Email,');
+    print('Estatura, Talla, ¿Cuota?, Cuota Metálico, Cuota Domiciliada,');
+    print('IBAN, Titular IBAN, GDPR Firmado, Comentarios');
     exit(1);
   }
 
@@ -56,16 +64,34 @@ void main() async {
     if (values.isEmpty || values.every((v) => v.trim().isEmpty)) continue;
 
     final cofrade = {
-      'nombre': _getValue(values, 0),
-      'apellidos': _getValue(values, 1),
-      'email': _getValue(values, 2),
-      'telefono': _getValue(values, 3),
-      'direccion': _getValue(values, 4),
-      'localidad': _getValue(values, 5, defaultValue: 'Ocaña'),
-      'codigo_postal': _getValue(values, 6),
-      'fecha_ingreso': _getValue(values, 7),
-      'cargo': _getValue(values, 8, defaultValue: 'Cofrade'),
-      'estado': _getValue(values, 9, defaultValue: 'activo'),
+      'numero': int.tryParse(_getValue(values, 0)),
+      'nombre': _getValue(values, 1),
+      'apellidos': _getValue(values, 2),
+      'tutelado_digital': _getValue(values, 3),
+      'fecha_nacimiento': _getValue(values, 4),
+      'edad': int.tryParse(_getValue(values, 5)),
+      'genero': _getValue(values, 6),
+      'anio_alta': int.tryParse(_getValue(values, 7)),
+      'anios_hermandad': int.tryParse(_getValue(values, 8)),
+      'anio_mayordomia': int.tryParse(_getValue(values, 9)),
+      'estado': _getValue(values, 10, defaultValue: 'Activo'),
+      'fecha_baja': _getValue(values, 11),
+      'causa_baja': _getValue(values, 12),
+      'domicilio': _getValue(values, 13),
+      'localidad': _getValue(values, 14, defaultValue: 'Ocaña'),
+      'codigo_postal': _getValue(values, 15),
+      'telefono_fijo': _getValue(values, 16),
+      'telefono_movil': _getValue(values, 17),
+      'email': _getValue(values, 18),
+      'estatura': int.tryParse(_getValue(values, 19)),
+      'talla': _getValue(values, 20),
+      'tiene_cuota': _getValue(values, 21).toLowerCase() == 'sí',
+      'cuota_metalico': double.tryParse(_getValue(values, 22)),
+      'cuota_domiciliada': double.tryParse(_getValue(values, 23)),
+      'iban': _getValue(values, 24),
+      'titular_iban': _getValue(values, 25),
+      'gdpr_firmado': _getValue(values, 26).toLowerCase() == 'sí',
+      'comentarios': _getValue(values, 27),
       'rol': 'cofrade',
     };
 

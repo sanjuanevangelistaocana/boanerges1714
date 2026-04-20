@@ -16,7 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _nombreController = TextEditingController();
   final _apellidosController = TextEditingController();
   final _emailController = TextEditingController();
-  final _telefonoController = TextEditingController();
+  final _telefonoMovilController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   String? _error;
@@ -27,7 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _nombreController.dispose();
     _apellidosController.dispose();
     _emailController.dispose();
-    _telefonoController.dispose();
+    _telefonoMovilController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -115,9 +115,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
-                            controller: _telefonoController,
+                            controller: _telefonoMovilController,
                             decoration: const InputDecoration(
-                              labelText: 'Teléfono',
+                              labelText: 'Teléfono Móvil',
                               prefixIcon: Icon(Icons.phone_outlined),
                             ),
                             keyboardType: TextInputType.phone,
@@ -209,7 +209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           password: _passwordController.text,
           nombre: _nombreController.text,
           apellidos: _apellidosController.text,
-          telefono: _telefonoController.text,
+          telefonoMovil: _telefonoMovilController.text,
         );
 
     if (error != null && mounted) {

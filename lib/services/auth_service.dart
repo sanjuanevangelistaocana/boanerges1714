@@ -67,7 +67,7 @@ class AuthService extends ChangeNotifier {
     required String password,
     required String nombre,
     required String apellidos,
-    String telefono = '',
+    String telefonoMovil = '',
   }) async {
     try {
       _isLoading = true;
@@ -84,8 +84,8 @@ class AuthService extends ChangeNotifier {
           nombre: nombre,
           apellidos: apellidos,
           email: email.trim(),
-          telefono: telefono,
-          estado: 'pendiente',
+          telefonoMovil: telefonoMovil,
+          estado: 'Pendiente',
           rol: 'cofrade',
         );
 

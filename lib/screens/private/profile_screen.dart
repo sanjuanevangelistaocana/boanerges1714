@@ -15,10 +15,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nombreController;
   late TextEditingController _apellidosController;
-  late TextEditingController _telefonoController;
-  late TextEditingController _direccionController;
+  late TextEditingController _telefonoFijoController;
+  late TextEditingController _telefonoMovilController;
+  late TextEditingController _domicilioController;
   late TextEditingController _localidadController;
   late TextEditingController _codigoPostalController;
+  late TextEditingController _estaturaController;
+  late TextEditingController _tallaController;
   bool _isEditing = false;
   bool _isSaving = false;
 
@@ -28,21 +31,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cofrade = context.read<AuthService>().cofrade;
     _nombreController = TextEditingController(text: cofrade?.nombre ?? '');
     _apellidosController = TextEditingController(text: cofrade?.apellidos ?? '');
-    _telefonoController = TextEditingController(text: cofrade?.telefono ?? '');
-    _direccionController = TextEditingController(text: cofrade?.direccion ?? '');
+    _telefonoFijoController = TextEditingController(text: cofrade?.telefonoFijo ?? '');
+    _telefonoMovilController = TextEditingController(text: cofrade?.telefonoMovil ?? '');
+    _domicilioController = TextEditingController(text: cofrade?.domicilio ?? '');
     _localidadController = TextEditingController(text: cofrade?.localidad ?? '');
     _codigoPostalController =
         TextEditingController(text: cofrade?.codigoPostal ?? '');
+    _estaturaController = TextEditingController(
+        text: cofrade?.estatura?.toString() ?? '');
+    _tallaController = TextEditingController(text: cofrade?.talla ?? '');
   }
 
   @override
   void dispose() {
     _nombreController.dispose();
     _apellidosController.dispose();
-    _telefonoController.dispose();
-    _direccionController.dispose();
+    _telefonoFijoController.dispose();
+    _telefonoMovilController.dispose();
+    _domicilioController.dispose();
     _localidadController.dispose();
     _codigoPostalController.dispose();
+    _estaturaController.dispose();
+    _tallaController.dispose();
     super.dispose();
   }
 
@@ -73,10 +83,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 8),
             if (cofrade != null)
-              Chip(
-                label: Text(cofrade.cargo),
-                backgroundColor: AppTheme.primaryColor.withAlpha(25),
-                labelStyle: const TextStyle(color: AppTheme.primaryColor),
+              Wrap(
+                spacing: 8,
+                children: [
+                  Chip(
+                    label: Text('Nº ${cofrade.numero ?? "-"}'),
+                    backgroundColor: AppTheme.primaryColor.withAlpha(25),
+                    labelStyle: const TextStyle(color: AppTheme.primaryColor),
+                  ),
+                  Chip(
+                    label: Text(cofrade.estado),
+                    backgroundColor: cofrade.isActivo
+                        ? Colors.green.withAlpha(25)
+                        : Colors.orange.withAlpha(25),
+                    labelStyle: TextStyle(
+                        color: cofrade.isActivo ? Colors.green : Colors.orange),
+                  ),
+                ],
               ),
             const SizedBox(height: 24),
             Card(
@@ -95,12 +118,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           required: true),
                       _buildField('Email', null,
                           value: cofrade?.email ?? '', enabled: false),
-                      _buildField('Teléfono', _telefonoController,
+                      _buildField('Teléfono Móvil', _telefonoMovilController,
                           keyboardType: TextInputType.phone),
-                      _buildField('Dirección', _direccionController),
+                      _buildField('Teléfono Fijo', _telefonoFijoController,
+                          keyboardType: TextInputType.phone),
+                      _buildField('Domicilio', _domicilioController),
                       _buildField('Localidad', _localidadController),
                       _buildField('Código Postal', _codigoPostalController,
                           keyboardType: TextInputType.number),
+                      _buildField('Estatura (cm)', _estaturaController,
+                          keyboardType: TextInputType.number),
+                      _buildField('Talla', _tallaController),
                       if (_isEditing) ...[
                         const SizedBox(height: 24),
                         Row(
@@ -150,22 +178,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 16),
                       _InfoRow(
+                          label: 'Nº Cofrade',
+                          value: '${cofrade.numero ?? "-"}',
+                          icon: Icons.tag),
+                      _InfoRow(
                           label: 'Estado',
-                          value: cofrade.estado.toUpperCase(),
+                          value: cofrade.estado,
                           icon: cofrade.isActivo
                               ? Icons.check_circle
                               : Icons.pending),
-                      _InfoRow(
-                          label: 'Cargo',
-                          value: cofrade.cargo,
-                          icon: Icons.badge),
-                      if (cofrade.fechaIngreso != null)
+                      if (cofrade.anioAlta != null)
                         _InfoRow(
-                          label: 'Fecha de ingreso',
-                          value:
-                              '${cofrade.fechaIngreso!.day}/${cofrade.fechaIngreso!.month}/${cofrade.fechaIngreso!.year}',
+                          label: 'Año de Alta',
+                          value: '${cofrade.anioAlta}',
                           icon: Icons.calendar_today,
                         ),
+                      if (cofrade.aniosHermandad != null)
+                        _InfoRow(
+                          label: 'Años en Hermandad',
+                          value: '${cofrade.aniosHermandad}',
+                          icon: Icons.access_time,
+                        ),
+                      if (cofrade.genero != null)
+                        _InfoRow(
+                          label: 'Género',
+                          value: cofrade.genero!,
+                          icon: Icons.person,
+                        ),
+                      _InfoRow(
+                          label: 'GDPR Firmado',
+                          value: cofrade.gdprFirmado ? 'Sí' : 'No',
+                          icon: cofrade.gdprFirmado
+                              ? Icons.verified
+                              : Icons.warning),
                     ],
                   ),
                 ),
@@ -200,10 +245,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cofrade = context.read<AuthService>().cofrade;
     _nombreController.text = cofrade?.nombre ?? '';
     _apellidosController.text = cofrade?.apellidos ?? '';
-    _telefonoController.text = cofrade?.telefono ?? '';
-    _direccionController.text = cofrade?.direccion ?? '';
+    _telefonoFijoController.text = cofrade?.telefonoFijo ?? '';
+    _telefonoMovilController.text = cofrade?.telefonoMovil ?? '';
+    _domicilioController.text = cofrade?.domicilio ?? '';
     _localidadController.text = cofrade?.localidad ?? '';
     _codigoPostalController.text = cofrade?.codigoPostal ?? '';
+    _estaturaController.text = cofrade?.estatura?.toString() ?? '';
+    _tallaController.text = cofrade?.talla ?? '';
   }
 
   Future<void> _saveProfile() async {
@@ -217,10 +265,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await context.read<FirestoreService>().updateCofrade(userId, {
         'nombre': _nombreController.text,
         'apellidos': _apellidosController.text,
-        'telefono': _telefonoController.text,
-        'direccion': _direccionController.text,
+        'telefono_fijo': _telefonoFijoController.text,
+        'telefono_movil': _telefonoMovilController.text,
+        'domicilio': _domicilioController.text,
         'localidad': _localidadController.text,
         'codigo_postal': _codigoPostalController.text,
+        'estatura': _estaturaController.text.isNotEmpty
+            ? int.tryParse(_estaturaController.text)
+            : null,
+        'talla': _tallaController.text,
       });
 
       await context.read<AuthService>().refreshCofradeData();

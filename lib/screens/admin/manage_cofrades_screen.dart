@@ -119,13 +119,14 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                         ),
                         title: Text(cofrade.nombreCompleto),
                         subtitle: Text(
-                          '${cofrade.email} · ${cofrade.cargo}',
+                          '${cofrade.email} · Nº ${cofrade.numero ?? "-"}',
                         ),
                         trailing: PopupMenuButton<String>(
                           onSelected: (action) =>
                               _handleAction(action, cofrade),
                           itemBuilder: (context) => [
-                            if (cofrade.estado == 'pendiente')
+                            if (cofrade.estado == 'Pendiente' ||
+                                cofrade.estado == 'pendiente')
                               const PopupMenuItem(
                                 value: 'aprobar',
                                 child: ListTile(
@@ -134,7 +135,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                                   contentPadding: EdgeInsets.zero,
                                 ),
                               ),
-                            if (cofrade.estado != 'baja')
+                            if (!cofrade.isBaja)
                               const PopupMenuItem(
                                 value: 'baja',
                                 child: ListTile(
@@ -143,7 +144,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                                   contentPadding: EdgeInsets.zero,
                                 ),
                               ),
-                            if (cofrade.estado == 'baja')
+                            if (cofrade.isBaja)
                               const PopupMenuItem(
                                 value: 'reactivar',
                                 child: ListTile(
@@ -178,7 +179,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   }
 
   Color _getStatusColor(String estado) {
-    switch (estado) {
+    switch (estado.toLowerCase()) {
       case 'activo':
         return Colors.green;
       case 'pendiente':
@@ -196,7 +197,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     switch (action) {
       case 'aprobar':
         await firestoreService
-            .updateCofrade(cofrade.id, {'estado': 'activo'});
+            .updateCofrade(cofrade.id, {'estado': 'Activo'});
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -206,7 +207,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
         break;
       case 'baja':
         await firestoreService
-            .updateCofrade(cofrade.id, {'estado': 'baja'});
+            .updateCofrade(cofrade.id, {'estado': 'Baja'});
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -217,7 +218,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
         break;
       case 'reactivar':
         await firestoreService
-            .updateCofrade(cofrade.id, {'estado': 'activo'});
+            .updateCofrade(cofrade.id, {'estado': 'Activo'});
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
