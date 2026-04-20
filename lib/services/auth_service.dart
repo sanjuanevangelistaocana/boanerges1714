@@ -8,13 +8,16 @@ class AuthService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   User? _user;
-  Cofrade? _cofrade;
+  List<Cofrade> _cofrades = [];
+  Cofrade? _selectedCofrade;
   bool _isLoading = false;
 
   User? get user => _user;
-  Cofrade? get cofrade => _cofrade;
+  Cofrade? get cofrade => _selectedCofrade;
+  List<Cofrade> get cofrades => _cofrades;
+  bool get hasMultipleCofrades => _cofrades.length > 1;
   bool get isLoggedIn => _user != null;
-  bool get isAdmin => _cofrade?.isAdmin ?? false;
+  bool get isAdmin => _selectedCofrade?.isAdmin ?? false;
   bool get isLoading => _isLoading;
   String? get userId => _user?.uid;
 
@@ -27,7 +30,8 @@ class AuthService extends ChangeNotifier {
     if (user != null) {
       await _loadCofradeData();
     } else {
-      _cofrade = null;
+      _cofrades = [];
+      _selectedCofrade = null;
     }
     notifyListeners();
   }
@@ -35,12 +39,54 @@ class AuthService extends ChangeNotifier {
   Future<void> _loadCofradeData() async {
     if (_user == null) return;
     try {
-      final doc = await _firestore.collection('cofrades').doc(_user!.uid).get();
-      if (doc.exists) {
-        _cofrade = Cofrade.fromFirestore(doc);
+      final Map<String, Cofrade> cofradesMap = {};
+
+      final byAuthUid = await _firestore
+          .collection('cofrades')
+          .where('auth_uid', isEqualTo: _user!.uid)
+          .get();
+      for (final doc in byAuthUid.docs) {
+        cofradesMap[doc.id] = Cofrade.fromFirestore(doc);
+      }
+
+      if (_user!.email != null) {
+        final byEmail = await _firestore
+            .collection('cofrades')
+            .where('email', isEqualTo: _user!.email)
+            .get();
+        for (final doc in byEmail.docs) {
+          cofradesMap.putIfAbsent(doc.id, () => Cofrade.fromFirestore(doc));
+        }
+
+        final byTutelado = await _firestore
+            .collection('cofrades')
+            .where('tutelado_digital', isEqualTo: _user!.email)
+            .get();
+        for (final doc in byTutelado.docs) {
+          cofradesMap.putIfAbsent(doc.id, () => Cofrade.fromFirestore(doc));
+        }
+      }
+
+      _cofrades = cofradesMap.values.toList();
+
+      if (_cofrades.isNotEmpty) {
+        _selectedCofrade = _cofrades.firstWhere(
+          (c) => c.email == _user!.email,
+          orElse: () => _cofrades.first,
+        );
+      } else {
+        _selectedCofrade = null;
       }
     } catch (e) {
-      print('Error loading cofrade data: $e');
+      debugPrint('Error loading cofrade data: $e');
+    }
+  }
+
+  void selectCofrade(String cofradeId) {
+    final match = _cofrades.where((c) => c.id == cofradeId);
+    if (match.isNotEmpty) {
+      _selectedCofrade = match.first;
+      notifyListeners();
     }
   }
 
@@ -65,34 +111,53 @@ class AuthService extends ChangeNotifier {
   Future<String?> register({
     required String email,
     required String password,
-    required String nombre,
-    required String apellidos,
-    String telefonoMovil = '',
   }) async {
     try {
       _isLoading = true;
       notifyListeners();
 
+      final trimmedEmail = email.trim();
+
+      final byEmail = await _firestore
+          .collection('cofrades')
+          .where('email', isEqualTo: trimmedEmail)
+          .get();
+
+      final byTutelado = await _firestore
+          .collection('cofrades')
+          .where('tutelado_digital', isEqualTo: trimmedEmail)
+          .get();
+
+      if (byEmail.docs.isEmpty && byTutelado.docs.isEmpty) {
+        return 'Tu email no está registrado como cofrade. '
+            'Contacta con la Junta Directiva para darte de alta.';
+      }
+
       final credential = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
+        email: trimmedEmail,
         password: password,
       );
 
       if (credential.user != null) {
-        final cofrade = Cofrade(
-          id: credential.user!.uid,
-          nombre: nombre,
-          apellidos: apellidos,
-          email: email.trim(),
-          telefonoMovil: telefonoMovil,
-          estado: 'Pendiente',
-          rol: 'cofrade',
-        );
+        final docIds = <String>{};
+        for (final doc in byEmail.docs) {
+          docIds.add(doc.id);
+        }
+        for (final doc in byTutelado.docs) {
+          docIds.add(doc.id);
+        }
 
-        await _firestore
-            .collection('cofrades')
-            .doc(credential.user!.uid)
-            .set(cofrade.toFirestore());
+        final batch = _firestore.batch();
+        for (final docId in docIds) {
+          batch.update(
+            _firestore.collection('cofrades').doc(docId),
+            {
+              'auth_uid': credential.user!.uid,
+              'fecha_actualizacion': FieldValue.serverTimestamp(),
+            },
+          );
+        }
+        await batch.commit();
       }
       return null;
     } on FirebaseAuthException catch (e) {

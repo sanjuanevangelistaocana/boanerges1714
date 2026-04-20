@@ -13,10 +13,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nombreController = TextEditingController();
-  final _apellidosController = TextEditingController();
   final _emailController = TextEditingController();
-  final _telefonoMovilController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   String? _error;
@@ -24,10 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nombreController.dispose();
-    _apellidosController.dispose();
     _emailController.dispose();
-    _telefonoMovilController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -49,13 +43,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Icon(Icons.church, size: 64, color: AppTheme.primaryColor),
                 const SizedBox(height: 16),
                 Text(
-                  'Registro de Cofrade',
+                  'Acceso de Cofrade',
                   style: Theme.of(context).textTheme.headlineMedium,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tu solicitud será revisada por la Junta Directiva',
+                  'Crea tu cuenta usando el email registrado en la Cofradía',
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
@@ -80,47 +74,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   style: const TextStyle(
                                       color: AppTheme.errorColor)),
                             ),
-                          TextFormField(
-                            controller: _nombreController,
-                            decoration: const InputDecoration(
-                              labelText: 'Nombre *',
-                              prefixIcon: Icon(Icons.person_outlined),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            validator: (v) => v == null || v.isEmpty
-                                ? 'Introduce tu nombre'
-                                : null,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _apellidosController,
-                            decoration: const InputDecoration(
-                              labelText: 'Apellidos *',
-                              prefixIcon: Icon(Icons.person_outlined),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.info_outline,
+                                    color: Colors.blue, size: 20),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Usa el mismo email que tienes registrado '
+                                    'en la Cofradía. Si eres tutor digital, '
+                                    'usa tu email de contacto.',
+                                    style: TextStyle(
+                                        fontSize: 13, color: Colors.blue),
+                                  ),
+                                ),
+                              ],
                             ),
-                            validator: (v) => v == null || v.isEmpty
-                                ? 'Introduce tus apellidos'
-                                : null,
                           ),
-                          const SizedBox(height: 16),
                           TextFormField(
                             controller: _emailController,
                             decoration: const InputDecoration(
-                              labelText: 'Email *',
+                              labelText: 'Email registrado en la Cofradía *',
                               prefixIcon: Icon(Icons.email_outlined),
                             ),
                             keyboardType: TextInputType.emailAddress,
                             validator: (v) => v == null || !v.contains('@')
                                 ? 'Email no válido'
                                 : null,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _telefonoMovilController,
-                            decoration: const InputDecoration(
-                              labelText: 'Teléfono Móvil',
-                              prefixIcon: Icon(Icons.phone_outlined),
-                            ),
-                            keyboardType: TextInputType.phone,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -167,7 +154,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2, color: Colors.white),
                                     )
-                                  : const Text('Registrarme'),
+                                  : const Text('Crear cuenta'),
                             ),
                           ),
                         ],
@@ -207,9 +194,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final error = await context.read<AuthService>().register(
           email: _emailController.text,
           password: _passwordController.text,
-          nombre: _nombreController.text,
-          apellidos: _apellidosController.text,
-          telefonoMovil: _telefonoMovilController.text,
         );
 
     if (error != null && mounted) {

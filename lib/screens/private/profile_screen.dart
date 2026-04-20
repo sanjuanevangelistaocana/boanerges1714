@@ -99,8 +99,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     labelStyle: TextStyle(
                         color: cofrade.isActivo ? Colors.green : Colors.orange),
                   ),
+                  if (cofrade.tuteladoDigital != null &&
+                      cofrade.tuteladoDigital!.isNotEmpty)
+                    Chip(
+                      label: const Text('Tutelado'),
+                      backgroundColor: Colors.blue.withAlpha(25),
+                      labelStyle: const TextStyle(color: Colors.blue),
+                      avatar: const Icon(Icons.supervisor_account,
+                          size: 16, color: Colors.blue),
+                    ),
                 ],
               ),
+            if (authService.hasMultipleCofrades) ...[
+              const SizedBox(height: 12),
+              Card(
+                color: Colors.blue[50],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.swap_horiz, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      const Text('Viendo perfil de: ',
+                          style: TextStyle(color: Colors.blue)),
+                      Expanded(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: cofrade?.id,
+                          underline: const SizedBox.shrink(),
+                          items: authService.cofrades.map((c) {
+                            return DropdownMenuItem(
+                              value: c.id,
+                              child: Text(
+                                c.nombreCompleto,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (id) {
+                            if (id != null) {
+                              authService.selectCofrade(id);
+                              _resetFields();
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             Card(
               child: Padding(
@@ -205,6 +255,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           value: cofrade.genero!,
                           icon: Icons.person,
                         ),
+                      if (cofrade.tuteladoDigital != null &&
+                          cofrade.tuteladoDigital!.isNotEmpty)
+                        _InfoRow(
+                          label: 'Tutor Digital',
+                          value: cofrade.tuteladoDigital!,
+                          icon: Icons.supervisor_account,
+                        ),
                       _InfoRow(
                           label: 'GDPR Firmado',
                           value: cofrade.gdprFirmado ? 'Sí' : 'No',
@@ -259,10 +316,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final userId = context.read<AuthService>().userId;
-      if (userId == null) return;
+      final cofradeId = context.read<AuthService>().cofrade?.id;
+      if (cofradeId == null) return;
 
-      await context.read<FirestoreService>().updateCofrade(userId, {
+      await context.read<FirestoreService>().updateCofrade(cofradeId, {
         'nombre': _nombreController.text,
         'apellidos': _apellidosController.text,
         'telefono_fijo': _telefonoFijoController.text,
@@ -313,7 +370,7 @@ class _InfoRow extends StatelessWidget {
           Icon(icon, size: 20, color: AppTheme.primaryColor),
           const SizedBox(width: 12),
           Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-          Text(value),
+          Flexible(child: Text(value)),
         ],
       ),
     );

@@ -301,11 +301,14 @@ exports.sendNotification = functions
         );
       }
 
-      const callerDoc = await db
+      // Look up admin by auth_uid field (not doc ID)
+      const callerSnap = await db
           .collection("cofrades")
-          .doc(context.auth.uid)
+          .where("auth_uid", "==", context.auth.uid)
+          .where("rol", "==", "admin")
+          .limit(1)
           .get();
-      if (!callerDoc.exists || callerDoc.data().rol !== "admin") {
+      if (callerSnap.empty) {
         throw new functions.https.HttpsError(
             "permission-denied", "Solo los administradores pueden enviar notificaciones.",
         );

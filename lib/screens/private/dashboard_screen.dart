@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/cuota.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -26,7 +27,17 @@ class DashboardScreen extends StatelessWidget {
               'Bienvenido, ${cofrade?.nombre ?? 'Cofrade'}',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-            if (cofrade?.estado == 'pendiente')
+            // Cofrade selector for tutelados digitales
+            if (authService.hasMultipleCofrades) ...[
+              const SizedBox(height: 12),
+              _CofradeSelectorCard(
+                cofrades: authService.cofrades,
+                selectedCofrade: cofrade,
+                onSelect: (id) => authService.selectCofrade(id),
+              ),
+            ],
+            if (cofrade?.estado == 'Pendiente' ||
+                cofrade?.estado == 'pendiente')
               Container(
                 margin: const EdgeInsets.only(top: 16),
                 padding: const EdgeInsets.all(16),
@@ -143,6 +154,100 @@ class DashboardScreen extends StatelessWidget {
                 },
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CofradeSelectorCard extends StatelessWidget {
+  final List<Cofrade> cofrades;
+  final Cofrade? selectedCofrade;
+  final void Function(String) onSelect;
+
+  const _CofradeSelectorCard({
+    required this.cofrades,
+    required this.selectedCofrade,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppTheme.primaryColor.withAlpha(15),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.people, size: 20, color: AppTheme.primaryColor),
+                SizedBox(width: 8),
+                Text(
+                  'Cofrades vinculados a tu cuenta',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...cofrades.map((cofrade) {
+              final isSelected = cofrade.id == selectedCofrade?.id;
+              final isTutelado = cofrade.tuteladoDigital != null &&
+                  cofrade.tuteladoDigital!.isNotEmpty;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: ListTile(
+                  dense: true,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: isSelected
+                        ? const BorderSide(color: AppTheme.primaryColor)
+                        : BorderSide.none,
+                  ),
+                  tileColor: isSelected
+                      ? AppTheme.primaryColor.withAlpha(25)
+                      : null,
+                  leading: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: isSelected
+                        ? AppTheme.primaryColor
+                        : Colors.grey[300],
+                    child: Text(
+                      cofrade.nombre.isNotEmpty
+                          ? cofrade.nombre[0].toUpperCase()
+                          : '?',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey[600],
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    cofrade.nombreCompleto,
+                    style: TextStyle(
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  subtitle: Text(
+                    isTutelado
+                        ? 'Tutelado · Nº ${cofrade.numero ?? "-"}'
+                        : 'Nº ${cofrade.numero ?? "-"}',
+                  ),
+                  trailing: isSelected
+                      ? const Icon(Icons.check_circle,
+                          color: AppTheme.primaryColor)
+                      : null,
+                  onTap: () => onSelect(cofrade.id),
+                ),
+              );
+            }),
           ],
         ),
       ),

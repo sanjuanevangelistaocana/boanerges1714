@@ -7,30 +7,43 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper: check if user is admin
+    // Helper: check if user is admin (checks auth_uid field)
     function isAdmin() {
       return isAuth() &&
         get(/databases/$(database)/documents/cofrades/$(request.auth.uid)).data.rol == 'admin';
     }
 
-    // Helper: check if user is accessing their own document
+    // Helper: check if user owns this cofrade document
+    // Matches by auth_uid field (set during registration)
     function isOwner(cofradeId) {
-      return isAuth() && request.auth.uid == cofradeId;
+      return isAuth() &&
+        resource.data.auth_uid == request.auth.uid;
+    }
+
+    // Helper: check if user is tutor of this cofrade
+    function isTutor() {
+      return isAuth() &&
+        resource.data.tutelado_digital == request.auth.token.email;
     }
 
     // Cofrades collection
     match /cofrades/{cofradeId} {
       // Anyone authenticated can read their own data
       // Admins can read all
-      allow read: if isOwner(cofradeId) || isAdmin();
+      allow read: if isOwner(cofradeId) || isTutor() || isAdmin();
+
+      // Allow reading cofrades by email query during registration
+      allow read: if isAuth() &&
+        (resource.data.email == request.auth.token.email ||
+         resource.data.tutelado_digital == request.auth.token.email);
 
       // Cofrades can update their own non-sensitive fields
-      allow update: if isOwner(cofradeId) &&
+      allow update: if (isOwner(cofradeId) || isTutor()) &&
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
                    'anio_mayordomia', 'fecha_baja', 'causa_baja',
                    'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
-                   'iban', 'titular_iban', 'gdpr_firmado']);
+                   'iban', 'titular_iban', 'gdpr_firmado', 'auth_uid']);
 
       // Admins can create, update, delete any cofrade
       allow create, update, delete: if isAdmin();
@@ -39,8 +52,7 @@ service cloud.firestore {
     // Cuotas collection
     match /cuotas/{cuotaId} {
       // Cofrades can read their own cuotas
-      allow read: if isAuth() &&
-        (resource.data.cofrade_id == request.auth.uid || isAdmin());
+      allow read: if isAuth() && isAdmin();
 
       // Only admins can manage cuotas
       allow create, update, delete: if isAdmin();
