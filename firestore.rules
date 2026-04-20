@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: check if user is admin
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/cofrades/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // Helper: check if user is accessing their own document
+    function isOwner(cofradeId) {
+      return isAuth() && request.auth.uid == cofradeId;
+    }
+
+    // Cofrades collection
+    match /cofrades/{cofradeId} {
+      // Anyone authenticated can read their own data
+      // Admins can read all
+      allow read: if isOwner(cofradeId) || isAdmin();
+
+      // Cofrades can update their own non-sensitive fields
+      allow update: if isOwner(cofradeId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['rol', 'estado', 'cargo']);
+
+      // Admins can create, update, delete any cofrade
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Cuotas collection
+    match /cuotas/{cuotaId} {
+      // Cofrades can read their own cuotas
+      allow read: if isAuth() &&
+        (resource.data.cofrade_id == request.auth.uid || isAdmin());
+
+      // Only admins can manage cuotas
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Eventos collection
+    match /eventos/{eventoId} {
+      // Public events are readable by anyone
+      allow read: if resource.data.publicado == true || isAdmin();
+
+      // Only admins can manage events
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Noticias collection
+    match /noticias/{noticiaId} {
+      // Published news are readable by anyone
+      allow read: if resource.data.publicado == true || isAdmin();
+
+      // Only admins can manage news
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Documentos collection
+    match /documentos/{documentoId} {
+      // Only authenticated users can read documents
+      allow read: if isAuth();
+
+      // Only admins can manage documents
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
