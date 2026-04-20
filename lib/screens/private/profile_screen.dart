@@ -262,12 +262,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           value: cofrade.tuteladoDigital!,
                           icon: Icons.supervisor_account,
                         ),
+                      if (cofrade.cargo != null && cofrade.cargo!.isNotEmpty)
+                        _InfoRow(
+                          label: 'Cargo',
+                          value: cofrade.cargo!,
+                          icon: Icons.badge,
+                        ),
                       _InfoRow(
-                          label: 'GDPR Firmado',
+                          label: 'Túnica propia',
+                          value: cofrade.tieneTunicaPropia ? 'Sí' : 'No',
+                          icon: Icons.checkroom),
+                      _InfoRow(
+                          label: 'GDPR Firmado (Papel)',
                           value: cofrade.gdprFirmado ? 'Sí' : 'No',
                           icon: cofrade.gdprFirmado
                               ? Icons.verified
                               : Icons.warning),
+                      _InfoRow(
+                          label: 'GDPR Firmado (Digital)',
+                          value: cofrade.gdprFirmadoDigital ? 'Sí' : 'No',
+                          icon: cofrade.gdprFirmadoDigital
+                              ? Icons.verified
+                              : Icons.warning),
+                      if (cofrade.emailSecundario != null &&
+                          cofrade.emailSecundario!.isNotEmpty)
+                        _InfoRow(
+                          label: 'Email secundario',
+                          value: cofrade.emailSecundario!,
+                          icon: Icons.alternate_email,
+                        ),
+                      if (cofrade.telefonoSecundario != null &&
+                          cofrade.telefonoSecundario!.isNotEmpty)
+                        _InfoRow(
+                          label: 'Teléfono secundario',
+                          value: cofrade.telefonoSecundario!,
+                          icon: Icons.phone,
+                        ),
+                      if (cofrade.parentescoTutor != null &&
+                          cofrade.parentescoTutor!.isNotEmpty)
+                        _InfoRow(
+                          label: 'Parentesco tutor',
+                          value: cofrade.parentescoTutor!,
+                          icon: Icons.family_restroom,
+                        ),
                     ],
                   ),
                 ),

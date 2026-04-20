@@ -43,7 +43,9 @@ service cloud.firestore {
           .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
                    'anio_mayordomia', 'fecha_baja', 'causa_baja',
                    'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
-                   'iban', 'titular_iban', 'gdpr_firmado', 'auth_uid']);
+                   'iban', 'titular_iban', 'gdpr_firmado', 'auth_uid',
+                   'dni', 'dni_tutor', 'cargo', 'gdpr_firmado_digital',
+                   'fecha_gdpr_digital', 'fecha_registro_app']);
 
       // Admins can create, update, delete any cofrade
       allow create, update, delete: if isAdmin();

@@ -21,8 +21,16 @@ const HEADER_ROW = [
   "Código Postal", "Teléfono Fijo", "Teléfono Móvil",
   "Email", "Estatura", "Talla", "¿Cuota?",
   "Cuota Metálico", "Cuota Domiciliada", "IBAN",
-  "Titular IBAN", "GDPR Firmado", "Comentarios",
+  "Titular IBAN", "GDPR Firmado (Papel)", "Comentarios",
+  // New columns
+  "GDPR Firmado (Digital)", "Fecha GDPR Digital",
+  "Email Secundario", "Teléfono Secundario",
+  "DNI", "DNI Tutor", "Parentesco Tutor",
+  "Fecha Nacimiento Tutor", "Cargo", "Tiene Túnica Propia",
+  "Rol", "Fecha Registro App", "Último Acceso",
+  "Notificaciones Activas",
 ];
+// Total columns: A through AP (42 columns)
 
 /**
  * Get authenticated Google Sheets client using service account.
@@ -92,6 +100,29 @@ exports.syncCofradeToSheet = functions
         data.titular_iban || "",
         data.gdpr_firmado ? "Sí" : "No",
         data.comentarios || "",
+        // New columns
+        data.gdpr_firmado_digital ? "Sí" : "No",
+        data.fecha_gdpr_digital ?
+          new Date(data.fecha_gdpr_digital.seconds * 1000)
+              .toLocaleDateString("es-ES") : "",
+        data.email_secundario || "",
+        data.telefono_secundario || "",
+        data.dni || "",
+        data.dni_tutor || "",
+        data.parentesco_tutor || "",
+        data.fecha_nacimiento_tutor ?
+          new Date(data.fecha_nacimiento_tutor.seconds * 1000)
+              .toLocaleDateString("es-ES") : "",
+        data.cargo || "",
+        data.tiene_tunica_propia ? "Sí" : "No",
+        data.rol || "cofrade",
+        data.fecha_registro_app ?
+          new Date(data.fecha_registro_app.seconds * 1000)
+              .toLocaleDateString("es-ES") : "",
+        data.ultimo_acceso ?
+          new Date(data.ultimo_acceso.seconds * 1000)
+              .toLocaleDateString("es-ES") : "",
+        data.notificaciones_activas !== false ? "Sí" : "No",
       ];
 
       await upsertRowInSheet(sheetId, cofradeId, row);
@@ -117,7 +148,7 @@ exports.syncSheetToFirestore = functions
 
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: `${SHEET_NAME}!A:AB`,
+        range: `${SHEET_NAME}!A:AP`,
       });
 
       const rows = response.data.values;
@@ -172,6 +203,15 @@ exports.syncSheetToFirestore = functions
           titular_iban: row[25] || "",
           gdpr_firmado: (row[26] || "").toLowerCase() === "sí",
           comentarios: row[27] || "",
+          // New columns (starting at index 28)
+          gdpr_firmado_digital: (row[28] || "").toLowerCase() === "sí",
+          email_secundario: row[30] || "",
+          telefono_secundario: row[31] || "",
+          dni: row[32] || "",
+          dni_tutor: row[33] || "",
+          parentesco_tutor: row[34] || "",
+          cargo: row[36] || "",
+          tiene_tunica_propia: (row[37] || "").toLowerCase() === "sí",
           fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
         };
 
@@ -200,6 +240,8 @@ function hasChanges(firestoreData, sheetData) {
     "nombre", "apellidos", "email", "telefono_fijo", "telefono_movil",
     "domicilio", "localidad", "codigo_postal", "estado", "genero",
     "tutelado_digital", "talla", "iban", "titular_iban", "comentarios",
+    "email_secundario", "telefono_secundario", "dni", "dni_tutor",
+    "parentesco_tutor", "cargo",
   ];
   return fieldsToCompare.some(
       (field) => (firestoreData[field] || "") !== (sheetData[field] || ""),
@@ -232,7 +274,7 @@ async function upsertRowInSheet(sheetId, cofradeId, rowData) {
     // Update existing row
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAME}!A${rowIndex + 1}:AB${rowIndex + 1}`,
+      range: `${SHEET_NAME}!A${rowIndex + 1}:AP${rowIndex + 1}`,
       valueInputOption: "RAW",
       requestBody: {values: [rowData]},
     });
@@ -275,7 +317,7 @@ async function removeRowFromSheet(sheetId, cofradeId) {
       // Clear the row (don't delete to preserve row numbers)
       await sheets.spreadsheets.values.clear({
         spreadsheetId: sheetId,
-        range: `${SHEET_NAME}!A${i + 1}:AB${i + 1}`,
+        range: `${SHEET_NAME}!A${i + 1}:AP${i + 1}`,
       });
       console.log(`Cleared row ${i + 1} for deleted cofrade ${cofradeId}`);
       break;

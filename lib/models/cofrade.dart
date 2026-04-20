@@ -34,6 +34,26 @@ class Cofrade {
   final String rol;
   final DateTime? fechaCreacion;
   final DateTime? fechaActualizacion;
+  // New fields: account management
+  final String? authUid;
+  final DateTime? fechaRegistroApp;
+  final DateTime? ultimoAcceso;
+  // GDPR dual: paper + digital
+  final bool gdprFirmadoDigital;
+  final DateTime? fechaGdprDigital;
+  // Communication
+  final String? fcmToken;
+  final bool notificacionesActivas;
+  final String? emailSecundario;
+  final String? telefonoSecundario;
+  // Profile extras
+  final String? dni;
+  final DateTime? fechaNacimientoTutor;
+  final String? dniTutor;
+  final String? parentescoTutor;
+  // Cofradía
+  final String? cargo;
+  final bool tieneTunicaPropia;
 
   Cofrade({
     required this.id,
@@ -69,6 +89,21 @@ class Cofrade {
     this.rol = 'cofrade',
     this.fechaCreacion,
     this.fechaActualizacion,
+    this.authUid,
+    this.fechaRegistroApp,
+    this.ultimoAcceso,
+    this.gdprFirmadoDigital = false,
+    this.fechaGdprDigital,
+    this.fcmToken,
+    this.notificacionesActivas = true,
+    this.emailSecundario,
+    this.telefonoSecundario,
+    this.dni,
+    this.fechaNacimientoTutor,
+    this.dniTutor,
+    this.parentescoTutor,
+    this.cargo,
+    this.tieneTunicaPropia = false,
   });
 
   factory Cofrade.fromFirestore(DocumentSnapshot doc) {
@@ -107,6 +142,21 @@ class Cofrade {
       rol: data['rol'] ?? 'cofrade',
       fechaCreacion: (data['fecha_creacion'] as Timestamp?)?.toDate(),
       fechaActualizacion: (data['fecha_actualizacion'] as Timestamp?)?.toDate(),
+      authUid: data['auth_uid'] as String?,
+      fechaRegistroApp: (data['fecha_registro_app'] as Timestamp?)?.toDate(),
+      ultimoAcceso: (data['ultimo_acceso'] as Timestamp?)?.toDate(),
+      gdprFirmadoDigital: data['gdpr_firmado_digital'] ?? false,
+      fechaGdprDigital: (data['fecha_gdpr_digital'] as Timestamp?)?.toDate(),
+      fcmToken: data['fcm_token'] as String?,
+      notificacionesActivas: data['notificaciones_activas'] ?? true,
+      emailSecundario: data['email_secundario'] as String?,
+      telefonoSecundario: data['telefono_secundario'] as String?,
+      dni: data['dni'] as String?,
+      fechaNacimientoTutor: (data['fecha_nacimiento_tutor'] as Timestamp?)?.toDate(),
+      dniTutor: data['dni_tutor'] as String?,
+      parentescoTutor: data['parentesco_tutor'] as String?,
+      cargo: data['cargo'] as String?,
+      tieneTunicaPropia: data['tiene_tunica_propia'] ?? false,
     );
   }
 
@@ -148,6 +198,29 @@ class Cofrade {
           ? Timestamp.fromDate(fechaCreacion!)
           : FieldValue.serverTimestamp(),
       'fecha_actualizacion': FieldValue.serverTimestamp(),
+      'auth_uid': authUid,
+      'fecha_registro_app': fechaRegistroApp != null
+          ? Timestamp.fromDate(fechaRegistroApp!)
+          : null,
+      'ultimo_acceso': ultimoAcceso != null
+          ? Timestamp.fromDate(ultimoAcceso!)
+          : null,
+      'gdpr_firmado_digital': gdprFirmadoDigital,
+      'fecha_gdpr_digital': fechaGdprDigital != null
+          ? Timestamp.fromDate(fechaGdprDigital!)
+          : null,
+      'fcm_token': fcmToken,
+      'notificaciones_activas': notificacionesActivas,
+      'email_secundario': emailSecundario,
+      'telefono_secundario': telefonoSecundario,
+      'dni': dni,
+      'fecha_nacimiento_tutor': fechaNacimientoTutor != null
+          ? Timestamp.fromDate(fechaNacimientoTutor!)
+          : null,
+      'dni_tutor': dniTutor,
+      'parentesco_tutor': parentescoTutor,
+      'cargo': cargo,
+      'tiene_tunica_propia': tieneTunicaPropia,
     };
   }
 
@@ -182,6 +255,21 @@ class Cofrade {
     String? comentarios,
     String? fotoUrl,
     String? rol,
+    String? authUid,
+    DateTime? fechaRegistroApp,
+    DateTime? ultimoAcceso,
+    bool? gdprFirmadoDigital,
+    DateTime? fechaGdprDigital,
+    String? fcmToken,
+    bool? notificacionesActivas,
+    String? emailSecundario,
+    String? telefonoSecundario,
+    String? dni,
+    DateTime? fechaNacimientoTutor,
+    String? dniTutor,
+    String? parentescoTutor,
+    String? cargo,
+    bool? tieneTunicaPropia,
   }) {
     return Cofrade(
       id: id,
@@ -217,6 +305,21 @@ class Cofrade {
       rol: rol ?? this.rol,
       fechaCreacion: fechaCreacion,
       fechaActualizacion: fechaActualizacion,
+      authUid: authUid ?? this.authUid,
+      fechaRegistroApp: fechaRegistroApp ?? this.fechaRegistroApp,
+      ultimoAcceso: ultimoAcceso ?? this.ultimoAcceso,
+      gdprFirmadoDigital: gdprFirmadoDigital ?? this.gdprFirmadoDigital,
+      fechaGdprDigital: fechaGdprDigital ?? this.fechaGdprDigital,
+      fcmToken: fcmToken ?? this.fcmToken,
+      notificacionesActivas: notificacionesActivas ?? this.notificacionesActivas,
+      emailSecundario: emailSecundario ?? this.emailSecundario,
+      telefonoSecundario: telefonoSecundario ?? this.telefonoSecundario,
+      dni: dni ?? this.dni,
+      fechaNacimientoTutor: fechaNacimientoTutor ?? this.fechaNacimientoTutor,
+      dniTutor: dniTutor ?? this.dniTutor,
+      parentescoTutor: parentescoTutor ?? this.parentescoTutor,
+      cargo: cargo ?? this.cargo,
+      tieneTunicaPropia: tieneTunicaPropia ?? this.tieneTunicaPropia,
     );
   }
 
@@ -224,4 +327,5 @@ class Cofrade {
   bool get isAdmin => rol == 'admin';
   bool get isActivo => estado == 'Activo' || estado == 'activo';
   bool get isBaja => estado == 'Baja' || estado == 'baja';
+  bool get isJunta => rol == 'junta' || rol == 'admin';
 }
