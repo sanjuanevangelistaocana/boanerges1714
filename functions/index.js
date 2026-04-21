@@ -9,9 +9,8 @@ const db = admin.firestore();
 // Google Sheets Bidirectional Sync
 // ============================================================
 
-// Configuration - set these in Firebase environment config:
-// firebase functions:config:set sheets.id="YOUR_GOOGLE_SHEET_ID"
-// firebase functions:config:set sheets.service_email="YOUR_SERVICE_ACCOUNT_EMAIL"
+// Google Sheet ID for bidirectional sync
+const SPREADSHEET_ID = "1YoQh6kcRU7VVg4bbz4pUfEyqPSXgqpT9Lfq6VLfhGCQ";
 const SHEET_NAME = "Cofrades";
 const HEADER_ROW = [
   "Nº", "Nombre", "Apellidos", "Tutelado Digital",
@@ -51,12 +50,7 @@ exports.syncCofradeToSheet = functions
     .region("europe-west1")
     .firestore.document("cofrades/{cofradeId}")
     .onWrite(async (change, context) => {
-      const sheetId = functions.config().sheets?.id;
-      if (!sheetId) {
-        console.log("Google Sheets ID not configured. Skipping sync.");
-        return null;
-      }
-
+      const sheetId = SPREADSHEET_ID;
       const cofradeId = context.params.cofradeId;
 
       // Handle deletion
@@ -138,12 +132,7 @@ exports.syncSheetToFirestore = functions
     .pubsub.schedule("every 15 minutes")
     .timeZone("Europe/Madrid")
     .onRun(async () => {
-      const sheetId = functions.config().sheets?.id;
-      if (!sheetId) {
-        console.log("Google Sheets ID not configured. Skipping sync.");
-        return null;
-      }
-
+      const sheetId = SPREADSHEET_ID;
       const sheets = await getSheetsClient();
 
       const response = await sheets.spreadsheets.values.get({
