@@ -282,8 +282,39 @@ function hasChanges(firestoreData, sheetData) {
 /**
  * Insert or update a row in Google Sheets.
  */
+async function ensureGridColumns(sheets, sheetId, requiredCols) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: sheetId,
+    fields: "sheets(properties(sheetId,title,gridProperties))",
+  });
+  const sheetMeta = meta.data.sheets.find(
+      (s) => s.properties.title === SHEET_NAME,
+  );
+  if (sheetMeta) {
+    const currentCols = sheetMeta.properties.gridProperties.columnCount;
+    if (currentCols < requiredCols) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [{
+            appendDimension: {
+              sheetId: sheetMeta.properties.sheetId,
+              dimension: "COLUMNS",
+              length: requiredCols - currentCols,
+            },
+          }],
+        },
+      });
+      console.log(`Expanded grid by ${requiredCols - currentCols} columns.`);
+    }
+  }
+}
+
 async function upsertRowInSheet(sheetId, numero, rowData) {
   const sheets = await getSheetsClient();
+
+  // Ensure grid has enough columns for new fields
+  await ensureGridColumns(sheets, sheetId, rowData.length);
 
   // Find existing row by numero (column A)
   const response = await sheets.spreadsheets.values.get({
@@ -556,6 +587,10 @@ exports.triggerSheetSync = functions
         // Ensure new column headers exist in the Sheet
         const headerRow = rows[0];
         if (headerRow.length < TOTAL_SHEET_COLS) {
+          const colsToAdd = TOTAL_SHEET_COLS - headerRow.length;
+
+          // Expand grid if needed, then write missing headers
+          await ensureGridColumns(sheets, SPREADSHEET_ID, TOTAL_SHEET_COLS);
           const numExistingNew = Math.max(0, headerRow.length - EXISTING_SHEET_COLS);
           const missingHeaders = NEW_COL_HEADERS.slice(numExistingNew);
           if (missingHeaders.length > 0) {
