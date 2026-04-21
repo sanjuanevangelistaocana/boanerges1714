@@ -319,6 +319,25 @@ class FirestoreService {
     return null;
   }
 
+  // --- Contacto ---
+  Future<void> sendContactMessage({
+    required String nombre,
+    required String email,
+    required String mensaje,
+    String? telefono,
+    String? asunto,
+  }) async {
+    await _db.collection('contacto').add({
+      'nombre': nombre,
+      'email': email,
+      'mensaje': mensaje,
+      'telefono': telefono ?? '',
+      'asunto': asunto ?? '',
+      'fecha': FieldValue.serverTimestamp(),
+      'leido': false,
+    });
+  }
+
   Future<void> responderConvocatoria({
     required String convocatoriaId,
     required String cofradeId,

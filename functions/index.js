@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const {google} = require("googleapis");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -11,6 +12,10 @@ const db = admin.firestore();
 
 // Google Sheet ID for bidirectional sync
 const SPREADSHEET_ID = "1YoQh6kcRU7VVg4bbz4pUfEyqPSXgqpT9Lfq6VLfhGCQ";
+
+// Gmail SMTP configuration
+const GMAIL_EMAIL = "sanjuanevangelistaocana@gmail.com";
+const GMAIL_APP_PASSWORD = "kjsuqnypocxblgtn";
 const SHEET_NAME = "Relación Cofrades";
 const HEADER_ROW = [
   "Nº", "Nombre", "Apellidos", "Tutelado Digital",
@@ -443,6 +448,59 @@ exports.onNewConvocatoria = functions
       } catch (err) {
         console.error("Error sending convocatoria notification:", err);
       }
+    });
+
+/**
+ * Send email notification when a new contact message is submitted.
+ */
+exports.onNewContactMessage = functions
+    .region("europe-west1")
+    .firestore.document("contacto/{messageId}")
+    .onCreate(async (snap, context) => {
+      const data = snap.data();
+      console.log(`New contact message from ${data.nombre} (${data.email})`);
+
+      if (!GMAIL_APP_PASSWORD) {
+        console.log("Gmail app password not configured. Skipping email.");
+        return null;
+      }
+
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: GMAIL_EMAIL,
+          pass: GMAIL_APP_PASSWORD,
+        },
+      });
+
+      const mailOptions = {
+        from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
+        to: GMAIL_EMAIL,
+        replyTo: data.email,
+        subject: `[Contacto Web] ${data.asunto || "Nuevo mensaje"} - ${data.nombre}`,
+        html: `
+          <h2>Nuevo mensaje de contacto</h2>
+          <p><strong>Nombre:</strong> ${data.nombre || ""}</p>
+          <p><strong>Email:</strong> ${data.email || ""}</p>
+          <p><strong>Teléfono:</strong> ${data.telefono || "No proporcionado"}</p>
+          <p><strong>Asunto:</strong> ${data.asunto || "Sin asunto"}</p>
+          <hr/>
+          <p>${(data.mensaje || "").replace(/\n/g, "<br/>")}</p>
+          <hr/>
+          <p><small>Enviado desde la web de la Cofradía - ${new Date().toLocaleString("es-ES", {timeZone: "Europe/Madrid"})}</small></p>
+        `,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log("Contact email sent successfully");
+        await snap.ref.update({email_enviado: true});
+      } catch (err) {
+        console.error("Error sending contact email:", err);
+        await snap.ref.update({email_enviado: false, email_error: err.message});
+      }
+
+      return null;
     });
 
 exports.manageFcmTopics = functions

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/config/theme.dart';
+import 'package:boanerges1714/services/firestore_service.dart';
 
 class ContactScreen extends StatefulWidget {
   const ContactScreen({super.key});
@@ -14,7 +15,9 @@ class _ContactScreenState extends State<ContactScreen> {
   final _nombreController = TextEditingController();
   final _emailController = TextEditingController();
   final _mensajeController = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
   bool _enviado = false;
+  bool _enviando = false;
 
   @override
   void dispose() {
@@ -157,9 +160,18 @@ class _ContactScreenState extends State<ContactScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
-                              onPressed: _enviarMensaje,
-                              icon: const Icon(Icons.send),
-                              label: const Text('Enviar Mensaje'),
+                              onPressed: _enviando ? null : _enviarMensaje,
+                              icon: _enviando
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.send),
+                              label: Text(_enviando ? 'Enviando...' : 'Enviar Mensaje'),
                             ),
                           ),
                         ],
@@ -201,9 +213,30 @@ class _ContactScreenState extends State<ContactScreen> {
     );
   }
 
-  void _enviarMensaje() {
+  Future<void> _enviarMensaje() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _enviado = true);
+      setState(() => _enviando = true);
+      try {
+        await _firestoreService.sendContactMessage(
+          nombre: _nombreController.text.trim(),
+          email: _emailController.text.trim(),
+          mensaje: _mensajeController.text.trim(),
+        );
+        setState(() {
+          _enviado = true;
+          _enviando = false;
+        });
+      } catch (e) {
+        setState(() => _enviando = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error al enviar el mensaje. Inténtalo de nuevo.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
