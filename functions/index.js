@@ -47,6 +47,26 @@ function parseSheetBool(val) {
 }
 
 /**
+ * Convert a column index to a letter (0=A, 25=Z, 26=AA, etc.).
+ */
+function colLetter(index) {
+  let result = "";
+  let i = index;
+  while (i >= 0) {
+    result = String.fromCharCode(65 + (i % 26)) + result;
+    i = Math.floor(i / 26) - 1;
+  }
+  return result;
+}
+
+// New columns appended by the app (starting at column AE = index 30)
+const NEW_COL_HEADERS = [
+  "Email Secundario", "Teléfono Secundario", "DNI",
+  "DNI Tutor", "Parentesco Tutor", "Cargo", "Tiene Túnica Propia",
+];
+const TOTAL_SHEET_COLS = EXISTING_SHEET_COLS + NEW_COL_HEADERS.length; // 37
+
+/**
  * Get authenticated Google Sheets client using service account.
  */
 async function getSheetsClient() {
@@ -70,8 +90,9 @@ exports.syncCofradeToSheet = functions
 
       // Handle deletion
       if (!change.after.exists) {
-        console.log(`Cofrade ${cofradeId} deleted. Removing from sheet.`);
-        await removeRowFromSheet(sheetId, cofradeId);
+        const beforeData = change.before.data();
+        console.log(`Cofrade ${cofradeId} (#${beforeData.numero}) deleted.`);
+        await removeRowFromSheet(sheetId, beforeData.numero);
         return null;
       }
 
@@ -112,9 +133,17 @@ exports.syncCofradeToSheet = functions
         "",                                            // 27: Check Data (existing col)
         data.gdpr_firmado ? "TRUE" : "FALSE",           // 28: GDPR Firmado
         data.comentarios || "",                         // 29: Comentarios
+        // New columns (AE-AK)
+        data.email_secundario || "",                   // 30: Email Secundario
+        data.telefono_secundario || "",                // 31: Teléfono Secundario
+        data.dni || "",                                // 32: DNI
+        data.dni_tutor || "",                          // 33: DNI Tutor
+        data.parentesco_tutor || "",                   // 34: Parentesco Tutor
+        data.cargo || "",                              // 35: Cargo
+        data.tiene_tunica_propia ? "TRUE" : "FALSE",   // 36: Tiene Túnica Propia
       ];
 
-      await upsertRowInSheet(sheetId, cofradeId, row);
+      await upsertRowInSheet(sheetId, data.numero, row);
       return null;
     });
 
@@ -222,6 +251,14 @@ function rowToFirestoreData(row, numero) {
     // 26: Raul (skip), 27: Check Data (skip)
     gdpr_firmado: parseSheetBool(row[28]),
     comentarios: row[29] || "",
+    // New columns (AE-AK, indices 30-36)
+    email_secundario: row[30] || "",
+    telefono_secundario: row[31] || "",
+    dni: row[32] || "",
+    dni_tutor: row[33] || "",
+    parentesco_tutor: row[34] || "",
+    cargo: row[35] || "",
+    tiene_tunica_propia: parseSheetBool(row[36]),
     fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
   };
 }
@@ -245,59 +282,52 @@ function hasChanges(firestoreData, sheetData) {
 /**
  * Insert or update a row in Google Sheets.
  */
-async function upsertRowInSheet(sheetId, cofradeId, rowData) {
+async function upsertRowInSheet(sheetId, numero, rowData) {
   const sheets = await getSheetsClient();
 
-  // Find existing row
+  // Find existing row by numero (column A)
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range: `${SHEET_NAME}!A:A`,
   });
 
-  const ids = response.data.values || [];
+  const col = response.data.values || [];
   let rowIndex = -1;
 
-  for (let i = 0; i < ids.length; i++) {
-    if (ids[i][0] === cofradeId) {
+  for (let i = 0; i < col.length; i++) {
+    if (String(col[i][0]).trim() === String(numero).trim()) {
       rowIndex = i;
       break;
     }
   }
 
+  const endCol = colLetter(rowData.length - 1);
+
   if (rowIndex >= 0) {
     // Update existing row
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAME}!A${rowIndex + 1}:AP${rowIndex + 1}`,
+      range: `${SHEET_NAME}!A${rowIndex + 1}:${endCol}${rowIndex + 1}`,
       valueInputOption: "RAW",
       requestBody: {values: [rowData]},
     });
-    console.log(`Updated row ${rowIndex + 1} for cofrade ${cofradeId}`);
+    console.log(`Updated row ${rowIndex + 1} for cofrade #${numero}`);
   } else {
-    // Ensure header exists
-    if (ids.length === 0) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: sheetId,
-        range: `${SHEET_NAME}!A1`,
-        valueInputOption: "RAW",
-        requestBody: {values: [HEADER_ROW]},
-      });
-    }
     // Append new row
     await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: `${SHEET_NAME}!A:AB`,
+      range: `${SHEET_NAME}!A:${endCol}`,
       valueInputOption: "RAW",
       requestBody: {values: [rowData]},
     });
-    console.log(`Appended new row for cofrade ${cofradeId}`);
+    console.log(`Appended new row for cofrade #${numero}`);
   }
 }
 
 /**
  * Remove a row from Google Sheets.
  */
-async function removeRowFromSheet(sheetId, cofradeId) {
+async function removeRowFromSheet(sheetId, numero) {
   const sheets = await getSheetsClient();
 
   const response = await sheets.spreadsheets.values.get({
@@ -305,15 +335,15 @@ async function removeRowFromSheet(sheetId, cofradeId) {
     range: `${SHEET_NAME}!A:A`,
   });
 
-  const ids = response.data.values || [];
-  for (let i = 0; i < ids.length; i++) {
-    if (ids[i][0] === cofradeId) {
-      // Clear the row (don't delete to preserve row numbers)
+  const col = response.data.values || [];
+  for (let i = 0; i < col.length; i++) {
+    if (String(col[i][0]).trim() === String(numero).trim()) {
+      const endCol = colLetter(TOTAL_SHEET_COLS - 1);
       await sheets.spreadsheets.values.clear({
         spreadsheetId: sheetId,
-        range: `${SHEET_NAME}!A${i + 1}:AP${i + 1}`,
+        range: `${SHEET_NAME}!A${i + 1}:${endCol}${i + 1}`,
       });
-      console.log(`Cleared row ${i + 1} for deleted cofrade ${cofradeId}`);
+      console.log(`Cleared row ${i + 1} for deleted cofrade #${numero}`);
       break;
     }
   }
@@ -523,6 +553,24 @@ exports.triggerSheetSync = functions
           return;
         }
 
+        // Ensure new column headers exist in the Sheet
+        const headerRow = rows[0];
+        if (headerRow.length < TOTAL_SHEET_COLS) {
+          const numExistingNew = Math.max(0, headerRow.length - EXISTING_SHEET_COLS);
+          const missingHeaders = NEW_COL_HEADERS.slice(numExistingNew);
+          if (missingHeaders.length > 0) {
+            const startIdx = headerRow.length;
+            const endIdx = startIdx + missingHeaders.length - 1;
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `${SHEET_NAME}!${colLetter(startIdx)}1:${colLetter(endIdx)}1`,
+              valueInputOption: "RAW",
+              requestBody: {values: [missingHeaders]},
+            });
+            console.log(`Added ${missingHeaders.length} new column headers to Sheet.`);
+          }
+        }
+
         const batch = db.batch();
         let createCount = 0;
         let updateCount = 0;
@@ -599,5 +647,40 @@ exports.manageFcmTopics = functions
       // Topic management would need the device FCM token
       // which is stored separately. This is a placeholder for
       // the full implementation using token-based subscriptions.
+      return null;
+    });
+
+/**
+ * Sync admin role to a separate admins collection for Firestore rules.
+ * Firestore rules cannot query fields, so we maintain admins/{auth_uid}
+ * documents that rules can check with exists().
+ */
+exports.syncAdminRole = functions
+    .region("europe-west1")
+    .firestore.document("cofrades/{cofradeId}")
+    .onWrite(async (change, context) => {
+      const after = change.after.exists ? change.after.data() : null;
+      const before = change.before.exists ? change.before.data() : null;
+
+      // On deletion, remove admin doc if it existed
+      if (!after && before && before.auth_uid) {
+        await db.collection("admins").doc(before.auth_uid).delete()
+            .catch(() => {});
+        return null;
+      }
+
+      if (!after || !after.auth_uid) return null;
+
+      if (after.rol === "admin") {
+        await db.collection("admins").doc(after.auth_uid).set({
+          cofrade_id: context.params.cofradeId,
+          updated: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Admin doc created for ${after.auth_uid}`);
+      } else {
+        // Not admin — remove admin doc if exists
+        await db.collection("admins").doc(after.auth_uid).delete()
+            .catch(() => {});
+      }
       return null;
     });

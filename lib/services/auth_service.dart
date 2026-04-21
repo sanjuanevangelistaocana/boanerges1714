@@ -118,6 +118,14 @@ class AuthService extends ChangeNotifier {
 
       final trimmedEmail = email.trim();
 
+      // Create auth account FIRST so we are authenticated
+      // (Firestore rules require auth to query cofrades collection)
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+
+      // Now query Firestore for cofrades matching this email
       final byEmail = await _firestore
           .collection('cofrades')
           .where('email', isEqualTo: trimmedEmail)
@@ -129,15 +137,13 @@ class AuthService extends ChangeNotifier {
           .get();
 
       if (byEmail.docs.isEmpty && byTutelado.docs.isEmpty) {
+        // No cofrade found with this email — delete the auth account
+        await credential.user?.delete();
         return 'Tu email no está registrado como cofrade. '
             'Contacta con la Junta Directiva para darte de alta.';
       }
 
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: trimmedEmail,
-        password: password,
-      );
-
+      // Link auth_uid to all matching cofrade documents
       if (credential.user != null) {
         final docIds = <String>{};
         for (final doc in byEmail.docs) {
@@ -162,6 +168,9 @@ class AuthService extends ChangeNotifier {
       return null;
     } on FirebaseAuthException catch (e) {
       return _getErrorMessage(e.code);
+    } catch (e) {
+      debugPrint('Registration error: $e');
+      return 'Error durante el registro. Inténtalo de nuevo.';
     } finally {
       _isLoading = false;
       notifyListeners();

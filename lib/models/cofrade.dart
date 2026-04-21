@@ -24,8 +24,8 @@ class Cofrade {
   final int? estatura;
   final String? talla;
   final bool tieneCuota;
-  final double? cuotaMetalico;
-  final double? cuotaDomiciliada;
+  final bool cuotaMetalico;
+  final bool cuotaDomiciliada;
   final String? iban;
   final String? titularIban;
   final bool gdprFirmado;
@@ -79,8 +79,8 @@ class Cofrade {
     this.estatura,
     this.talla,
     this.tieneCuota = false,
-    this.cuotaMetalico,
-    this.cuotaDomiciliada,
+    this.cuotaMetalico = false,
+    this.cuotaDomiciliada = false,
     this.iban,
     this.titularIban,
     this.gdprFirmado = false,
@@ -132,8 +132,8 @@ class Cofrade {
       estatura: data['estatura'] as int?,
       talla: data['talla'] as String?,
       tieneCuota: data['tiene_cuota'] ?? false,
-      cuotaMetalico: (data['cuota_metalico'] as num?)?.toDouble(),
-      cuotaDomiciliada: (data['cuota_domiciliada'] as num?)?.toDouble(),
+      cuotaMetalico: data['cuota_metalico'] == true,
+      cuotaDomiciliada: data['cuota_domiciliada'] == true,
       iban: data['iban'] as String?,
       titularIban: data['titular_iban'] as String?,
       gdprFirmado: data['gdpr_firmado'] ?? false,
@@ -247,8 +247,8 @@ class Cofrade {
     int? estatura,
     String? talla,
     bool? tieneCuota,
-    double? cuotaMetalico,
-    double? cuotaDomiciliada,
+    bool? cuotaMetalico,
+    bool? cuotaDomiciliada,
     String? iban,
     String? titularIban,
     bool? gdprFirmado,
