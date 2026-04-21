@@ -11,7 +11,7 @@ const db = admin.firestore();
 
 // Google Sheet ID for bidirectional sync
 const SPREADSHEET_ID = "1YoQh6kcRU7VVg4bbz4pUfEyqPSXgqpT9Lfq6VLfhGCQ";
-const SHEET_NAME = "Cofrades";
+const SHEET_NAME = "Relación Cofrades";
 const HEADER_ROW = [
   "Nº", "Nombre", "Apellidos", "Tutelado Digital",
   "Fecha Nacimiento", "Edad", "Género", "Año Alta",
