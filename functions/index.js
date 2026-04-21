@@ -512,6 +512,119 @@ exports.onNewContactMessage = functions
       return null;
     });
 
+/**
+ * Manual trigger for Sheet → Firestore sync (for testing/debugging).
+ * Call via: https://europe-west1-boanerges1714.cloudfunctions.net/triggerSheetSync
+ */
+exports.triggerSheetSync = functions
+    .region("europe-west1")
+    .https.onRequest(async (req, res) => {
+      try {
+        const sheets = await getSheetsClient();
+        const response = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${SHEET_NAME}!A:AP`,
+        });
+
+        const rows = response.data.values;
+        if (!rows || rows.length <= 1) {
+          res.json({status: "no_data", message: "No data rows found in sheet.", rowCount: rows ? rows.length : 0});
+          return;
+        }
+
+        const batch = db.batch();
+        let createCount = 0;
+        let updateCount = 0;
+        const details = [];
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row[0] && !row[1]) continue;
+
+          const numero = parseInt(row[0]) || null;
+          if (!numero) {
+            details.push(`Row ${i + 1}: skipped (no numero), col A = "${row[0]}"`);
+            continue;
+          }
+
+          const sheetData = {
+            numero: numero,
+            nombre: row[1] || "",
+            apellidos: row[2] || "",
+            tutelado_digital: row[3] || "",
+            edad: parseInt(row[5]) || null,
+            genero: row[6] || "",
+            anio_alta: parseInt(row[7]) || null,
+            anios_hermandad: parseInt(row[8]) || null,
+            anio_mayordomia: parseInt(row[9]) || null,
+            estado: row[10] || "Activo",
+            causa_baja: row[12] || "",
+            domicilio: row[13] || "",
+            localidad: row[14] || "",
+            codigo_postal: row[15] || "",
+            telefono_fijo: row[16] || "",
+            telefono_movil: row[17] || "",
+            email: row[18] || "",
+            estatura: parseInt(row[19]) || null,
+            talla: row[20] || "",
+            tiene_cuota: (row[21] || "").toLowerCase() === "sí",
+            cuota_metalico: parseFloat(row[22]) || null,
+            cuota_domiciliada: parseFloat(row[23]) || null,
+            iban: row[24] || "",
+            titular_iban: row[25] || "",
+            gdpr_firmado: (row[26] || "").toLowerCase() === "sí",
+            comentarios: row[27] || "",
+            gdpr_firmado_digital: (row[28] || "").toLowerCase() === "sí",
+            email_secundario: row[30] || "",
+            telefono_secundario: row[31] || "",
+            dni: row[32] || "",
+            dni_tutor: row[33] || "",
+            parentesco_tutor: row[34] || "",
+            cargo: row[36] || "",
+            tiene_tunica_propia: (row[37] || "").toLowerCase() === "sí",
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+          };
+
+          const snapshot = await db.collection("cofrades")
+              .where("numero", "==", numero).limit(1).get();
+
+          if (snapshot.empty) {
+            sheetData.rol = "cofrade";
+            sheetData.notificaciones_activas = true;
+            sheetData.gdpr_firmado_digital = false;
+            const newRef = db.collection("cofrades").doc();
+            batch.set(newRef, sheetData);
+            createCount++;
+            details.push(`Row ${i + 1}: CREATE cofrade #${numero} - ${row[1]} ${row[2]}`);
+          } else {
+            const currentData = snapshot.docs[0].data();
+            if (hasChanges(currentData, sheetData)) {
+              batch.update(snapshot.docs[0].ref, sheetData);
+              updateCount++;
+              details.push(`Row ${i + 1}: UPDATE cofrade #${numero}`);
+            } else {
+              details.push(`Row ${i + 1}: NO CHANGES cofrade #${numero}`);
+            }
+          }
+        }
+
+        if (createCount > 0 || updateCount > 0) {
+          await batch.commit();
+        }
+
+        res.json({
+          status: "ok",
+          totalRows: rows.length - 1,
+          created: createCount,
+          updated: updateCount,
+          details: details,
+        });
+      } catch (err) {
+        console.error("triggerSheetSync error:", err);
+        res.status(500).json({status: "error", message: err.message, stack: err.stack});
+      }
+    });
+
 exports.manageFcmTopics = functions
     .region("europe-west1")
     .firestore.document("cofrades/{cofradeId}")
