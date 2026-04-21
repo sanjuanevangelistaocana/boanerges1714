@@ -7,9 +7,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper: check if user is admin (checks auth_uid field)
+    // Helper: check if user is admin (finds cofrade by auth_uid field)
     function isAdmin() {
       return isAuth() &&
+        exists(/databases/$(database)/documents/cofrades/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/cofrades/$(request.auth.uid)).data.rol == 'admin';
     }
 
@@ -36,6 +37,15 @@ service cloud.firestore {
       allow read: if isAuth() &&
         (resource.data.email == request.auth.token.email ||
          resource.data.tutelado_digital == request.auth.token.email);
+
+      // Allow newly registered user to link their auth_uid to their cofrade doc
+      // Only if the cofrade's email matches the authenticated user's email
+      // and the only fields being changed are auth_uid and fecha_actualizacion
+      allow update: if isAuth() &&
+        (resource.data.email == request.auth.token.email ||
+         resource.data.tutelado_digital == request.auth.token.email) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['auth_uid', 'fecha_actualizacion']);
 
       // Cofrades can update their own non-sensitive fields
       allow update: if (isOwner(cofradeId) || isTutor()) &&

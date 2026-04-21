@@ -17,24 +17,34 @@ const SPREADSHEET_ID = "1YoQh6kcRU7VVg4bbz4pUfEyqPSXgqpT9Lfq6VLfhGCQ";
 const GMAIL_EMAIL = "sanjuanevangelistaocana@gmail.com";
 const GMAIL_APP_PASSWORD = "kjsuqnypocxblgtn";
 const SHEET_NAME = "Relación Cofrades";
-const HEADER_ROW = [
-  "Nº", "Nombre", "Apellidos", "Tutelado Digital",
-  "Fecha Nacimiento", "Edad", "Género", "Año Alta",
-  "Años Hermandad", "Año Mayordomía", "Estado",
-  "Fecha Baja", "Causa Baja", "Domicilio", "Localidad",
-  "Código Postal", "Teléfono Fijo", "Teléfono Móvil",
-  "Email", "Estatura", "Talla", "¿Cuota?",
-  "Cuota Metálico", "Cuota Domiciliada", "IBAN",
-  "Titular IBAN", "GDPR Firmado (Papel)", "Comentarios",
-  // New columns
-  "GDPR Firmado (Digital)", "Fecha GDPR Digital",
-  "Email Secundario", "Teléfono Secundario",
-  "DNI", "DNI Tutor", "Parentesco Tutor",
-  "Fecha Nacimiento Tutor", "Cargo", "Tiene Túnica Propia",
-  "Rol", "Fecha Registro App", "Último Acceso",
-  "Notificaciones Activas",
-];
-// Total columns: A through AP (42 columns)
+// Column indices matching the actual Google Sheet structure:
+// 0:Nº 1:Nombre 2:Apellidos 3:Tutelado Digital 4:Fecha Nacimiento
+// 5:Edad 6:Género 7:Año Alta 8:Años Hermandad 9:Año Mayordomía
+// 10:Estado 11:Fecha Baja 12:Causa Baja 13:Domicilio 14:Localidad
+// 15:Código Postal 16:Teléfono Fijo 17:Teléfono Móvil 18:Email
+// 19:Estatura 20:Talla 21:¿Cuota? 22:Cuota Metálico 23:Cuota Domiciliada
+// 24:IBAN 25:Titular IBAN 26:Raul 27:Check Data 28:GDPR Firmado
+// 29:Comentarios 30+: new columns appended by the app
+const EXISTING_SHEET_COLS = 30; // A through AD (columns already in user's Sheet)
+
+/**
+ * Parse a number that may use Spanish thousand separator ("1.991" → 1991).
+ */
+function parseSpanishInt(val) {
+  if (!val) return null;
+  const cleaned = String(val).replace(/\./g, "").replace(/,/g, ".");
+  const num = parseInt(cleaned, 10);
+  return isNaN(num) ? null : num;
+}
+
+/**
+ * Parse a boolean from Sheet (handles TRUE/FALSE, Sí/No, SI/NO).
+ */
+function parseSheetBool(val) {
+  if (!val) return false;
+  const v = String(val).trim().toUpperCase();
+  return v === "TRUE" || v === "SÍ" || v === "SI" || v === "1";
+}
 
 /**
  * Get authenticated Google Sheets client using service account.
@@ -66,62 +76,42 @@ exports.syncCofradeToSheet = functions
       }
 
       const data = change.after.data();
+      // Build row matching the actual Sheet column order (A-AD = 30 cols)
       const row = [
-        data.numero || "",
-        data.nombre || "",
-        data.apellidos || "",
-        data.tutelado_digital || "",
+        data.numero || "",                              // 0: Nº
+        data.nombre || "",                              // 1: Nombre
+        data.apellidos || "",                           // 2: Apellidos
+        data.tutelado_digital ? "TRUE" : "FALSE",       // 3: Tutelado Digital
         data.fecha_nacimiento ?
           new Date(data.fecha_nacimiento.seconds * 1000)
-              .toLocaleDateString("es-ES") : "",
-        data.edad || "",
-        data.genero || "",
-        data.anio_alta || "",
-        data.anios_hermandad || "",
-        data.anio_mayordomia || "",
-        data.estado || "",
+              .toLocaleDateString("es-ES") : "",       // 4: Fecha Nacimiento
+        data.edad || "",                                // 5: Edad
+        data.genero || "",                              // 6: Género
+        data.anio_alta || "",                           // 7: Año Alta
+        data.anios_hermandad || "",                     // 8: Años Hermandad
+        data.anio_mayordomia || "",                     // 9: Año Mayordomía
+        data.estado || "",                              // 10: Estado
         data.fecha_baja ?
           new Date(data.fecha_baja.seconds * 1000)
-              .toLocaleDateString("es-ES") : "",
-        data.causa_baja || "",
-        data.domicilio || "",
-        data.localidad || "",
-        data.codigo_postal || "",
-        data.telefono_fijo || "",
-        data.telefono_movil || "",
-        data.email || "",
-        data.estatura || "",
-        data.talla || "",
-        data.tiene_cuota ? "Sí" : "No",
-        data.cuota_metalico || "",
-        data.cuota_domiciliada || "",
-        data.iban || "",
-        data.titular_iban || "",
-        data.gdpr_firmado ? "Sí" : "No",
-        data.comentarios || "",
-        // New columns
-        data.gdpr_firmado_digital ? "Sí" : "No",
-        data.fecha_gdpr_digital ?
-          new Date(data.fecha_gdpr_digital.seconds * 1000)
-              .toLocaleDateString("es-ES") : "",
-        data.email_secundario || "",
-        data.telefono_secundario || "",
-        data.dni || "",
-        data.dni_tutor || "",
-        data.parentesco_tutor || "",
-        data.fecha_nacimiento_tutor ?
-          new Date(data.fecha_nacimiento_tutor.seconds * 1000)
-              .toLocaleDateString("es-ES") : "",
-        data.cargo || "",
-        data.tiene_tunica_propia ? "Sí" : "No",
-        data.rol || "cofrade",
-        data.fecha_registro_app ?
-          new Date(data.fecha_registro_app.seconds * 1000)
-              .toLocaleDateString("es-ES") : "",
-        data.ultimo_acceso ?
-          new Date(data.ultimo_acceso.seconds * 1000)
-              .toLocaleDateString("es-ES") : "",
-        data.notificaciones_activas !== false ? "Sí" : "No",
+              .toLocaleDateString("es-ES") : "",       // 11: Fecha Baja
+        data.causa_baja || "",                          // 12: Causa Baja
+        data.domicilio || "",                           // 13: Domicilio
+        data.localidad || "",                           // 14: Localidad
+        data.codigo_postal || "",                       // 15: Código Postal
+        data.telefono_fijo || "",                       // 16: Teléfono Fijo
+        data.telefono_movil || "",                      // 17: Teléfono Móvil
+        data.email || "",                               // 18: Email
+        data.estatura || "",                            // 19: Estatura
+        data.talla || "",                               // 20: Talla
+        data.tiene_cuota ? "TRUE" : "FALSE",            // 21: ¿Cuota?
+        data.cuota_metalico ? "TRUE" : "FALSE",         // 22: Cuota Metálico
+        data.cuota_domiciliada ? "TRUE" : "FALSE",      // 23: Cuota Domiciliada
+        data.iban || "",                                // 24: IBAN
+        data.titular_iban || "",                        // 25: Titular IBAN
+        "",                                            // 26: Raul (existing col)
+        "",                                            // 27: Check Data (existing col)
+        data.gdpr_firmado ? "TRUE" : "FALSE",           // 28: GDPR Firmado
+        data.comentarios || "",                         // 29: Comentarios
       ];
 
       await upsertRowInSheet(sheetId, cofradeId, row);
@@ -163,44 +153,7 @@ exports.syncSheetToFirestore = functions
         const numero = parseInt(row[0]) || null;
         if (!numero) continue;
 
-        const sheetData = {
-          numero: numero,
-          nombre: row[1] || "",
-          apellidos: row[2] || "",
-          tutelado_digital: row[3] || "",
-          edad: parseInt(row[5]) || null,
-          genero: row[6] || "",
-          anio_alta: parseInt(row[7]) || null,
-          anios_hermandad: parseInt(row[8]) || null,
-          anio_mayordomia: parseInt(row[9]) || null,
-          estado: row[10] || "Activo",
-          causa_baja: row[12] || "",
-          domicilio: row[13] || "",
-          localidad: row[14] || "",
-          codigo_postal: row[15] || "",
-          telefono_fijo: row[16] || "",
-          telefono_movil: row[17] || "",
-          email: row[18] || "",
-          estatura: parseInt(row[19]) || null,
-          talla: row[20] || "",
-          tiene_cuota: (row[21] || "").toLowerCase() === "sí",
-          cuota_metalico: parseFloat(row[22]) || null,
-          cuota_domiciliada: parseFloat(row[23]) || null,
-          iban: row[24] || "",
-          titular_iban: row[25] || "",
-          gdpr_firmado: (row[26] || "").toLowerCase() === "sí",
-          comentarios: row[27] || "",
-          // New columns (starting at index 28)
-          gdpr_firmado_digital: (row[28] || "").toLowerCase() === "sí",
-          email_secundario: row[30] || "",
-          telefono_secundario: row[31] || "",
-          dni: row[32] || "",
-          dni_tutor: row[33] || "",
-          parentesco_tutor: row[34] || "",
-          cargo: row[36] || "",
-          tiene_tunica_propia: (row[37] || "").toLowerCase() === "sí",
-          fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-        };
+        const sheetData = rowToFirestoreData(row, numero);
 
         // Find cofrade by numero field
         const snapshot = await db.collection("cofrades")
@@ -210,7 +163,6 @@ exports.syncSheetToFirestore = functions
           // Create new cofrade from Sheet data
           sheetData.rol = "cofrade";
           sheetData.notificaciones_activas = true;
-          sheetData.gdpr_firmado_digital = false;
           const newRef = db.collection("cofrades").doc();
           batch.set(newRef, sheetData);
           updateCount++;
@@ -234,6 +186,45 @@ exports.syncSheetToFirestore = functions
 
       return null;
     });
+
+/**
+ * Convert a Sheet row array to a Firestore data object.
+ * Uses correct column indices matching the actual Google Sheet.
+ */
+function rowToFirestoreData(row, numero) {
+  return {
+    numero: numero,
+    nombre: row[1] || "",
+    apellidos: row[2] || "",
+    tutelado_digital: row[3] || "",
+    fecha_nacimiento_str: row[4] || "",
+    edad: parseSpanishInt(row[5]),
+    genero: row[6] || "",
+    anio_alta: parseSpanishInt(row[7]),
+    anios_hermandad: parseSpanishInt(row[8]),
+    anio_mayordomia: parseSpanishInt(row[9]),
+    estado: row[10] || "Activo",
+    fecha_baja_str: row[11] || "",
+    causa_baja: row[12] || "",
+    domicilio: row[13] || "",
+    localidad: row[14] || "",
+    codigo_postal: row[15] || "",
+    telefono_fijo: row[16] || "",
+    telefono_movil: row[17] || "",
+    email: row[18] || "",
+    estatura: parseSpanishInt(row[19]),
+    talla: row[20] || "",
+    tiene_cuota: parseSheetBool(row[21]),
+    cuota_metalico: parseSheetBool(row[22]),
+    cuota_domiciliada: parseSheetBool(row[23]),
+    iban: row[24] || "",
+    titular_iban: row[25] || "",
+    // 26: Raul (skip), 27: Check Data (skip)
+    gdpr_firmado: parseSheetBool(row[28]),
+    comentarios: row[29] || "",
+    fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+  };
+}
 
 /**
  * Check if sheet data has changes compared to Firestore data.
@@ -547,43 +538,7 @@ exports.triggerSheetSync = functions
             continue;
           }
 
-          const sheetData = {
-            numero: numero,
-            nombre: row[1] || "",
-            apellidos: row[2] || "",
-            tutelado_digital: row[3] || "",
-            edad: parseInt(row[5]) || null,
-            genero: row[6] || "",
-            anio_alta: parseInt(row[7]) || null,
-            anios_hermandad: parseInt(row[8]) || null,
-            anio_mayordomia: parseInt(row[9]) || null,
-            estado: row[10] || "Activo",
-            causa_baja: row[12] || "",
-            domicilio: row[13] || "",
-            localidad: row[14] || "",
-            codigo_postal: row[15] || "",
-            telefono_fijo: row[16] || "",
-            telefono_movil: row[17] || "",
-            email: row[18] || "",
-            estatura: parseInt(row[19]) || null,
-            talla: row[20] || "",
-            tiene_cuota: (row[21] || "").toLowerCase() === "sí",
-            cuota_metalico: parseFloat(row[22]) || null,
-            cuota_domiciliada: parseFloat(row[23]) || null,
-            iban: row[24] || "",
-            titular_iban: row[25] || "",
-            gdpr_firmado: (row[26] || "").toLowerCase() === "sí",
-            comentarios: row[27] || "",
-            gdpr_firmado_digital: (row[28] || "").toLowerCase() === "sí",
-            email_secundario: row[30] || "",
-            telefono_secundario: row[31] || "",
-            dni: row[32] || "",
-            dni_tutor: row[33] || "",
-            parentesco_tutor: row[34] || "",
-            cargo: row[36] || "",
-            tiene_tunica_propia: (row[37] || "").toLowerCase() === "sí",
-            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-          };
+          const sheetData = rowToFirestoreData(row, numero);
 
           const snapshot = await db.collection("cofrades")
               .where("numero", "==", numero).limit(1).get();
@@ -591,7 +546,6 @@ exports.triggerSheetSync = functions
           if (snapshot.empty) {
             sheetData.rol = "cofrade";
             sheetData.notificaciones_activas = true;
-            sheetData.gdpr_firmado_digital = false;
             const newRef = db.collection("cofrades").doc();
             batch.set(newRef, sheetData);
             createCount++;
