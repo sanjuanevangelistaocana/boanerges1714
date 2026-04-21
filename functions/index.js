@@ -283,29 +283,48 @@ function hasChanges(firestoreData, sheetData) {
  * Insert or update a row in Google Sheets.
  */
 async function ensureGridColumns(sheets, sheetId, requiredCols) {
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: sheetId,
-    fields: "sheets(properties(sheetId,title,gridProperties))",
-  });
-  const sheetMeta = meta.data.sheets.find(
-      (s) => s.properties.title === SHEET_NAME,
-  );
-  if (sheetMeta) {
-    const currentCols = sheetMeta.properties.gridProperties.columnCount;
-    if (currentCols < requiredCols) {
-      await sheets.spreadsheets.batchUpdate({
+  try {
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: sheetId,
+      fields: "sheets(properties(sheetId,title,gridProperties))",
+    });
+    const sheetMeta = meta.data.sheets.find(
+        (s) => s.properties.title === SHEET_NAME,
+    );
+    if (sheetMeta) {
+      const currentCols = sheetMeta.properties.gridProperties.columnCount;
+      if (currentCols < requiredCols) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: sheetId,
+          requestBody: {
+            requests: [{
+              appendDimension: {
+                sheetId: sheetMeta.properties.sheetId,
+                dimension: "COLUMNS",
+                length: requiredCols - currentCols,
+              },
+            }],
+          },
+        });
+        console.log(`Expanded grid by ${requiredCols - currentCols} columns.`);
+      }
+      return currentCols;
+    }
+    return requiredCols;
+  } catch (err) {
+    console.warn("Could not expand grid (sheet may be protected):", err.message);
+    try {
+      const meta = await sheets.spreadsheets.get({
         spreadsheetId: sheetId,
-        requestBody: {
-          requests: [{
-            appendDimension: {
-              sheetId: sheetMeta.properties.sheetId,
-              dimension: "COLUMNS",
-              length: requiredCols - currentCols,
-            },
-          }],
-        },
+        fields: "sheets(properties(sheetId,title,gridProperties))",
       });
-      console.log(`Expanded grid by ${requiredCols - currentCols} columns.`);
+      const sheetMeta = meta.data.sheets.find(
+          (s) => s.properties.title === SHEET_NAME,
+      );
+      return sheetMeta ?
+        sheetMeta.properties.gridProperties.columnCount : requiredCols;
+    } catch (e) {
+      return requiredCols;
     }
   }
 }
@@ -313,8 +332,11 @@ async function ensureGridColumns(sheets, sheetId, requiredCols) {
 async function upsertRowInSheet(sheetId, numero, rowData) {
   const sheets = await getSheetsClient();
 
-  // Ensure grid has enough columns for new fields
-  await ensureGridColumns(sheets, sheetId, rowData.length);
+  // Ensure grid has enough columns; get actual column count
+  const gridCols = await ensureGridColumns(sheets, sheetId, rowData.length);
+
+  // Truncate row data if grid couldn't be expanded (e.g. protected sheet)
+  const safeRow = gridCols < rowData.length ? rowData.slice(0, gridCols) : rowData;
 
   // Find existing row by numero (column A)
   const response = await sheets.spreadsheets.values.get({
@@ -332,7 +354,7 @@ async function upsertRowInSheet(sheetId, numero, rowData) {
     }
   }
 
-  const endCol = colLetter(rowData.length - 1);
+  const endCol = colLetter(safeRow.length - 1);
 
   if (rowIndex >= 0) {
     // Update existing row
@@ -340,7 +362,7 @@ async function upsertRowInSheet(sheetId, numero, rowData) {
       spreadsheetId: sheetId,
       range: `${SHEET_NAME}!A${rowIndex + 1}:${endCol}${rowIndex + 1}`,
       valueInputOption: "RAW",
-      requestBody: {values: [rowData]},
+      requestBody: {values: [safeRow]},
     });
     console.log(`Updated row ${rowIndex + 1} for cofrade #${numero}`);
   } else {
@@ -349,7 +371,7 @@ async function upsertRowInSheet(sheetId, numero, rowData) {
       spreadsheetId: sheetId,
       range: `${SHEET_NAME}!A:${endCol}`,
       valueInputOption: "RAW",
-      requestBody: {values: [rowData]},
+      requestBody: {values: [safeRow]},
     });
     console.log(`Appended new row for cofrade #${numero}`);
   }
@@ -584,25 +606,41 @@ exports.triggerSheetSync = functions
           return;
         }
 
-        // Ensure new column headers exist in the Sheet
+        // Try to add new column headers (non-blocking if sheet is protected)
         const headerRow = rows[0];
         if (headerRow.length < TOTAL_SHEET_COLS) {
-          const colsToAdd = TOTAL_SHEET_COLS - headerRow.length;
-
-          // Expand grid if needed, then write missing headers
-          await ensureGridColumns(sheets, SPREADSHEET_ID, TOTAL_SHEET_COLS);
-          const numExistingNew = Math.max(0, headerRow.length - EXISTING_SHEET_COLS);
-          const missingHeaders = NEW_COL_HEADERS.slice(numExistingNew);
-          if (missingHeaders.length > 0) {
-            const startIdx = headerRow.length;
-            const endIdx = startIdx + missingHeaders.length - 1;
-            await sheets.spreadsheets.values.update({
-              spreadsheetId: SPREADSHEET_ID,
-              range: `${SHEET_NAME}!${colLetter(startIdx)}1:${colLetter(endIdx)}1`,
-              valueInputOption: "RAW",
-              requestBody: {values: [missingHeaders]},
-            });
-            console.log(`Added ${missingHeaders.length} new column headers to Sheet.`);
+          try {
+            const gridCols = await ensureGridColumns(
+                sheets, SPREADSHEET_ID, TOTAL_SHEET_COLS,
+            );
+            if (gridCols >= TOTAL_SHEET_COLS) {
+              const numExistingNew = Math.max(
+                  0, headerRow.length - EXISTING_SHEET_COLS,
+              );
+              const missingHeaders = NEW_COL_HEADERS.slice(numExistingNew);
+              if (missingHeaders.length > 0) {
+                const startIdx = headerRow.length;
+                const endIdx = startIdx + missingHeaders.length - 1;
+                await sheets.spreadsheets.values.update({
+                  spreadsheetId: SPREADSHEET_ID,
+                  range: `${SHEET_NAME}!${colLetter(startIdx)}1:${colLetter(endIdx)}1`,
+                  valueInputOption: "RAW",
+                  requestBody: {values: [missingHeaders]},
+                });
+                console.log(
+                    `Added ${missingHeaders.length} new column headers.`,
+                );
+              }
+            } else {
+              console.warn(
+                  `Sheet has ${gridCols} cols, need ${TOTAL_SHEET_COLS}. ` +
+                  "Add columns manually or remove sheet protection.",
+              );
+            }
+          } catch (headerErr) {
+            console.warn(
+                "Could not add new headers (protected?):", headerErr.message,
+            );
           }
         }
 
