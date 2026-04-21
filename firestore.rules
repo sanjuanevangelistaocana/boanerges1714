@@ -29,14 +29,13 @@ service cloud.firestore {
 
     // Cofrades collection
     match /cofrades/{cofradeId} {
-      // Anyone authenticated can read their own data
-      // Admins can read all
-      allow read: if isOwner(cofradeId) || isTutor() || isAdmin();
-
-      // Allow reading cofrades by email query during registration
+      // Authenticated users can read cofrades linked to them by auth_uid,
+      // email, or tutelado_digital. Admins can read all.
       allow read: if isAuth() &&
-        (resource.data.email == request.auth.token.email ||
-         resource.data.tutelado_digital == request.auth.token.email);
+        (resource.data.auth_uid == request.auth.uid ||
+         resource.data.email == request.auth.token.email ||
+         resource.data.tutelado_digital == request.auth.token.email ||
+         isAdmin());
 
       // Allow newly registered user to link their auth_uid to their cofrade doc
       // Only if the cofrade's email matches the authenticated user's email

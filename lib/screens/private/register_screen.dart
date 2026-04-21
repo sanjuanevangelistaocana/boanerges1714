@@ -196,8 +196,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           password: _passwordController.text,
         );
 
-    if (error != null && mounted) {
+    if (!mounted) return;
+
+    if (error != null) {
       setState(() => _error = error);
+    } else {
+      context.go('/dashboard');
     }
   }
 }
