@@ -96,6 +96,15 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    // Contacto collection (public contact form)
+    match /contacto/{messageId} {
+      // Anyone can send a contact message
+      allow create: if true;
+
+      // Only admins can read, update, delete messages
+      allow read, update, delete: if isAdmin();
+    }
+
     // Convocatorias collection
     match /convocatorias/{convocatoriaId} {
       // Authenticated users can read convocatorias
