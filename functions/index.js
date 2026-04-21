@@ -163,13 +163,6 @@ exports.syncSheetToFirestore = functions
         const numero = parseInt(row[0]) || null;
         if (!numero) continue;
 
-        // Find cofrade by numero field
-        const snapshot = await db.collection("cofrades")
-            .where("numero", "==", numero).limit(1).get();
-        if (snapshot.empty) continue;
-
-        const cofradeRef = snapshot.docs[0].ref;
-
         const sheetData = {
           numero: numero,
           nombre: row[1] || "",
@@ -209,10 +202,26 @@ exports.syncSheetToFirestore = functions
           fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
         };
 
-        const currentData = cofradeRef ? snapshot.docs[0].data() : null;
-        if (currentData && hasChanges(currentData, sheetData)) {
-          batch.update(cofradeRef, sheetData);
+        // Find cofrade by numero field
+        const snapshot = await db.collection("cofrades")
+            .where("numero", "==", numero).limit(1).get();
+
+        if (snapshot.empty) {
+          // Create new cofrade from Sheet data
+          sheetData.rol = "cofrade";
+          sheetData.notificaciones_activas = true;
+          sheetData.gdpr_firmado_digital = false;
+          const newRef = db.collection("cofrades").doc();
+          batch.set(newRef, sheetData);
           updateCount++;
+          console.log(`Creating new cofrade #${numero} from Sheet.`);
+        } else {
+          const cofradeRef = snapshot.docs[0].ref;
+          const currentData = snapshot.docs[0].data();
+          if (hasChanges(currentData, sheetData)) {
+            batch.update(cofradeRef, sheetData);
+            updateCount++;
+          }
         }
       }
 
