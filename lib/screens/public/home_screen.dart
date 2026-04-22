@@ -100,8 +100,8 @@ class HomeScreen extends StatelessWidget {
                 icon: const Icon(Icons.person_add),
                 label: const Text('Únete a nosotros'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentColor,
-                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.primaryColor,
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
@@ -111,8 +111,9 @@ class HomeScreen extends StatelessWidget {
                 icon: const Icon(Icons.mail_outline),
                 label: const Text('Contacto'),
                 style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white.withAlpha(20),
                   foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white70),
+                  side: const BorderSide(color: Colors.white, width: 1.5),
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),

@@ -63,7 +63,8 @@ class ManageNewsScreen extends StatelessWidget {
                         ),
                         title: Text(noticia.titulo),
                         subtitle: Text(
-                          '${noticia.fecha.day}/${noticia.fecha.month}/${noticia.fecha.year}',
+                          '${noticia.fecha.day}/${noticia.fecha.month}/${noticia.fecha.year}'
+                          '${noticia.soloCofrades ? ' · Solo cofrades' : ''}',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -99,6 +100,7 @@ class ManageNewsScreen extends StatelessWidget {
     final contenidoController =
         TextEditingController(text: noticia?.contenido ?? '');
     bool publicado = noticia?.publicado ?? true;
+    bool soloCofrades = noticia?.soloCofrades ?? false;
 
     showDialog(
       context: context,
@@ -132,6 +134,14 @@ class ManageNewsScreen extends StatelessWidget {
                     onChanged: (v) =>
                         setDialogState(() => publicado = v),
                   ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Solo cofrades'),
+                    subtitle: const Text('Visible solo para cofrades registrados'),
+                    value: soloCofrades,
+                    onChanged: (v) =>
+                        setDialogState(() => soloCofrades = v),
+                  ),
                 ],
               ),
             ),
@@ -153,6 +163,7 @@ class ManageNewsScreen extends StatelessWidget {
                   contenido: contenidoController.text,
                   fecha: noticia?.fecha ?? DateTime.now(),
                   publicado: publicado,
+                  soloCofrades: soloCofrades,
                 );
                 if (noticia == null) {
                   await firestoreService.createNoticia(newNoticia);
