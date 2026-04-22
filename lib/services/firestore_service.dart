@@ -165,6 +165,14 @@ class FirestoreService {
     return snapshot.count ?? 0;
   }
 
+  Stream<List<Cofrade>> getAllCofradesStream() {
+    return _db
+        .collection('cofrades')
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Cofrade.fromFirestore(doc)).toList());
+  }
+
   // --- Noticias privadas (solo cofrades) ---
   Stream<List<Noticia>> getNoticiasCofrades() {
     return _db
