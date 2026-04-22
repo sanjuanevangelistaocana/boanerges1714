@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 
@@ -219,11 +220,16 @@ class _ContactScreenState extends State<ContactScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'Si deseas formar parte de nuestra Cofradía, '
-                            'contacta con nosotros a través de este formulario '
-                            'o envíanos un email. Te informaremos de los requisitos '
-                            'y el proceso de ingreso.',
+                            'puedes enviarnos una solicitud de alta directamente '
+                            'desde nuestra web.',
                             style: Theme.of(context).textTheme.bodyLarge,
                             textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () => context.go('/solicitud-alta'),
+                            icon: const Icon(Icons.person_add),
+                            label: const Text('Solicitar alta como cofrade'),
                           ),
                         ],
                       ),

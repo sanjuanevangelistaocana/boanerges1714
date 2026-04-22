@@ -483,6 +483,7 @@ exports.onNewSolicitud = functions
       const data = snap.data();
       console.log(`New solicitud from ${data.nombre} ${data.apellidos}`);
 
+      // 1. Send push notification to junta_directiva
       try {
         const message = {
           notification: {
@@ -499,8 +500,63 @@ exports.onNewSolicitud = functions
         await admin.messaging().send(message);
         console.log("Solicitud notification sent to junta_directiva");
       } catch (err) {
-        console.error("Error sending solicitud notification:", err);
+        console.error("Error sending solicitud push notification:", err);
       }
+
+      // 2. Send email notification to cofradía gmail
+      if (!GMAIL_APP_PASSWORD) {
+        console.log("Gmail app password not configured. Skipping solicitud email.");
+        return null;
+      }
+
+      try {
+        const transporter = nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: GMAIL_EMAIL,
+            pass: GMAIL_APP_PASSWORD,
+          },
+        });
+
+        const bodyParts = [];
+        bodyParts.push(`<p><strong>Nombre:</strong> ${data.nombre} ${data.apellidos}</p>`);
+        if (data.email) bodyParts.push(`<p><strong>Email:</strong> ${data.email}</p>`);
+        if (data.telefono) bodyParts.push(`<p><strong>Teléfono:</strong> ${data.telefono}</p>`);
+        if (data.dni) bodyParts.push(`<p><strong>DNI:</strong> ${data.dni}</p>`);
+        if (data.fecha_nacimiento) {
+          const fn = data.fecha_nacimiento.toDate
+            ? data.fecha_nacimiento.toDate().toLocaleDateString("es-ES")
+            : data.fecha_nacimiento;
+          bodyParts.push(`<p><strong>Fecha nacimiento:</strong> ${fn}</p>`);
+        }
+        if (data.domicilio) bodyParts.push(`<p><strong>Domicilio:</strong> ${data.domicilio}</p>`);
+        if (data.localidad) bodyParts.push(`<p><strong>Localidad:</strong> ${data.localidad}</p>`);
+        if (data.codigo_postal) bodyParts.push(`<p><strong>C.P.:</strong> ${data.codigo_postal}</p>`);
+        if (data.motivacion) {
+          bodyParts.push("<hr/>");
+          bodyParts.push(`<p><strong>Motivación:</strong></p><p>${data.motivacion.replace(/\n/g, "<br/>")}</p>`);
+        }
+        bodyParts.push("<hr/>");
+        bodyParts.push(`<p><small>Recibida el ${new Date().toLocaleString("es-ES", {timeZone: "Europe/Madrid"})} desde la web de la Cofradía.</small></p>`);
+        bodyParts.push(`<p>Gestiona esta solicitud desde el <a href="https://boanerges1714.web.app/admin">panel de administración</a>.</p>`);
+
+        const mailOptions = {
+          from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
+          to: GMAIL_EMAIL,
+          replyTo: data.email || GMAIL_EMAIL,
+          subject: `[Nueva Solicitud de Alta] ${data.nombre} ${data.apellidos}`,
+          html: `<h2>Nueva solicitud de alta de cofrade</h2>${bodyParts.join("\n")}`,
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log("Solicitud email sent successfully");
+        await snap.ref.update({email_enviado: true});
+      } catch (err) {
+        console.error("Error sending solicitud email:", err);
+        await snap.ref.update({email_enviado: false, email_error: err.message});
+      }
+
+      return null;
     });
 
 /**

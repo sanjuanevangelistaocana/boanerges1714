@@ -184,37 +184,73 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showResetPasswordDialog() {
-    final resetEmailController = TextEditingController();
+    final resetEmailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    final parentContext = context;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Recuperar contraseña'),
-        content: TextField(
-          controller: resetEmailController,
-          decoration: const InputDecoration(
-            labelText: 'Email de tu cuenta',
-            hintText: 'cofrade@email.com',
-          ),
-          keyboardType: TextInputType.emailAddress,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Introduce tu email y te enviaremos un enlace '
+              'para restablecer tu contraseña.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: resetEmailController,
+              decoration: const InputDecoration(
+                labelText: 'Email de tu cuenta',
+                hintText: 'cofrade@email.com',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () async {
-              final error = await context
-                  .read<AuthService>()
-                  .resetPassword(resetEmailController.text);
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(error ??
-                        'Se ha enviado un email para restablecer tu contraseña.'),
+              final email = resetEmailController.text.trim();
+              if (email.isEmpty || !email.contains('@')) {
+                ScaffoldMessenger.of(parentContext).showSnackBar(
+                  const SnackBar(
+                    content: Text('Introduce un email válido.'),
+                    backgroundColor: Colors.red,
                   ),
                 );
+                return;
+              }
+              Navigator.pop(dialogContext);
+              final error = await parentContext
+                  .read<AuthService>()
+                  .resetPassword(email);
+              if (parentContext.mounted) {
+                if (error != null) {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    SnackBar(
+                      content: Text(error),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Email enviado. Revisa tu bandeja de entrada '
+                        '(y la carpeta de spam) para restablecer tu contraseña.',
+                      ),
+                      duration: Duration(seconds: 6),
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Enviar'),
