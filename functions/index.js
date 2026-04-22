@@ -757,3 +757,65 @@ exports.syncAdminRole = functions
       }
       return null;
     });
+
+// ============================================================
+// Set Admin Role by Cofrade Number (HTTPS endpoint)
+// ============================================================
+
+/**
+ * HTTPS endpoint to set a cofrade as admin by their numero.
+ * Usage: POST /setAdminByNumero with body { "numero": 73, "secret": "boanerges2024" }
+ */
+exports.setAdminByNumero = functions
+    .region("europe-west1")
+    .https.onRequest(async (req, res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      if (req.method === "OPTIONS") {
+        res.set("Access-Control-Allow-Methods", "POST");
+        res.set("Access-Control-Allow-Headers", "Content-Type");
+        return res.status(204).send("");
+      }
+
+      try {
+        const {numero, secret} = req.body || {};
+
+        if (secret !== "boanerges2024") {
+          return res.status(403).json({status: "error", message: "Invalid secret."});
+        }
+        if (!numero) {
+          return res.status(400).json({status: "error", message: "numero is required."});
+        }
+
+        const snapshot = await db.collection("cofrades")
+            .where("numero", "==", parseInt(numero))
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+          return res.status(404).json({status: "error", message: `Cofrade #${numero} not found.`});
+        }
+
+        const cofradeRef = snapshot.docs[0].ref;
+        const cofradeData = snapshot.docs[0].data();
+
+        await cofradeRef.update({
+          rol: "admin",
+          fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        if (cofradeData.auth_uid) {
+          await db.collection("admins").doc(cofradeData.auth_uid).set({
+            cofrade_id: snapshot.docs[0].id,
+            updated: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+
+        return res.json({
+          status: "success",
+          message: `Cofrade #${numero} (${cofradeData.nombre} ${cofradeData.apellidos}) is now admin.`,
+        });
+      } catch (error) {
+        console.error("Error setting admin:", error);
+        return res.status(500).json({status: "error", message: error.message});
+      }
+    });

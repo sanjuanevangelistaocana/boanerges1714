@@ -13,8 +13,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nombreController;
-  late TextEditingController _apellidosController;
   late TextEditingController _telefonoFijoController;
   late TextEditingController _telefonoMovilController;
   late TextEditingController _domicilioController;
@@ -22,6 +20,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _codigoPostalController;
   late TextEditingController _estaturaController;
   late TextEditingController _tallaController;
+  late TextEditingController _emailSecundarioController;
+  late TextEditingController _telefonoSecundarioController;
   bool _isEditing = false;
   bool _isSaving = false;
 
@@ -29,8 +29,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     final cofrade = context.read<AuthService>().cofrade;
-    _nombreController = TextEditingController(text: cofrade?.nombre ?? '');
-    _apellidosController = TextEditingController(text: cofrade?.apellidos ?? '');
     _telefonoFijoController = TextEditingController(text: cofrade?.telefonoFijo ?? '');
     _telefonoMovilController = TextEditingController(text: cofrade?.telefonoMovil ?? '');
     _domicilioController = TextEditingController(text: cofrade?.domicilio ?? '');
@@ -40,12 +38,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _estaturaController = TextEditingController(
         text: cofrade?.estatura?.toString() ?? '');
     _tallaController = TextEditingController(text: cofrade?.talla ?? '');
+    _emailSecundarioController = TextEditingController(text: cofrade?.emailSecundario ?? '');
+    _telefonoSecundarioController = TextEditingController(text: cofrade?.telefonoSecundario ?? '');
   }
 
   @override
   void dispose() {
-    _nombreController.dispose();
-    _apellidosController.dispose();
     _telefonoFijoController.dispose();
     _telefonoMovilController.dispose();
     _domicilioController.dispose();
@@ -53,6 +51,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _codigoPostalController.dispose();
     _estaturaController.dispose();
     _tallaController.dispose();
+    _emailSecundarioController.dispose();
+    _telefonoSecundarioController.dispose();
     super.dispose();
   }
 
@@ -163,14 +163,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Text('Datos Personales',
                           style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 20),
-                      _buildField('Nombre', _nombreController, required: true),
-                      _buildField('Apellidos', _apellidosController,
-                          required: true),
+                      _buildField('Nombre', null,
+                          value: cofrade?.nombre ?? '', enabled: false),
+                      _buildField('Apellidos', null,
+                          value: cofrade?.apellidos ?? '', enabled: false),
+                      _buildField('DNI', null,
+                          value: cofrade?.dni ?? '', enabled: false),
                       _buildField('Email', null,
                           value: cofrade?.email ?? '', enabled: false),
+                      _buildField('Email Secundario', _emailSecundarioController,
+                          keyboardType: TextInputType.emailAddress),
                       _buildField('Teléfono Móvil', _telefonoMovilController,
                           keyboardType: TextInputType.phone),
                       _buildField('Teléfono Fijo', _telefonoFijoController,
+                          keyboardType: TextInputType.phone),
+                      _buildField('Teléfono Secundario', _telefonoSecundarioController,
                           keyboardType: TextInputType.phone),
                       _buildField('Domicilio', _domicilioController),
                       _buildField('Localidad', _localidadController),
@@ -337,8 +344,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _resetFields() {
     final cofrade = context.read<AuthService>().cofrade;
-    _nombreController.text = cofrade?.nombre ?? '';
-    _apellidosController.text = cofrade?.apellidos ?? '';
     _telefonoFijoController.text = cofrade?.telefonoFijo ?? '';
     _telefonoMovilController.text = cofrade?.telefonoMovil ?? '';
     _domicilioController.text = cofrade?.domicilio ?? '';
@@ -346,6 +351,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _codigoPostalController.text = cofrade?.codigoPostal ?? '';
     _estaturaController.text = cofrade?.estatura?.toString() ?? '';
     _tallaController.text = cofrade?.talla ?? '';
+    _emailSecundarioController.text = cofrade?.emailSecundario ?? '';
+    _telefonoSecundarioController.text = cofrade?.telefonoSecundario ?? '';
   }
 
   Future<void> _saveProfile() async {
@@ -357,8 +364,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (cofradeId == null) return;
 
       await context.read<FirestoreService>().updateCofrade(cofradeId, {
-        'nombre': _nombreController.text,
-        'apellidos': _apellidosController.text,
         'telefono_fijo': _telefonoFijoController.text,
         'telefono_movil': _telefonoMovilController.text,
         'domicilio': _domicilioController.text,
@@ -368,6 +373,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ? int.tryParse(_estaturaController.text)
             : null,
         'talla': _tallaController.text,
+        'email_secundario': _emailSecundarioController.text,
+        'telefono_secundario': _telefonoSecundarioController.text,
       });
 
       await context.read<AuthService>().refreshCofradeData();
