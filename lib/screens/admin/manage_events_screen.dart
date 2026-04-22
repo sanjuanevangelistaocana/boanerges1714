@@ -64,7 +64,8 @@ class ManageEventsScreen extends StatelessWidget {
                         title: Text(evento.titulo),
                         subtitle: Text(
                           '${evento.fecha.day}/${evento.fecha.month}/${evento.fecha.year}'
-                          '${evento.hora != null ? ' · ${evento.hora}' : ''}',
+                          '${evento.hora != null ? ' · ${evento.hora}' : ''}'
+                          '${evento.soloCofrades ? ' · Solo cofrades' : ''}',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -104,6 +105,7 @@ class ManageEventsScreen extends StatelessWidget {
         TextEditingController(text: evento?.lugar ?? '');
     DateTime selectedDate = evento?.fecha ?? DateTime.now();
     bool publicado = evento?.publicado ?? true;
+    bool soloCofrades = evento?.soloCofrades ?? false;
 
     showDialog(
       context: context,
@@ -159,6 +161,13 @@ class ManageEventsScreen extends StatelessWidget {
                   value: publicado,
                   onChanged: (v) => setDialogState(() => publicado = v),
                 ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Solo cofrades'),
+                  subtitle: const Text('Visible solo para cofrades registrados'),
+                  value: soloCofrades,
+                  onChanged: (v) => setDialogState(() => soloCofrades = v),
+                ),
               ],
             ),
           ),
@@ -183,6 +192,7 @@ class ManageEventsScreen extends StatelessWidget {
                       ? lugarController.text
                       : null,
                   publicado: publicado,
+                  soloCofrades: soloCofrades,
                 );
                 if (evento == null) {
                   await firestoreService.createEvento(newEvento);
