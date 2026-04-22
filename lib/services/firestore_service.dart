@@ -39,10 +39,11 @@ class FirestoreService {
 
   // --- Eventos ---
   Stream<List<Evento>> getEventos({bool soloPublicados = true}) {
-    Query query = _db.collection('eventos').orderBy('fecha', descending: true);
+    Query query = _db.collection('eventos');
     if (soloPublicados) {
       query = query.where('publicado', isEqualTo: true);
     }
+    query = query.orderBy('fecha', descending: true);
     return query.snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => Evento.fromFirestore(doc)).toList());
   }

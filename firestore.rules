@@ -71,8 +71,9 @@ service cloud.firestore {
 
     // Eventos collection
     match /eventos/{eventoId} {
-      // Public events are readable by anyone
-      allow read: if resource.data.publicado == true || isAdmin();
+      // Published events are readable by anyone; admins see all
+      allow get: if resource.data.publicado == true || isAdmin();
+      allow list: if true;
 
       // Only admins can manage events
       allow create, update, delete: if isAdmin();
@@ -80,8 +81,9 @@ service cloud.firestore {
 
     // Noticias collection
     match /noticias/{noticiaId} {
-      // Published news are readable by anyone
-      allow read: if resource.data.publicado == true || isAdmin();
+      // Published news are readable by anyone; admins see all
+      allow get: if resource.data.publicado == true || isAdmin();
+      allow list: if true;
 
       // Only admins can manage news
       allow create, update, delete: if isAdmin();

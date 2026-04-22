@@ -30,7 +30,7 @@ jobs:
       - name: Deploy Hosting and Firestore rules
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only hosting,firestore
+          args: deploy --only hosting,firestore:rules,firestore:indexes
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           PROJECT_ID: boanerges1714
