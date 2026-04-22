@@ -556,22 +556,21 @@ exports.onNewContactMessage = functions
         },
       });
 
+      const bodyParts = [];
+      if (data.nombre) bodyParts.push(`<p><strong>Nombre:</strong> ${data.nombre}</p>`);
+      if (data.email) bodyParts.push(`<p><strong>Email:</strong> ${data.email}</p>`);
+      if (data.telefono) bodyParts.push(`<p><strong>Teléfono:</strong> ${data.telefono}</p>`);
+      bodyParts.push("<hr/>");
+      if (data.mensaje) bodyParts.push(`<p>${data.mensaje.replace(/\n/g, "<br/>")}</p>`);
+      bodyParts.push("<hr/>");
+      bodyParts.push(`<p><small>Enviado desde la web de la Cofradía - ${new Date().toLocaleString("es-ES", {timeZone: "Europe/Madrid"})}</small></p>`);
+
       const mailOptions = {
         from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
         to: GMAIL_EMAIL,
         replyTo: data.email,
-        subject: `[Contacto Web] ${data.asunto || "Nuevo mensaje"} - ${data.nombre}`,
-        html: `
-          <h2>Nuevo mensaje de contacto</h2>
-          <p><strong>Nombre:</strong> ${data.nombre || ""}</p>
-          <p><strong>Email:</strong> ${data.email || ""}</p>
-          <p><strong>Teléfono:</strong> ${data.telefono || "No proporcionado"}</p>
-          <p><strong>Asunto:</strong> ${data.asunto || "Sin asunto"}</p>
-          <hr/>
-          <p>${(data.mensaje || "").replace(/\n/g, "<br/>")}</p>
-          <hr/>
-          <p><small>Enviado desde la web de la Cofradía - ${new Date().toLocaleString("es-ES", {timeZone: "Europe/Madrid"})}</small></p>
-        `,
+        subject: `[Contacto Web] Nuevo mensaje - ${data.nombre}`,
+        html: `<h2>Nuevo mensaje de contacto</h2>${bodyParts.join("\n")}`,
       };
 
       try {

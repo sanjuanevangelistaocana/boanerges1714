@@ -158,7 +158,8 @@ class _CofradiaInfographicSection extends StatelessWidget {
             final aniosAlta = activos.where((c) => c.anioAlta != null && c.anioAlta! > 0).map((c) => c.anioAlta!).toList();
             final minAnioAlta = aniosAlta.isNotEmpty ? aniosAlta.reduce(math.min) : 0;
 
-            final gdprFirmados = activos.where((c) => c.gdprFirmado).length;
+            final gdprPapel = activos.where((c) => c.gdprFirmado).length;
+            final gdprDigital = activos.where((c) => c.gdprFirmadoDigital).length;
             final conTunica = activos.where((c) => c.tieneTunicaPropia).length;
             final conCuota = activos.where((c) => c.tieneCuota).length;
 
@@ -203,13 +204,13 @@ class _CofradiaInfographicSection extends StatelessWidget {
                     children: [
                       Expanded(child: _GenderCard(hombres: hombres, mujeres: mujeres, total: activos.length)),
                       const SizedBox(width: 16),
-                      Expanded(child: _EstadoCard(conCuota: conCuota, gdprFirmados: gdprFirmados, conTunica: conTunica, totalActivos: activos.length, totalBajas: bajas.length)),
+                      Expanded(child: _EstadoCard(conCuota: conCuota, gdprPapel: gdprPapel, gdprDigital: gdprDigital, conTunica: conTunica, totalActivos: activos.length, totalBajas: bajas.length)),
                     ],
                   )
                 else ...[
                   _GenderCard(hombres: hombres, mujeres: mujeres, total: activos.length),
                   const SizedBox(height: 16),
-                  _EstadoCard(conCuota: conCuota, gdprFirmados: gdprFirmados, conTunica: conTunica, totalActivos: activos.length, totalBajas: bajas.length),
+                  _EstadoCard(conCuota: conCuota, gdprPapel: gdprPapel, gdprDigital: gdprDigital, conTunica: conTunica, totalActivos: activos.length, totalBajas: bajas.length),
                 ],
                 const SizedBox(height: 16),
                 Card(
@@ -278,11 +279,12 @@ class _GenderCard extends StatelessWidget {
 
 class _EstadoCard extends StatelessWidget {
   final int conCuota;
-  final int gdprFirmados;
+  final int gdprPapel;
+  final int gdprDigital;
   final int conTunica;
   final int totalActivos;
   final int totalBajas;
-  const _EstadoCard({required this.conCuota, required this.gdprFirmados, required this.conTunica, required this.totalActivos, required this.totalBajas});
+  const _EstadoCard({required this.conCuota, required this.gdprPapel, required this.gdprDigital, required this.conTunica, required this.totalActivos, required this.totalBajas});
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +298,9 @@ class _EstadoCard extends StatelessWidget {
             const SizedBox(height: 16),
             _ProgressStat(label: 'Cuotas al d\u00eda', value: conCuota, total: totalActivos, color: Colors.green),
             const SizedBox(height: 12),
-            _ProgressStat(label: 'GDPR firmado', value: gdprFirmados, total: totalActivos, color: Colors.blue),
+            _ProgressStat(label: 'GDPR firmado en papel', value: gdprPapel, total: totalActivos, color: Colors.blue),
+            const SizedBox(height: 12),
+            _ProgressStat(label: 'GDPR firmado digital', value: gdprDigital, total: totalActivos, color: Colors.indigo),
             const SizedBox(height: 12),
             _ProgressStat(label: 'T\u00fanica propia', value: conTunica, total: totalActivos, color: AppTheme.primaryColor),
             const SizedBox(height: 12),

@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const Color primaryColor = Color(0xFF5B2C6F);
-  static const Color primaryDark = Color(0xFF3B1A4A);
-  static const Color primaryLight = Color(0xFF8E44AD);
-  static const Color accentColor = Color(0xFFD4AC0D);
-  static const Color backgroundColor = Color(0xFFF8F9FA);
+  // Gama principal: escala de granates
+  static const Color primaryColor = Color(0xFF6B1024);
+  static const Color primaryDark = Color(0xFF4A0B19);
+  static const Color primaryLight = Color(0xFF8C1F3B);
+  // Color secundario: verde oscuro tipo "botella"
+  static const Color accentColor = Color(0xFF2E5F3A);
+  // Neutros: escala de grises + blanco
+  static const Color backgroundColor = Color(0xFFF5F5F5);
   static const Color surfaceColor = Colors.white;
-  static const Color errorColor = Color(0xFFE74C3C);
-  static const Color textPrimary = Color(0xFF2C3E50);
-  static const Color textSecondary = Color(0xFF7F8C8D);
+  static const Color errorColor = Color(0xFFB71C1C);
+  static const Color textPrimary = Color(0xFF212121);
+  static const Color textSecondary = Color(0xFF757575);
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -72,6 +75,16 @@ class AppTheme {
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primaryColor,
+          side: const BorderSide(color: primaryColor),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

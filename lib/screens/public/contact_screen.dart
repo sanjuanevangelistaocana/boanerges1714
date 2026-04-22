@@ -14,6 +14,7 @@ class _ContactScreenState extends State<ContactScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nombreController = TextEditingController();
   final _emailController = TextEditingController();
+  final _telefonoController = TextEditingController();
   final _mensajeController = TextEditingController();
   final FirestoreService _firestoreService = FirestoreService();
   bool _enviado = false;
@@ -23,6 +24,7 @@ class _ContactScreenState extends State<ContactScreen> {
   void dispose() {
     _nombreController.dispose();
     _emailController.dispose();
+    _telefonoController.dispose();
     _mensajeController.dispose();
     super.dispose();
   }
@@ -55,7 +57,7 @@ class _ContactScreenState extends State<ContactScreen> {
                   style: Theme.of(context)
                       .textTheme
                       .bodyLarge
-                      ?.copyWith(color: AppTheme.accentColor),
+                      ?.copyWith(color: Colors.white70),
                 ),
               ],
             ),
@@ -79,15 +81,21 @@ class _ContactScreenState extends State<ContactScreen> {
                         onTap: () => _launchEmail(),
                       ),
                       _ContactCard(
+                        icon: Icons.phone,
+                        title: 'Teléfono',
+                        subtitle: '623 260 868',
+                        onTap: () => _launchPhone(),
+                      ),
+                      _ContactCard(
                         icon: Icons.location_on,
-                        title: 'Ubicación',
-                        subtitle: 'Ocaña, Toledo\nCastilla-La Mancha',
+                        title: 'Dirección',
+                        subtitle: 'Plaza Santa María\nOcaña, Toledo',
                         onTap: () {},
                       ),
                       _ContactCard(
                         icon: Icons.church,
                         title: 'Parroquia',
-                        subtitle: 'Ocaña, Toledo',
+                        subtitle: 'Iglesia Parroquial de\nSanta María de la Asunción',
                         onTap: () {},
                       ),
                     ],
@@ -146,6 +154,24 @@ class _ContactScreenState extends State<ContactScreen> {
                             keyboardType: TextInputType.emailAddress,
                             validator: (v) =>
                                 v == null || !v.contains('@') ? 'Email no válido' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _telefonoController,
+                            decoration: const InputDecoration(
+                                labelText: 'Teléfono',
+                                hintText: 'Ej: 600 123 456'),
+                            keyboardType: TextInputType.phone,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Introduce tu teléfono';
+                              }
+                              final cleaned = v.replaceAll(RegExp(r'[\s\-]'), '');
+                              if (cleaned.length < 9) {
+                                return 'Teléfono no válido (mín. 9 dígitos)';
+                              }
+                              return null;
+                            },
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -220,6 +246,7 @@ class _ContactScreenState extends State<ContactScreen> {
         await _firestoreService.sendContactMessage(
           nombre: _nombreController.text.trim(),
           email: _emailController.text.trim(),
+          telefono: _telefonoController.text.trim(),
           mensaje: _mensajeController.text.trim(),
         );
         setState(() {
@@ -242,6 +269,13 @@ class _ContactScreenState extends State<ContactScreen> {
 
   Future<void> _launchEmail() async {
     final uri = Uri.parse('mailto:sanjuanevangelistaocana@gmail.com');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _launchPhone() async {
+    final uri = Uri.parse('tel:+34623260868');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }

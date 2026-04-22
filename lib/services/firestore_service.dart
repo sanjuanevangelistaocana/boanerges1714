@@ -73,10 +73,11 @@ class FirestoreService {
 
   // --- Noticias ---
   Stream<List<Noticia>> getNoticias({bool soloPublicadas = true}) {
-    Query query = _db.collection('noticias').orderBy('fecha', descending: true);
+    Query query = _db.collection('noticias');
     if (soloPublicadas) {
       query = query.where('publicado', isEqualTo: true);
     }
+    query = query.orderBy('fecha', descending: true);
     return query.snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList());
   }
