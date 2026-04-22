@@ -1,0 +1,143 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: check if user is admin via admins collection
+    // (Cloud Function syncAdminRole maintains admins/{auth_uid} docs)
+    function isAdmin() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Helper: check if user owns this cofrade document
+    // Matches by auth_uid field (set during registration)
+    function isOwner(cofradeId) {
+      return isAuth() &&
+        resource.data.auth_uid == request.auth.uid;
+    }
+
+    // Helper: check if user is tutor of this cofrade
+    function isTutor() {
+      return isAuth() &&
+        resource.data.tutelado_digital == request.auth.token.email;
+    }
+
+    // Cofrades collection
+    match /cofrades/{cofradeId} {
+      // Authenticated users can read cofrades linked to them by auth_uid,
+      // email, or tutelado_digital. Admins can read all.
+      allow read: if isAuth() &&
+        (resource.data.auth_uid == request.auth.uid ||
+         resource.data.email == request.auth.token.email ||
+         resource.data.tutelado_digital == request.auth.token.email ||
+         isAdmin());
+
+      // Allow newly registered user to link their auth_uid to their cofrade doc
+      // Only if the cofrade's email matches the authenticated user's email
+      // and the only fields being changed are auth_uid and fecha_actualizacion
+      allow update: if isAuth() &&
+        (resource.data.email == request.auth.token.email ||
+         resource.data.tutelado_digital == request.auth.token.email) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['auth_uid', 'fecha_actualizacion']);
+
+      // Cofrades can update their own non-sensitive fields
+      allow update: if (isOwner(cofradeId) || isTutor()) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
+                   'anio_mayordomia', 'fecha_baja', 'causa_baja',
+                   'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
+                   'iban', 'titular_iban', 'gdpr_firmado', 'auth_uid',
+                   'dni', 'dni_tutor', 'cargo', 'gdpr_firmado_digital',
+                   'fecha_gdpr_digital', 'fecha_registro_app']);
+
+      // Admins can create, update, delete any cofrade
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Cuotas collection
+    match /cuotas/{cuotaId} {
+      // Cofrades can read their own cuotas
+      allow read: if isAuth() && isAdmin();
+
+      // Only admins can manage cuotas
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Eventos collection
+    match /eventos/{eventoId} {
+      // Public events are readable by anyone
+      allow read: if resource.data.publicado == true || isAdmin();
+
+      // Only admins can manage events
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Noticias collection
+    match /noticias/{noticiaId} {
+      // Published news are readable by anyone
+      allow read: if resource.data.publicado == true || isAdmin();
+
+      // Only admins can manage news
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Documentos collection
+    match /documentos/{documentoId} {
+      // Only authenticated users can read documents
+      allow read: if isAuth();
+
+      // Only admins can manage documents
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Solicitudes de alta collection
+    match /solicitudes/{solicitudId} {
+      // Anyone can create a solicitud (public registration form)
+      allow create: if true;
+
+      // Only admins can read, update, delete solicitudes
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Contacto collection (public contact form)
+    match /contacto/{messageId} {
+      // Anyone can send a contact message
+      allow create: if true;
+
+      // Only admins can read, update, delete messages
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Admin roles collection (managed by Cloud Functions only)
+    match /admins/{adminUid} {
+      allow read, write: if false;
+    }
+
+    // Convocatorias collection
+    match /convocatorias/{convocatoriaId} {
+      // Authenticated users can read convocatorias
+      allow read: if isAuth();
+
+      // Only admins can create, update, delete convocatorias
+      allow create, update, delete: if isAdmin();
+
+      // Respuestas subcollection
+      match /respuestas/{respuestaId} {
+        // Authenticated users can read all responses
+        allow read: if isAuth();
+
+        // Authenticated users can create/update their own response
+        allow create, update: if isAuth();
+
+        // Only admins can delete responses
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}

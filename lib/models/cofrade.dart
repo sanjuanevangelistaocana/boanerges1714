@@ -1,0 +1,331 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class Cofrade {
+  final String id;
+  final int? numero;
+  final String nombre;
+  final String apellidos;
+  final String? tuteladoDigital;
+  final DateTime? fechaNacimiento;
+  final int? edad;
+  final String? genero;
+  final int? anioAlta;
+  final int? aniosHermandad;
+  final int? anioMayordomia;
+  final String estado;
+  final DateTime? fechaBaja;
+  final String? causaBaja;
+  final String domicilio;
+  final String localidad;
+  final String codigoPostal;
+  final String telefonoFijo;
+  final String telefonoMovil;
+  final String email;
+  final int? estatura;
+  final String? talla;
+  final bool tieneCuota;
+  final bool cuotaMetalico;
+  final bool cuotaDomiciliada;
+  final String? iban;
+  final String? titularIban;
+  final bool gdprFirmado;
+  final String? comentarios;
+  final String? fotoUrl;
+  final String rol;
+  final DateTime? fechaCreacion;
+  final DateTime? fechaActualizacion;
+  // New fields: account management
+  final String? authUid;
+  final DateTime? fechaRegistroApp;
+  final DateTime? ultimoAcceso;
+  // GDPR dual: paper + digital
+  final bool gdprFirmadoDigital;
+  final DateTime? fechaGdprDigital;
+  // Communication
+  final String? fcmToken;
+  final bool notificacionesActivas;
+  final String? emailSecundario;
+  final String? telefonoSecundario;
+  // Profile extras
+  final String? dni;
+  final DateTime? fechaNacimientoTutor;
+  final String? dniTutor;
+  final String? parentescoTutor;
+  // Cofradía
+  final String? cargo;
+  final bool tieneTunicaPropia;
+
+  Cofrade({
+    required this.id,
+    this.numero,
+    required this.nombre,
+    required this.apellidos,
+    this.tuteladoDigital,
+    this.fechaNacimiento,
+    this.edad,
+    this.genero,
+    this.anioAlta,
+    this.aniosHermandad,
+    this.anioMayordomia,
+    this.estado = 'Activo',
+    this.fechaBaja,
+    this.causaBaja,
+    this.domicilio = '',
+    this.localidad = 'Ocaña',
+    this.codigoPostal = '',
+    this.telefonoFijo = '',
+    this.telefonoMovil = '',
+    this.email = '',
+    this.estatura,
+    this.talla,
+    this.tieneCuota = false,
+    this.cuotaMetalico = false,
+    this.cuotaDomiciliada = false,
+    this.iban,
+    this.titularIban,
+    this.gdprFirmado = false,
+    this.comentarios,
+    this.fotoUrl,
+    this.rol = 'cofrade',
+    this.fechaCreacion,
+    this.fechaActualizacion,
+    this.authUid,
+    this.fechaRegistroApp,
+    this.ultimoAcceso,
+    this.gdprFirmadoDigital = false,
+    this.fechaGdprDigital,
+    this.fcmToken,
+    this.notificacionesActivas = true,
+    this.emailSecundario,
+    this.telefonoSecundario,
+    this.dni,
+    this.fechaNacimientoTutor,
+    this.dniTutor,
+    this.parentescoTutor,
+    this.cargo,
+    this.tieneTunicaPropia = false,
+  });
+
+  factory Cofrade.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Cofrade(
+      id: doc.id,
+      numero: data['numero'] as int?,
+      nombre: data['nombre'] ?? '',
+      apellidos: data['apellidos'] ?? '',
+      tuteladoDigital: data['tutelado_digital'] as String?,
+      fechaNacimiento: (data['fecha_nacimiento'] as Timestamp?)?.toDate(),
+      edad: data['edad'] as int?,
+      genero: data['genero'] as String?,
+      anioAlta: data['anio_alta'] as int?,
+      aniosHermandad: data['anios_hermandad'] as int?,
+      anioMayordomia: data['anio_mayordomia'] as int?,
+      estado: data['estado'] ?? 'Activo',
+      fechaBaja: (data['fecha_baja'] as Timestamp?)?.toDate(),
+      causaBaja: data['causa_baja'] as String?,
+      domicilio: data['domicilio'] ?? '',
+      localidad: data['localidad'] ?? 'Ocaña',
+      codigoPostal: data['codigo_postal'] ?? '',
+      telefonoFijo: data['telefono_fijo'] ?? '',
+      telefonoMovil: data['telefono_movil'] ?? '',
+      email: data['email'] ?? '',
+      estatura: data['estatura'] as int?,
+      talla: data['talla'] as String?,
+      tieneCuota: data['tiene_cuota'] ?? false,
+      cuotaMetalico: data['cuota_metalico'] == true,
+      cuotaDomiciliada: data['cuota_domiciliada'] == true,
+      iban: data['iban'] as String?,
+      titularIban: data['titular_iban'] as String?,
+      gdprFirmado: data['gdpr_firmado'] ?? false,
+      comentarios: data['comentarios'] as String?,
+      fotoUrl: data['foto_url'] as String?,
+      rol: data['rol'] ?? 'cofrade',
+      fechaCreacion: (data['fecha_creacion'] as Timestamp?)?.toDate(),
+      fechaActualizacion: (data['fecha_actualizacion'] as Timestamp?)?.toDate(),
+      authUid: data['auth_uid'] as String?,
+      fechaRegistroApp: (data['fecha_registro_app'] as Timestamp?)?.toDate(),
+      ultimoAcceso: (data['ultimo_acceso'] as Timestamp?)?.toDate(),
+      gdprFirmadoDigital: data['gdpr_firmado_digital'] ?? false,
+      fechaGdprDigital: (data['fecha_gdpr_digital'] as Timestamp?)?.toDate(),
+      fcmToken: data['fcm_token'] as String?,
+      notificacionesActivas: data['notificaciones_activas'] ?? true,
+      emailSecundario: data['email_secundario'] as String?,
+      telefonoSecundario: data['telefono_secundario'] as String?,
+      dni: data['dni'] as String?,
+      fechaNacimientoTutor: (data['fecha_nacimiento_tutor'] as Timestamp?)?.toDate(),
+      dniTutor: data['dni_tutor'] as String?,
+      parentescoTutor: data['parentesco_tutor'] as String?,
+      cargo: data['cargo'] as String?,
+      tieneTunicaPropia: data['tiene_tunica_propia'] ?? false,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'numero': numero,
+      'nombre': nombre,
+      'apellidos': apellidos,
+      'tutelado_digital': tuteladoDigital,
+      'fecha_nacimiento': fechaNacimiento != null
+          ? Timestamp.fromDate(fechaNacimiento!)
+          : null,
+      'edad': edad,
+      'genero': genero,
+      'anio_alta': anioAlta,
+      'anios_hermandad': aniosHermandad,
+      'anio_mayordomia': anioMayordomia,
+      'estado': estado,
+      'fecha_baja': fechaBaja != null ? Timestamp.fromDate(fechaBaja!) : null,
+      'causa_baja': causaBaja,
+      'domicilio': domicilio,
+      'localidad': localidad,
+      'codigo_postal': codigoPostal,
+      'telefono_fijo': telefonoFijo,
+      'telefono_movil': telefonoMovil,
+      'email': email,
+      'estatura': estatura,
+      'talla': talla,
+      'tiene_cuota': tieneCuota,
+      'cuota_metalico': cuotaMetalico,
+      'cuota_domiciliada': cuotaDomiciliada,
+      'iban': iban,
+      'titular_iban': titularIban,
+      'gdpr_firmado': gdprFirmado,
+      'comentarios': comentarios,
+      'foto_url': fotoUrl,
+      'rol': rol,
+      'fecha_creacion': fechaCreacion != null
+          ? Timestamp.fromDate(fechaCreacion!)
+          : FieldValue.serverTimestamp(),
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+      'auth_uid': authUid,
+      'fecha_registro_app': fechaRegistroApp != null
+          ? Timestamp.fromDate(fechaRegistroApp!)
+          : null,
+      'ultimo_acceso': ultimoAcceso != null
+          ? Timestamp.fromDate(ultimoAcceso!)
+          : null,
+      'gdpr_firmado_digital': gdprFirmadoDigital,
+      'fecha_gdpr_digital': fechaGdprDigital != null
+          ? Timestamp.fromDate(fechaGdprDigital!)
+          : null,
+      'fcm_token': fcmToken,
+      'notificaciones_activas': notificacionesActivas,
+      'email_secundario': emailSecundario,
+      'telefono_secundario': telefonoSecundario,
+      'dni': dni,
+      'fecha_nacimiento_tutor': fechaNacimientoTutor != null
+          ? Timestamp.fromDate(fechaNacimientoTutor!)
+          : null,
+      'dni_tutor': dniTutor,
+      'parentesco_tutor': parentescoTutor,
+      'cargo': cargo,
+      'tiene_tunica_propia': tieneTunicaPropia,
+    };
+  }
+
+  Cofrade copyWith({
+    int? numero,
+    String? nombre,
+    String? apellidos,
+    String? tuteladoDigital,
+    DateTime? fechaNacimiento,
+    int? edad,
+    String? genero,
+    int? anioAlta,
+    int? aniosHermandad,
+    int? anioMayordomia,
+    String? estado,
+    DateTime? fechaBaja,
+    String? causaBaja,
+    String? domicilio,
+    String? localidad,
+    String? codigoPostal,
+    String? telefonoFijo,
+    String? telefonoMovil,
+    String? email,
+    int? estatura,
+    String? talla,
+    bool? tieneCuota,
+    bool? cuotaMetalico,
+    bool? cuotaDomiciliada,
+    String? iban,
+    String? titularIban,
+    bool? gdprFirmado,
+    String? comentarios,
+    String? fotoUrl,
+    String? rol,
+    String? authUid,
+    DateTime? fechaRegistroApp,
+    DateTime? ultimoAcceso,
+    bool? gdprFirmadoDigital,
+    DateTime? fechaGdprDigital,
+    String? fcmToken,
+    bool? notificacionesActivas,
+    String? emailSecundario,
+    String? telefonoSecundario,
+    String? dni,
+    DateTime? fechaNacimientoTutor,
+    String? dniTutor,
+    String? parentescoTutor,
+    String? cargo,
+    bool? tieneTunicaPropia,
+  }) {
+    return Cofrade(
+      id: id,
+      numero: numero ?? this.numero,
+      nombre: nombre ?? this.nombre,
+      apellidos: apellidos ?? this.apellidos,
+      tuteladoDigital: tuteladoDigital ?? this.tuteladoDigital,
+      fechaNacimiento: fechaNacimiento ?? this.fechaNacimiento,
+      edad: edad ?? this.edad,
+      genero: genero ?? this.genero,
+      anioAlta: anioAlta ?? this.anioAlta,
+      aniosHermandad: aniosHermandad ?? this.aniosHermandad,
+      anioMayordomia: anioMayordomia ?? this.anioMayordomia,
+      estado: estado ?? this.estado,
+      fechaBaja: fechaBaja ?? this.fechaBaja,
+      causaBaja: causaBaja ?? this.causaBaja,
+      domicilio: domicilio ?? this.domicilio,
+      localidad: localidad ?? this.localidad,
+      codigoPostal: codigoPostal ?? this.codigoPostal,
+      telefonoFijo: telefonoFijo ?? this.telefonoFijo,
+      telefonoMovil: telefonoMovil ?? this.telefonoMovil,
+      email: email ?? this.email,
+      estatura: estatura ?? this.estatura,
+      talla: talla ?? this.talla,
+      tieneCuota: tieneCuota ?? this.tieneCuota,
+      cuotaMetalico: cuotaMetalico ?? this.cuotaMetalico,
+      cuotaDomiciliada: cuotaDomiciliada ?? this.cuotaDomiciliada,
+      iban: iban ?? this.iban,
+      titularIban: titularIban ?? this.titularIban,
+      gdprFirmado: gdprFirmado ?? this.gdprFirmado,
+      comentarios: comentarios ?? this.comentarios,
+      fotoUrl: fotoUrl ?? this.fotoUrl,
+      rol: rol ?? this.rol,
+      fechaCreacion: fechaCreacion,
+      fechaActualizacion: fechaActualizacion,
+      authUid: authUid ?? this.authUid,
+      fechaRegistroApp: fechaRegistroApp ?? this.fechaRegistroApp,
+      ultimoAcceso: ultimoAcceso ?? this.ultimoAcceso,
+      gdprFirmadoDigital: gdprFirmadoDigital ?? this.gdprFirmadoDigital,
+      fechaGdprDigital: fechaGdprDigital ?? this.fechaGdprDigital,
+      fcmToken: fcmToken ?? this.fcmToken,
+      notificacionesActivas: notificacionesActivas ?? this.notificacionesActivas,
+      emailSecundario: emailSecundario ?? this.emailSecundario,
+      telefonoSecundario: telefonoSecundario ?? this.telefonoSecundario,
+      dni: dni ?? this.dni,
+      fechaNacimientoTutor: fechaNacimientoTutor ?? this.fechaNacimientoTutor,
+      dniTutor: dniTutor ?? this.dniTutor,
+      parentescoTutor: parentescoTutor ?? this.parentescoTutor,
+      cargo: cargo ?? this.cargo,
+      tieneTunicaPropia: tieneTunicaPropia ?? this.tieneTunicaPropia,
+    );
+  }
+
+  String get nombreCompleto => '$nombre $apellidos';
+  bool get isAdmin => rol == 'admin';
+  bool get isActivo => estado == 'Activo' || estado == 'activo';
+  bool get isBaja => estado == 'Baja' || estado == 'baja';
+  bool get isJunta => rol == 'junta' || rol == 'admin';
+}

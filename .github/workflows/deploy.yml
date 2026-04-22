@@ -1,0 +1,53 @@
+name: Build and Deploy to Firebase
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web app
+        run: flutter build web --release
+
+      - name: Deploy Hosting and Firestore rules
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only hosting,firestore
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: boanerges1714
+
+      - name: Setup Node.js (for Cloud Functions)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Cloud Functions dependencies
+        run: npm install
+        working-directory: functions
+
+      - name: Deploy Cloud Functions
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only functions --force
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: boanerges1714
