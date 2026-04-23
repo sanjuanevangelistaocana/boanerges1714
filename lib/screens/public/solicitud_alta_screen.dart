@@ -1,9 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/solicitud.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+
+const Map<String, String> _localidadesCp = {
+  'Oca\u00f1a': '45300',
+  'Dos Barrios': '45311',
+  'Villatobas': '45310',
+  'La Guardia': '45760',
+  'Noblejas': '45350',
+  'Santa Cruz de la Zarza': '45370',
+  'Villasequilla': '45740',
+  'Yepes': '45313',
+  'Huerta de Valdecar\u00e1banos': '45750',
+  'Ont\u00edgola': '45340',
+  'Caba\u00f1as de Yepes': '45312',
+  'Ciruelos': '45314',
+  'Villarrubia de Santiago': '45360',
+  'Aranjuez': '28300',
+  'Toledo': '45001',
+  'Madrid': '28001',
+};
 
 class SolicitudAltaScreen extends StatefulWidget {
   const SolicitudAltaScreen({super.key});
@@ -26,6 +46,57 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
   DateTime? _fechaNacimiento;
   bool _isSending = false;
   bool _sent = false;
+
+  String? _validateDni(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final v = value.trim().toUpperCase();
+    final dniRegex = RegExp(r'^[0-9]{8}[A-Z]$');
+    final nieRegex = RegExp(r'^[XYZ][0-9]{7}[A-Z]$');
+    if (!dniRegex.hasMatch(v) && !nieRegex.hasMatch(v)) {
+      return 'Formato inv\u00e1lido (ej: 12345678A o X1234567A)';
+    }
+    return null;
+  }
+
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)]'), '');
+    if (cleaned.startsWith('+34')) {
+      if (cleaned.length != 12) return 'Tel\u00e9fono inv\u00e1lido';
+    } else if (cleaned.length == 9) {
+      if (!RegExp(r'^[6-9][0-9]{8}$').hasMatch(cleaned)) {
+        return 'Tel\u00e9fono inv\u00e1lido (debe empezar por 6, 7, 8 o 9)';
+      }
+    } else {
+      return 'Introduce 9 d\u00edgitos o +34 seguido de 9 d\u00edgitos';
+    }
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) return 'Campo obligatorio';
+    final emailRegex = RegExp(r'^[\w\.\-\+]+@[\w\.\-]+\.[a-zA-Z]{2,}$');
+    if (!emailRegex.hasMatch(value.trim())) {
+      return 'Introduce un email v\u00e1lido';
+    }
+    return null;
+  }
+
+  String? _validateCp(String? value) {
+    if (value == null || value.isEmpty) return null;
+    if (!RegExp(r'^[0-9]{5}$').hasMatch(value.trim())) {
+      return 'El c\u00f3digo postal debe tener 5 d\u00edgitos';
+    }
+    return null;
+  }
+
+  void _onLocalidadSelected(String localidad) {
+    _localidadController.text = localidad;
+    final cp = _localidadesCp[localidad];
+    if (cp != null && _codigoPostalController.text.isEmpty) {
+      _codigoPostalController.text = cp;
+    }
+  }
 
   @override
   void dispose() {
@@ -146,20 +217,24 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Email *',
                               prefixIcon: Icon(Icons.email_outlined),
+                              hintText: 'ejemplo@correo.com',
                             ),
                             keyboardType: TextInputType.emailAddress,
-                            validator: (v) => v == null || !v.contains('@')
-                                ? 'Introduce un email válido'
-                                : null,
+                            validator: _validateEmail,
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _telefonoController,
                             decoration: const InputDecoration(
-                              labelText: 'Teléfono móvil',
+                              labelText: 'Tel\u00e9fono m\u00f3vil',
                               prefixIcon: Icon(Icons.phone_outlined),
+                              hintText: '612 345 678',
                             ),
                             keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]')),
+                            ],
+                            validator: _validatePhone,
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
@@ -167,7 +242,14 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                             decoration: const InputDecoration(
                               labelText: 'DNI / NIE',
                               prefixIcon: Icon(Icons.badge_outlined),
+                              hintText: '12345678A',
                             ),
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9A-Za-zXYZxyz]')),
+                              LengthLimitingTextInputFormatter(9),
+                            ],
+                            validator: _validateDni,
                           ),
                           const SizedBox(height: 12),
                           ListTile(
@@ -176,7 +258,7 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                                 const Icon(Icons.cake, color: Colors.grey),
                             title: Text(
                               _fechaNacimiento != null
-                                  ? '${_fechaNacimiento!.day}/${_fechaNacimiento!.month}/${_fechaNacimiento!.year}'
+                                  ? '${_fechaNacimiento!.day.toString().padLeft(2, '0')}/${_fechaNacimiento!.month.toString().padLeft(2, '0')}/${_fechaNacimiento!.year}'
                                   : 'Fecha de nacimiento',
                               style: TextStyle(
                                 color: _fechaNacimiento != null
@@ -207,24 +289,57 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Domicilio',
                               prefixIcon: Icon(Icons.home_outlined),
+                              hintText: 'C/ Ejemplo, 1',
                             ),
+                            textCapitalization: TextCapitalization.sentences,
                           ),
                           const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _localidadController,
-                            decoration: const InputDecoration(
-                              labelText: 'Localidad',
-                              prefixIcon: Icon(Icons.location_city),
-                            ),
+                          Autocomplete<String>(
+                            optionsBuilder: (textEditingValue) {
+                              if (textEditingValue.text.isEmpty) {
+                                return const Iterable<String>.empty();
+                              }
+                              final query = textEditingValue.text.toLowerCase();
+                              return _localidadesCp.keys.where(
+                                (loc) => loc.toLowerCase().contains(query),
+                              );
+                            },
+                            onSelected: _onLocalidadSelected,
+                            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (_localidadController.text.isNotEmpty && controller.text.isEmpty) {
+                                  controller.text = _localidadController.text;
+                                }
+                              });
+                              return TextFormField(
+                                controller: controller,
+                                focusNode: focusNode,
+                                decoration: const InputDecoration(
+                                  labelText: 'Localidad',
+                                  prefixIcon: Icon(Icons.location_city),
+                                  hintText: 'Oca\u00f1a',
+                                ),
+                                textCapitalization: TextCapitalization.words,
+                                onChanged: (v) {
+                                  _localidadController.text = v;
+                                },
+                              );
+                            },
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _codigoPostalController,
                             decoration: const InputDecoration(
-                              labelText: 'Código postal',
+                              labelText: 'C\u00f3digo postal',
                               prefixIcon: Icon(Icons.markunread_mailbox),
+                              hintText: '45300',
                             ),
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(5),
+                            ],
+                            validator: _validateCp,
                           ),
                           const Divider(height: 32),
                           TextFormField(
@@ -290,8 +405,19 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
       if (mounted) setState(() => _sent = true);
     } catch (e) {
       if (mounted) {
+        String errorMsg = 'Error al enviar la solicitud.';
+        final errorStr = e.toString();
+        if (errorStr.contains('permission-denied') || errorStr.contains('PERMISSION_DENIED')) {
+          errorMsg = 'Error de permisos. Int\u00e9ntalo de nuevo m\u00e1s tarde.';
+        } else if (errorStr.contains('unavailable') || errorStr.contains('network')) {
+          errorMsg = 'Error de conexi\u00f3n. Comprueba tu internet e int\u00e9ntalo de nuevo.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al enviar: $e')),
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {

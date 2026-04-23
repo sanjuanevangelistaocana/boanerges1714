@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 class StorageService {
@@ -10,16 +11,22 @@ class StorageService {
     required String fileName,
     String? contentType,
   }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('Debes iniciar sesi\u00f3n para subir archivos.');
+    }
+    // Force token refresh to ensure valid auth state for Storage
+    await user.getIdToken(true);
+
     final ref = _storage.ref().child(path).child(fileName);
-    final metadata = contentType != null
-        ? SettableMetadata(contentType: contentType)
-        : null;
+    final ct = contentType ?? _inferContentType(fileName);
+    final metadata = SettableMetadata(contentType: ct);
     await ref.putData(bytes, metadata);
     final url = await ref.getDownloadURL();
     return {
       'nombre': fileName,
       'url': url,
-      'tipo': contentType ?? _inferContentType(fileName),
+      'tipo': ct,
     };
   }
 
