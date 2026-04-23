@@ -249,8 +249,29 @@ class HomeScreen extends StatelessWidget {
                     );
                   }
                   final referencia = data['referencia'] as String? ?? '';
-                  final texto = data['texto'] as String? ?? '';
+                  final textoRaw = data['texto'] as String? ?? '';
                   final titulo = data['titulo'] as String? ?? '';
+                  final texto = textoRaw.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+                  if (texto.isEmpty && titulo.isEmpty) {
+                    return Card(
+                      elevation: 0,
+                      color: AppTheme.backgroundColor,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.auto_stories, size: 40, color: AppTheme.textSecondary),
+                            const SizedBox(height: 12),
+                            Text(
+                              'El evangelio de hoy a\u00fan no tiene contenido.',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
                   return Card(
                     elevation: 1,
                     child: Padding(
@@ -260,7 +281,7 @@ class HomeScreen extends StatelessWidget {
                         children: [
                           if (titulo.isNotEmpty) ...[
                             Text(
-                              titulo,
+                              titulo.replaceAll(RegExp(r'<[^>]*>'), '').trim(),
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.primaryColor,
