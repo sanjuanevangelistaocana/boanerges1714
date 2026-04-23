@@ -190,72 +190,118 @@ class _LoginScreenState extends State<LoginScreen> {
     final parentContext = context;
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Recuperar contraseña'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Introduce tu email y te enviaremos un enlace '
-              'para restablecer tu contraseña.',
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: resetEmailController,
-              decoration: const InputDecoration(
-                labelText: 'Email de tu cuenta',
-                hintText: 'cofrade@email.com',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final email = resetEmailController.text.trim();
-              if (email.isEmpty || !email.contains('@')) {
-                ScaffoldMessenger.of(parentContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Introduce un email válido.'),
-                    backgroundColor: Colors.red,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withAlpha(15),
+                    shape: BoxShape.circle,
                   ),
-                );
-                return;
-              }
-              Navigator.pop(dialogContext);
-              final error = await parentContext
-                  .read<AuthService>()
-                  .resetPassword(email);
-              if (parentContext.mounted) {
-                if (error != null) {
-                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                    SnackBar(
-                      content: Text(error),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(parentContext).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Email enviado. Revisa tu bandeja de entrada '
-                        '(y la carpeta de spam) para restablecer tu contraseña.',
+                  child: const Icon(Icons.lock_reset, size: 36, color: AppTheme.primaryColor),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Recuperar contrase\u00f1a',
+                  style: Theme.of(dialogContext).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      duration: Duration(seconds: 6),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Introduce el email asociado a tu cuenta de cofrade. '
+                  'Te enviaremos un enlace para restablecer tu contrase\u00f1a.',
+                  style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: resetEmailController,
+                  decoration: InputDecoration(
+                    labelText: 'Email de tu cuenta',
+                    hintText: 'cofrade@email.com',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                }
-              }
-            },
-            child: const Text('Enviar'),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final email = resetEmailController.text.trim();
+                      if (email.isEmpty || !email.contains('@')) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Introduce un email v\u00e1lido.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.pop(dialogContext);
+                      final error = await parentContext
+                          .read<AuthService>()
+                          .resetPassword(email);
+                      if (parentContext.mounted) {
+                        if (error != null) {
+                          ScaffoldMessenger.of(parentContext).showSnackBar(
+                            SnackBar(
+                              content: Text(error),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(parentContext).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                'Email enviado. Revisa tu bandeja de entrada '
+                                '(y la carpeta de spam) para restablecer tu contrase\u00f1a.',
+                              ),
+                              duration: const Duration(seconds: 6),
+                              backgroundColor: AppTheme.accentColor,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.send),
+                    label: const Text('Enviar enlace'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }

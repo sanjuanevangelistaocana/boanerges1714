@@ -83,10 +83,14 @@ class FirestoreService {
         snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList());
   }
 
-  Stream<List<Noticia>> getUltimasNoticias({int limit = 3}) {
-    return _db
+  Stream<List<Noticia>> getUltimasNoticias({int limit = 3, bool incluirSoloCofrades = false}) {
+    Query query = _db
         .collection('noticias')
-        .where('publicado', isEqualTo: true)
+        .where('publicado', isEqualTo: true);
+    if (!incluirSoloCofrades) {
+      query = query.where('solo_cofrades', isEqualTo: false);
+    }
+    return query
         .orderBy('fecha', descending: true)
         .limit(limit)
         .snapshots()
@@ -327,6 +331,17 @@ class FirestoreService {
       return RespuestaConvocatoria.fromFirestore(snapshot.docs.first);
     }
     return null;
+  }
+
+  // --- Evangelio del Día ---
+  Stream<Map<String, dynamic>?> getEvangelioDelDia() {
+    final hoy = DateTime.now();
+    final fechaStr = '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
+    return _db
+        .collection('evangelio_dia')
+        .doc(fechaStr)
+        .snapshots()
+        .map((doc) => doc.exists ? doc.data() : null);
   }
 
   // --- Contacto ---
