@@ -58,6 +58,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _PendingBanner(),
                   _NovedadesSection(firestoreService: firestoreService),
                   const SizedBox(height: 24),
+                  _BirthdaySection(firestoreService: firestoreService, currentCofrade: cofrade),
+                  const SizedBox(height: 24),
                   _QuickActions(authService: authService),
                   const SizedBox(height: 28),
                   _CofradiaStatsSection(firestoreService: firestoreService),
@@ -403,6 +405,163 @@ class _NovedadItem {
   const _NovedadItem({required this.icon, required this.color, required this.title, required this.subtitle, required this.route});
 }
 
+class _BirthdaySection extends StatelessWidget {
+  final FirestoreService firestoreService;
+  final Cofrade? currentCofrade;
+  const _BirthdaySection({required this.firestoreService, this.currentCofrade});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Cofrade>>(
+      stream: firestoreService.getAllCofradesStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox.shrink();
+        final allCofrades = snapshot.data ?? [];
+        if (allCofrades.isEmpty) return const SizedBox.shrink();
+
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+
+        final birthdayToday = <Cofrade>[];
+        final birthdayThisWeek = <Cofrade>[];
+
+        for (final c in allCofrades) {
+          if (!c.isActivo || c.fechaNacimiento == null) continue;
+          final bday = DateTime(now.year, c.fechaNacimiento!.month, c.fechaNacimiento!.day);
+          final diff = bday.difference(today).inDays;
+          if (diff == 0) {
+            birthdayToday.add(c);
+          } else if (diff > 0 && diff <= 7) {
+            birthdayThisWeek.add(c);
+          }
+        }
+
+        if (birthdayToday.isEmpty && birthdayThisWeek.isEmpty) return const SizedBox.shrink();
+
+        final isMine = birthdayToday.any((c) => c.id == currentCofrade?.id);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isMine)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.amber.shade100, Colors.amber.shade50],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Text('\u{1F382}', style: TextStyle(fontSize: 36)),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '\u00a1Feliz cumplea\u00f1os, ${currentCofrade?.nombre ?? "Cofrade"}!',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'La Cofrad\u00eda de San Juan Evangelista te desea un maravilloso d\u00eda.',
+                            style: TextStyle(color: Colors.amber.shade800, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.amber.withAlpha(10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.amber.withAlpha(40)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.cake, color: Colors.amber.shade700, size: 22),
+                      const SizedBox(width: 8),
+                      Text('Cumplea\u00f1os',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber.shade800)),
+                    ],
+                  ),
+                  if (birthdayToday.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text('\u{1F389} Hoy cumplen a\u00f1os:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.amber.shade900)),
+                    const SizedBox(height: 8),
+                    ...birthdayToday.map((c) {
+                      final age = c.fechaNacimiento != null ? now.year - c.fechaNacimiento!.year : null;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: Colors.amber.withAlpha(30), borderRadius: BorderRadius.circular(6)),
+                              child: Icon(Icons.cake, size: 16, color: Colors.amber.shade700),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${c.nombreCompleto}${age != null ? " ($age a\u00f1os)" : ""}',
+                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                  if (birthdayThisWeek.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text('Pr\u00f3ximos 7 d\u00edas:', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.amber.shade800)),
+                    const SizedBox(height: 8),
+                    ...birthdayThisWeek.map((c) {
+                      final bday = DateTime(now.year, c.fechaNacimiento!.month, c.fechaNacimiento!.day);
+                      final dias = bday.difference(today).inDays;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: Colors.amber.withAlpha(20), borderRadius: BorderRadius.circular(6)),
+                              child: Icon(Icons.event, size: 16, color: Colors.amber.shade600),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${c.nombreCompleto} \u00b7 en $dias d\u00eda${dias == 1 ? "" : "s"} (${DateFormat("dd/MM").format(bday)})',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _QuickActions extends StatelessWidget {
   final AuthService authService;
   const _QuickActions({required this.authService});
@@ -423,6 +582,8 @@ class _QuickActions extends StatelessWidget {
         _ActionCard(icon: Icons.event, label: 'Eventos', subtitle: 'Actividades', onTap: () => context.go('/events')),
         _ActionCard(icon: Icons.how_to_vote, label: 'Convocatorias', subtitle: 'Consultas', onTap: () => context.go('/convocatorias')),
         _ActionCard(icon: Icons.folder, label: 'Documentos', subtitle: 'Actas y estatutos', onTap: () => context.go('/documents')),
+        _ActionCard(icon: Icons.checkroom, label: 'T\u00fanicas', subtitle: 'Proveedores', onTap: () => context.go('/tunicas')),
+        _ActionCard(icon: Icons.lightbulb_outline, label: 'Sugerencias', subtitle: 'Env\u00eda tu opini\u00f3n', onTap: () => context.go('/sugerencias')),
         if (authService.isAdmin)
           _ActionCard(icon: Icons.admin_panel_settings, label: 'Admin', subtitle: 'Panel de gesti\u00f3n', onTap: () => context.go('/admin'), isAdmin: true),
       ],

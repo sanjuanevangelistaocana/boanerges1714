@@ -1002,6 +1002,157 @@ exports.fetchEvangelioDelDia = functions
     });
 
 // ============================================================
+// Manual Evangelio Trigger (for admins)
+// ============================================================
+
+/**
+ * HTTPS endpoint to manually trigger fetching the evangelio del dia.
+ * Useful when the scheduled function hasn't run yet or failed.
+ */
+exports.triggerFetchEvangelio = functions
+    .region("europe-west1")
+    .https.onRequest(async (req, res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      if (req.method === "OPTIONS") return res.status(204).send("");
+
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      const fechaStr = `${yyyy}-${mm}-${dd}`;
+
+      try {
+        const fetch = (await import("node-fetch")).default;
+        const url = `https://publication.evangelizo.ws/SP/days/${fechaStr}`;
+        const resp = await fetch(url, {headers: {"Accept": "application/json"}});
+
+        if (resp.ok) {
+          const data = await resp.json();
+          const readings = data.data || data;
+          const gospel = readings.readings ?
+            readings.readings.find((r) =>
+              r.type === "gospel" || r.reading_code === "gospel") : null;
+
+          await db.collection("evangelio_dia").doc(fechaStr).set({
+            fecha: fechaStr,
+            titulo: gospel ? (gospel.title || "Evangelio del día") :
+              "Evangelio del día",
+            texto: gospel ? (gospel.text ||
+              JSON.stringify(readings).substring(0, 2000)) :
+              JSON.stringify(readings).substring(0, 2000),
+            referencia: gospel ? (gospel.reference || "") : "",
+            fuente: "evangelizo.ws",
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return res.json({
+            status: "success",
+            message: `Evangelio for ${fechaStr} saved.`,
+          });
+        } else {
+          await db.collection("evangelio_dia").doc(fechaStr).set({
+            fecha: fechaStr,
+            titulo: "Evangelio del día",
+            texto: "No se pudo obtener el evangelio automáticamente.",
+            referencia: "",
+            fuente: "manual",
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return res.json({
+            status: "fallback",
+            message: `API returned ${resp.status}. Placeholder created.`,
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching evangelio:", err);
+        return res.status(500).json({
+          status: "error", message: err.message,
+        });
+      }
+    });
+
+// ============================================================
+// Birthday Email Notification (daily at 8 AM)
+// ============================================================
+
+/**
+ * Sends birthday greeting emails to cofrades whose birthday is today.
+ */
+exports.sendBirthdayGreetings = functions
+    .region("europe-west1")
+    .pubsub.schedule("0 8 * * *")
+    .timeZone("Europe/Madrid")
+    .onRun(async () => {
+      const today = new Date();
+      const mm = today.getMonth() + 1;
+      const dd = today.getDate();
+
+      const cofradesSnap = await db.collection("cofrades")
+          .where("estado", "==", "Activo")
+          .get();
+
+      const birthdayCofrades = [];
+      cofradesSnap.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.fecha_nacimiento) {
+          const fn = data.fecha_nacimiento.toDate();
+          if (fn.getMonth() + 1 === mm && fn.getDate() === dd) {
+            birthdayCofrades.push({...data, id: doc.id});
+          }
+        }
+      });
+
+      if (birthdayCofrades.length === 0) {
+        console.log("No birthdays today.");
+        return null;
+      }
+
+      if (!GMAIL_APP_PASSWORD) {
+        console.log("Gmail not configured. Skipping birthday emails.");
+        return null;
+      }
+
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {user: GMAIL_EMAIL, pass: GMAIL_APP_PASSWORD},
+      });
+
+      for (const c of birthdayCofrades) {
+        if (!c.email) continue;
+        const age = today.getFullYear() - c.fecha_nacimiento.toDate()
+            .getFullYear();
+        try {
+          await transporter.sendMail({
+            from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
+            to: c.email,
+            subject: `¡Feliz cumpleaños, ${c.nombre}! 🎂`,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+                <div style="background:#6B1024;color:white;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
+                  <h1 style="margin:0;">🎂 ¡Feliz Cumpleaños!</h1>
+                </div>
+                <div style="padding:24px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px;">
+                  <p style="font-size:16px;">Querido/a <strong>${c.nombre} ${c.apellidos || ""}</strong>,</p>
+                  <p>La Cofradía de San Juan Evangelista de Ocaña te desea un muy feliz cumpleaños.</p>
+                  <p>Hoy cumples <strong>${age} años</strong>. Esperamos que pases un día maravilloso rodeado/a de los tuyos.</p>
+                  <p style="margin-top:20px;">Un abrazo fraternal,<br/><strong>Cofradía de San Juan Evangelista</strong><br/>Ocaña · Desde 1714</p>
+                </div>
+              </div>
+            `,
+          });
+          console.log(`Birthday email sent to ${c.nombre} (${c.email})`);
+        } catch (err) {
+          console.error(`Error sending birthday email to ${c.email}:`,
+              err.message);
+        }
+      }
+
+      console.log(`Sent ${birthdayCofrades.length} birthday greetings.`);
+      return null;
+    });
+
+// ============================================================
 // Sugerencias Email Notification
 // ============================================================
 

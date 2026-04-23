@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
@@ -180,10 +181,11 @@ void _showDocDialog(BuildContext context, FirestoreService fs, {Documento? doc})
   final urlC = TextEditingController(text: doc?.archivoUrl ?? '');
   final descripcionC = TextEditingController(text: doc?.descripcion ?? '');
   String tipo = doc?.tipo ?? 'general';
+  bool uploading = false;
 
   showDialog(
     context: context,
-    builder: (ctx) => StatefulBuilder(
+    builder: (dialogCtx) => StatefulBuilder(
       builder: (ctx, setDialogState) => AlertDialog(
         title: Text(doc == null ? 'Nuevo Documento' : 'Editar Documento'),
         content: SingleChildScrollView(
@@ -193,6 +195,47 @@ void _showDocDialog(BuildContext context, FirestoreService fs, {Documento? doc})
               TextField(controller: tituloC, decoration: const InputDecoration(labelText: 'T\u00edtulo *')),
               const SizedBox(height: 8),
               TextField(controller: urlC, decoration: const InputDecoration(labelText: 'URL del documento')),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                icon: uploading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.upload_file, size: 18),
+                label: Text(uploading ? 'Subiendo...' : 'Subir archivo'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: uploading ? null : () async {
+                  setDialogState(() => uploading = true);
+                  try {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.any,
+                      withData: true,
+                      allowMultiple: false,
+                    );
+                    if (result != null && result.files.isNotEmpty) {
+                      final file = result.files.first;
+                      if (file.bytes != null) {
+                        final storage = dialogCtx.read<StorageService>();
+                        final uploaded = await storage.uploadFile(
+                          path: 'documentos',
+                          bytes: file.bytes!,
+                          fileName: file.name,
+                        );
+                        setDialogState(() => urlC.text = uploaded['url'] ?? '');
+                      }
+                    }
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text('Error al subir: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  } finally {
+                    setDialogState(() => uploading = false);
+                  }
+                },
+              ),
               const SizedBox(height: 8),
               TextField(controller: descripcionC, decoration: const InputDecoration(labelText: 'Descripci\u00f3n'), maxLines: 2),
               const SizedBox(height: 8),
@@ -214,10 +257,10 @@ void _showDocDialog(BuildContext context, FirestoreService fs, {Documento? doc})
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: uploading ? null : () async {
               if (tituloC.text.trim().isEmpty) return;
               if (doc == null) {
-                fs.createDocumento(Documento(
+                await fs.createDocumento(Documento(
                   id: '',
                   titulo: tituloC.text.trim(),
                   archivoUrl: urlC.text.trim(),
@@ -226,14 +269,14 @@ void _showDocDialog(BuildContext context, FirestoreService fs, {Documento? doc})
                   descripcion: descripcionC.text.trim(),
                 ));
               } else {
-                fs.updateDocumento(doc.id, {
+                await fs.updateDocumento(doc.id, {
                   'titulo': tituloC.text.trim(),
                   'archivo_url': urlC.text.trim(),
                   'tipo': tipo,
                   'descripcion': descripcionC.text.trim(),
                 });
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: Text(doc == null ? 'Crear' : 'Guardar'),
           ),
@@ -356,56 +399,144 @@ void _showRevistaDialog(BuildContext context, FirestoreService fs, {Revista? rev
   final pdfUrlC = TextEditingController(text: revista?.pdfUrl ?? '');
   final portadaUrlC = TextEditingController(text: revista?.portadaUrl ?? '');
   final numeroC = TextEditingController(text: revista?.numero.toString() ?? '0');
+  bool uploadingPdf = false;
+  bool uploadingPortada = false;
 
   showDialog(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(revista == null ? 'Nueva Revista' : 'Editar Revista'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: tituloC, decoration: const InputDecoration(labelText: 'T\u00edtulo *')),
-            const SizedBox(height: 8),
-            TextField(controller: numeroC, decoration: const InputDecoration(labelText: 'N\u00famero'), keyboardType: TextInputType.number),
-            const SizedBox(height: 8),
-            TextField(controller: descripcionC, decoration: const InputDecoration(labelText: 'Descripci\u00f3n'), maxLines: 2),
-            const SizedBox(height: 8),
-            TextField(controller: pdfUrlC, decoration: const InputDecoration(labelText: 'URL del PDF *')),
-            const SizedBox(height: 8),
-            TextField(controller: portadaUrlC, decoration: const InputDecoration(labelText: 'URL de portada (opcional)')),
-          ],
+    builder: (dialogCtx) => StatefulBuilder(
+      builder: (ctx, setDialogState) => AlertDialog(
+        title: Text(revista == null ? 'Nueva Revista' : 'Editar Revista'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: tituloC, decoration: const InputDecoration(labelText: 'T\u00edtulo *')),
+              const SizedBox(height: 8),
+              TextField(controller: numeroC, decoration: const InputDecoration(labelText: 'N\u00famero'), keyboardType: TextInputType.number),
+              const SizedBox(height: 8),
+              TextField(controller: descripcionC, decoration: const InputDecoration(labelText: 'Descripci\u00f3n'), maxLines: 2),
+              const SizedBox(height: 12),
+              TextField(controller: pdfUrlC, decoration: const InputDecoration(labelText: 'URL del PDF *')),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                icon: uploadingPdf
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.picture_as_pdf, size: 18),
+                label: Text(uploadingPdf ? 'Subiendo PDF...' : 'Subir PDF'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: uploadingPdf ? null : () async {
+                  setDialogState(() => uploadingPdf = true);
+                  try {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf'],
+                      withData: true,
+                      allowMultiple: false,
+                    );
+                    if (result != null && result.files.isNotEmpty) {
+                      final file = result.files.first;
+                      if (file.bytes != null) {
+                        final storage = dialogCtx.read<StorageService>();
+                        final uploaded = await storage.uploadFile(
+                          path: 'revistas/pdf',
+                          bytes: file.bytes!,
+                          fileName: file.name,
+                          contentType: 'application/pdf',
+                        );
+                        setDialogState(() => pdfUrlC.text = uploaded['url'] ?? '');
+                      }
+                    }
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text('Error al subir PDF: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  } finally {
+                    setDialogState(() => uploadingPdf = false);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(controller: portadaUrlC, decoration: const InputDecoration(labelText: 'URL de portada (opcional)')),
+              const SizedBox(height: 8),
+              ElevatedButton.icon(
+                icon: uploadingPortada
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.image, size: 18),
+                label: Text(uploadingPortada ? 'Subiendo...' : 'Subir portada'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentColor,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: uploadingPortada ? null : () async {
+                  setDialogState(() => uploadingPortada = true);
+                  try {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.image,
+                      withData: true,
+                      allowMultiple: false,
+                    );
+                    if (result != null && result.files.isNotEmpty) {
+                      final file = result.files.first;
+                      if (file.bytes != null) {
+                        final storage = dialogCtx.read<StorageService>();
+                        final uploaded = await storage.uploadFile(
+                          path: 'revistas/portadas',
+                          bytes: file.bytes!,
+                          fileName: file.name,
+                        );
+                        setDialogState(() => portadaUrlC.text = uploaded['url'] ?? '');
+                      }
+                    }
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text('Error al subir portada: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  } finally {
+                    setDialogState(() => uploadingPortada = false);
+                  }
+                },
+              ),
+            ],
+          ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: (uploadingPdf || uploadingPortada) ? null : () async {
+              if (tituloC.text.trim().isEmpty) return;
+              if (revista == null) {
+                await fs.createRevista(Revista(
+                  id: '',
+                  titulo: tituloC.text.trim(),
+                  descripcion: descripcionC.text.trim(),
+                  pdfUrl: pdfUrlC.text.trim(),
+                  portadaUrl: portadaUrlC.text.trim(),
+                  numero: int.tryParse(numeroC.text) ?? 0,
+                  fecha: DateTime.now(),
+                ));
+              } else {
+                await fs.updateRevista(revista.id, {
+                  'titulo': tituloC.text.trim(),
+                  'descripcion': descripcionC.text.trim(),
+                  'pdf_url': pdfUrlC.text.trim(),
+                  'portada_url': portadaUrlC.text.trim(),
+                  'numero': int.tryParse(numeroC.text) ?? 0,
+                });
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: Text(revista == null ? 'Crear' : 'Guardar'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-        ElevatedButton(
-          onPressed: () {
-            if (tituloC.text.trim().isEmpty) return;
-            if (revista == null) {
-              fs.createRevista(Revista(
-                id: '',
-                titulo: tituloC.text.trim(),
-                descripcion: descripcionC.text.trim(),
-                pdfUrl: pdfUrlC.text.trim(),
-                portadaUrl: portadaUrlC.text.trim(),
-                numero: int.tryParse(numeroC.text) ?? 0,
-                fecha: DateTime.now(),
-              ));
-            } else {
-              fs.updateRevista(revista.id, {
-                'titulo': tituloC.text.trim(),
-                'descripcion': descripcionC.text.trim(),
-                'pdf_url': pdfUrlC.text.trim(),
-                'portada_url': portadaUrlC.text.trim(),
-                'numero': int.tryParse(numeroC.text) ?? 0,
-              });
-            }
-            Navigator.pop(ctx);
-          },
-          child: Text(revista == null ? 'Crear' : 'Guardar'),
-        ),
-      ],
     ),
   );
 }

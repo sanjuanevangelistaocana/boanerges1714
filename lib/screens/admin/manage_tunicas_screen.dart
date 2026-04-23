@@ -48,10 +48,10 @@ void _showProveedorDialog(BuildContext context, FirestoreService fs, {Proveedor?
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (nombreC.text.trim().isEmpty) return;
               if (proveedor == null) {
-                fs.createProveedor(Proveedor(
+                await fs.createProveedor(Proveedor(
                   id: '',
                   nombre: nombreC.text.trim(),
                   telefono: telefonoC.text.trim(),
@@ -64,7 +64,7 @@ void _showProveedorDialog(BuildContext context, FirestoreService fs, {Proveedor?
                   fechaCreacion: DateTime.now(),
                 ));
               } else {
-                fs.updateProveedor(proveedor.id, {
+                await fs.updateProveedor(proveedor.id, {
                   'nombre': nombreC.text.trim(),
                   'telefono': telefonoC.text.trim(),
                   'email': emailC.text.trim(),
@@ -75,7 +75,7 @@ void _showProveedorDialog(BuildContext context, FirestoreService fs, {Proveedor?
                   'activo': activo,
                 });
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             child: Text(proveedor == null ? 'Crear' : 'Guardar'),
           ),
