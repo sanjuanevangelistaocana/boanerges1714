@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/evento.dart';
@@ -57,7 +58,13 @@ class EventsScreen extends StatelessWidget {
                       ),
                     );
                   }
-                  final eventos = snapshot.data ?? [];
+                  final allEventos = snapshot.data ?? [];
+                  final now = DateTime.now();
+                  final proximos = allEventos.where((e) => !e.fecha.isBefore(now)).toList()
+                    ..sort((a, b) => a.fecha.compareTo(b.fecha));
+                  final pasados = allEventos.where((e) => e.fecha.isBefore(now)).toList()
+                    ..sort((a, b) => b.fecha.compareTo(a.fecha));
+                  final eventos = [...proximos, ...pasados];
                   if (eventos.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.all(48),
@@ -169,6 +176,24 @@ class EventsScreen extends StatelessWidget {
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyMedium),
+                                    if (evento.adjuntos.isNotEmpty) ...[  
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        children: evento.adjuntos.map((adj) {
+                                          final esImagen = (adj['tipo'] ?? '').startsWith('image/');
+                                          return ActionChip(
+                                            avatar: Icon(esImagen ? Icons.image : Icons.attach_file, size: 16, color: AppTheme.primaryColor),
+                                            label: Text(adj['nombre'] ?? 'Archivo', style: const TextStyle(fontSize: 12)),
+                                            onPressed: () {
+                                              final url = adj['url'];
+                                              if (url != null) launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                                            },
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -178,6 +203,8 @@ class EventsScreen extends StatelessWidget {
                       );
                     },
                   );
+                  // Separator for past events
+                  // The sorting already handles upcoming first, past last
                 },
               ),
             ),

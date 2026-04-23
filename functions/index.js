@@ -874,3 +874,110 @@ exports.setAdminByNumero = functions
         return res.status(500).json({status: "error", message: error.message});
       }
     });
+
+// ============================================================
+// Auto-Cleanup: Delete eventos and noticias older than 1 year
+// ============================================================
+
+/**
+ * Scheduled function that runs daily at 3:00 AM (Madrid time).
+ * Deletes eventos and noticias documents older than 1 year.
+ * Does NOT delete convocatorias, cofrades, cuotas, or other data.
+ */
+exports.cleanupOldData = functions
+    .region("europe-west1")
+    .pubsub.schedule("every day 03:00")
+    .timeZone("Europe/Madrid")
+    .onRun(async () => {
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const oneYearAgoTimestamp = admin.firestore.Timestamp.fromDate(oneYearAgo);
+
+      let totalDeleted = 0;
+
+      // Delete old eventos
+      const eventosSnap = await db.collection("eventos")
+          .where("fecha", "<", oneYearAgoTimestamp)
+          .get();
+
+      if (!eventosSnap.empty) {
+        const batch = db.batch();
+        eventosSnap.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        totalDeleted += eventosSnap.size;
+        console.log(`Deleted ${eventosSnap.size} eventos older than 1 year.`);
+      }
+
+      // Delete old noticias
+      const noticiasSnap = await db.collection("noticias")
+          .where("fecha", "<", oneYearAgoTimestamp)
+          .get();
+
+      if (!noticiasSnap.empty) {
+        const batch = db.batch();
+        noticiasSnap.docs.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+        totalDeleted += noticiasSnap.size;
+        console.log(`Deleted ${noticiasSnap.size} noticias older than 1 year.`);
+      }
+
+      console.log(`Cleanup complete. Total documents deleted: ${totalDeleted}`);
+      return null;
+    });
+
+// ============================================================
+// Admin Dashboard: Convocatorias Summary API
+// ============================================================
+
+/**
+ * HTTPS endpoint that returns a summary of all convocatorias
+ * with response statistics for the admin dashboard drilldown.
+ */
+exports.getConvocatoriasSummary = functions
+    .region("europe-west1")
+    .https.onRequest(async (req, res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      if (req.method === "OPTIONS") return res.status(204).send("");
+
+      try {
+        const convocatoriasSnap = await db.collection("convocatorias")
+            .orderBy("fecha_limite", "desc")
+            .get();
+
+        const summary = [];
+        for (const doc of convocatoriasSnap.docs) {
+          const data = doc.data();
+          const respuestasSnap = await db.collection("convocatorias")
+              .doc(doc.id).collection("respuestas").get();
+
+          const respuestas = {};
+          let totalResp = 0;
+          respuestasSnap.docs.forEach((r) => {
+            const rData = r.data();
+            const valor = rData.respuesta || "sin_respuesta";
+            respuestas[valor] = (respuestas[valor] || 0) + 1;
+            totalResp++;
+          });
+
+          summary.push({
+            id: doc.id,
+            titulo: data.titulo || "",
+            tipo: data.tipo || "",
+            fecha_limite: data.fecha_limite ?
+              data.fecha_limite.toDate().toISOString() : null,
+            total_respuestas: totalResp,
+            respuestas_desglose: respuestas,
+            opciones: data.opciones || [],
+            estado: data.fecha_limite &&
+              data.fecha_limite.toDate() > new Date() ? "activa" : "cerrada",
+          });
+        }
+
+        return res.json({status: "success", data: summary});
+      } catch (error) {
+        console.error("Error getting convocatorias summary:", error);
+        return res.status(500).json({status: "error", message: error.message});
+      }
+    });

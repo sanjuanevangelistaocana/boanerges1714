@@ -12,6 +12,7 @@ class Convocatoria {
   final String creadaPor;
   final DateTime fechaCreacion;
   final int totalRespuestas;
+  final List<Map<String, String>> adjuntos;
 
   Convocatoria({
     required this.id,
@@ -25,6 +26,7 @@ class Convocatoria {
     required this.creadaPor,
     required this.fechaCreacion,
     this.totalRespuestas = 0,
+    this.adjuntos = const [],
   });
 
   bool get isVigente =>
@@ -58,6 +60,9 @@ class Convocatoria {
       fechaCreacion: (data['fecha_creacion'] as Timestamp?)?.toDate() ??
           DateTime.now(),
       totalRespuestas: data['total_respuestas'] ?? 0,
+      adjuntos: ((data['adjuntos'] as List<dynamic>?) ?? [])
+          .map((a) => Map<String, String>.from(a as Map))
+          .toList(),
     );
   }
 
@@ -73,6 +78,7 @@ class Convocatoria {
       'creada_por': creadaPor,
       'fecha_creacion': Timestamp.fromDate(fechaCreacion),
       'total_respuestas': totalRespuestas,
+      'adjuntos': adjuntos,
     };
   }
 }

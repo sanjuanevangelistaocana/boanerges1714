@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+import 'package:boanerges1714/services/storage_service.dart';
 
 class ManageConvocatoriasScreen extends StatelessWidget {
   const ManageConvocatoriasScreen({super.key});
@@ -88,6 +90,8 @@ class _CrearConvocatoriaDialogState extends State<_CrearConvocatoriaDialog> {
   DateTime _fechaLimite = DateTime.now().add(const Duration(days: 5));
   final _opcionesController = TextEditingController(text: 'Sí, No');
   bool _isSaving = false;
+  bool _uploading = false;
+  final List<Map<String, String>> _adjuntos = [];
 
   @override
   void dispose() {
@@ -187,6 +191,78 @@ class _CrearConvocatoriaDialogState extends State<_CrearConvocatoriaDialog> {
                   validator: (v) =>
                       v == null || v.isEmpty ? 'Al menos una opción' : null,
                 ),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Adjuntos (${_adjuntos.length})',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.attach_file, size: 18),
+                      label: const Text('Adjuntar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                      onPressed: _uploading ? null : () async {
+                        setState(() => _uploading = true);
+                        try {
+                          final result = await FilePicker.platform.pickFiles(
+                            type: FileType.any,
+                            withData: true,
+                            allowMultiple: false,
+                          );
+                          if (result != null && result.files.isNotEmpty) {
+                            final file = result.files.first;
+                            if (file.bytes != null) {
+                              final storage = context.read<StorageService>();
+                              final adj = await storage.uploadFile(
+                                path: 'convocatorias/new/adjuntos',
+                                bytes: file.bytes!,
+                                fileName: file.name,
+                              );
+                              setState(() => _adjuntos.add(adj));
+                            }
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        } finally {
+                          setState(() => _uploading = false);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                if (_uploading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
+                  ),
+                ..._adjuntos.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final adj = entry.value;
+                  final esImagen = (adj['tipo'] ?? '').startsWith('image/');
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      esImagen ? Icons.image : Icons.insert_drive_file,
+                      color: AppTheme.primaryColor,
+                    ),
+                    title: Text(adj['nombre'] ?? 'Archivo',
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                      onPressed: () => setState(() => _adjuntos.removeAt(i)),
+                    ),
+                  );
+                }),
               ],
             ),
           ),
@@ -233,6 +309,7 @@ class _CrearConvocatoriaDialogState extends State<_CrearConvocatoriaDialog> {
         opciones: opciones,
         creadaPor: cofrade?.nombreCompleto ?? 'Admin',
         fechaCreacion: DateTime.now(),
+        adjuntos: _adjuntos,
       );
 
       await context

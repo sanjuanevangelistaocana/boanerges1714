@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
@@ -182,62 +182,39 @@ class ManageEventsScreen extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        IconButton(
-                          icon: const Icon(Icons.image, color: AppTheme.primaryColor),
-                          tooltip: 'Adjuntar imagen',
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.attach_file, size: 18),
+                          label: const Text('Adjuntar archivo'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            textStyle: const TextStyle(fontSize: 13),
+                          ),
                           onPressed: uploading ? null : () async {
                             setDialogState(() => uploading = true);
                             try {
-                              final picker = ImagePicker();
-                              final image = await picker.pickImage(
-                                source: ImageSource.gallery,
-                                maxWidth: 1920,
-                                imageQuality: 85,
+                              final result = await FilePicker.platform.pickFiles(
+                                type: FileType.any,
+                                withData: true,
+                                allowMultiple: false,
                               );
-                              if (image != null) {
-                                final bytes = await image.readAsBytes();
-                                final storage = dialogContext.read<StorageService>();
-                                final adj = await storage.uploadFile(
-                                  path: 'eventos/${evento?.id ?? 'new'}/adjuntos',
-                                  bytes: bytes,
-                                  fileName: image.name,
-                                  contentType: 'image/${image.name.split('.').last}',
-                                );
-                                setDialogState(() => adjuntos.add(adj));
+                              if (result != null && result.files.isNotEmpty) {
+                                final file = result.files.first;
+                                if (file.bytes != null) {
+                                  final storage = dialogContext.read<StorageService>();
+                                  final adj = await storage.uploadFile(
+                                    path: 'eventos/${evento?.id ?? 'new'}/adjuntos',
+                                    bytes: file.bytes!,
+                                    fileName: file.name,
+                                  );
+                                  setDialogState(() => adjuntos.add(adj));
+                                }
                               }
                             } catch (e) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                                );
-                              }
-                            } finally {
-                              setDialogState(() => uploading = false);
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.attach_file, color: AppTheme.primaryColor),
-                          tooltip: 'Adjuntar archivo',
-                          onPressed: uploading ? null : () async {
-                            setDialogState(() => uploading = true);
-                            try {
-                              final picker = ImagePicker();
-                              final file = await picker.pickMedia();
-                              if (file != null) {
-                                final bytes = await file.readAsBytes();
-                                final storage = dialogContext.read<StorageService>();
-                                final adj = await storage.uploadFile(
-                                  path: 'eventos/${evento?.id ?? 'new'}/adjuntos',
-                                  bytes: bytes,
-                                  fileName: file.name,
-                                );
-                                setDialogState(() => adjuntos.add(adj));
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                  SnackBar(content: Text('Error al adjuntar: $e'), backgroundColor: Colors.red),
                                 );
                               }
                             } finally {

@@ -282,6 +282,16 @@ class FirestoreService {
         .toList());
   }
 
+  Stream<List<Convocatoria>> getAllConvocatorias() {
+    return _db
+        .collection('convocatorias')
+        .orderBy('fecha_evento', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Convocatoria.fromFirestore(doc))
+            .toList());
+  }
+
   Stream<List<Convocatoria>> getConvocatoriasActivas() {
     return _db
         .collection('convocatorias')
