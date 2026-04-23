@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+import 'package:boanerges1714/services/storage_service.dart';
 import 'package:boanerges1714/models/evento.dart';
 
 class ManageEventsScreen extends StatelessWidget {
@@ -65,7 +67,8 @@ class ManageEventsScreen extends StatelessWidget {
                         subtitle: Text(
                           '${evento.fecha.day}/${evento.fecha.month}/${evento.fecha.year}'
                           '${evento.hora != null ? ' · ${evento.hora}' : ''}'
-                          '${evento.soloCofrades ? ' · Solo cofrades' : ''}',
+                          '${evento.soloCofrades ? ' · Solo cofrades' : ''}'
+                          '${evento.adjuntos.isNotEmpty ? ' · ${evento.adjuntos.length} adjunto(s)' : ''}',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -106,6 +109,8 @@ class ManageEventsScreen extends StatelessWidget {
     DateTime selectedDate = evento?.fecha ?? DateTime.now();
     bool publicado = evento?.publicado ?? true;
     bool soloCofrades = evento?.soloCofrades ?? false;
+    List<Map<String, String>> adjuntos = List.from(evento?.adjuntos ?? []);
+    bool uploading = false;
 
     showDialog(
       context: context,
@@ -168,6 +173,110 @@ class ManageEventsScreen extends StatelessWidget {
                   value: soloCofrades,
                   onChanged: (v) => setDialogState(() => soloCofrades = v),
                 ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Adjuntos (${adjuntos.length})',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.image, color: AppTheme.primaryColor),
+                          tooltip: 'Adjuntar imagen',
+                          onPressed: uploading ? null : () async {
+                            setDialogState(() => uploading = true);
+                            try {
+                              final picker = ImagePicker();
+                              final image = await picker.pickImage(
+                                source: ImageSource.gallery,
+                                maxWidth: 1920,
+                                imageQuality: 85,
+                              );
+                              if (image != null) {
+                                final bytes = await image.readAsBytes();
+                                final storage = dialogContext.read<StorageService>();
+                                final adj = await storage.uploadFile(
+                                  path: 'eventos/${evento?.id ?? 'new'}/adjuntos',
+                                  bytes: bytes,
+                                  fileName: image.name,
+                                  contentType: 'image/${image.name.split('.').last}',
+                                );
+                                setDialogState(() => adjuntos.add(adj));
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            } finally {
+                              setDialogState(() => uploading = false);
+                            }
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.attach_file, color: AppTheme.primaryColor),
+                          tooltip: 'Adjuntar archivo',
+                          onPressed: uploading ? null : () async {
+                            setDialogState(() => uploading = true);
+                            try {
+                              final picker = ImagePicker();
+                              final file = await picker.pickMedia();
+                              if (file != null) {
+                                final bytes = await file.readAsBytes();
+                                final storage = dialogContext.read<StorageService>();
+                                final adj = await storage.uploadFile(
+                                  path: 'eventos/${evento?.id ?? 'new'}/adjuntos',
+                                  bytes: bytes,
+                                  fileName: file.name,
+                                );
+                                setDialogState(() => adjuntos.add(adj));
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            } finally {
+                              setDialogState(() => uploading = false);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (uploading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
+                  ),
+                ...adjuntos.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final adj = entry.value;
+                  final esImagen = (adj['tipo'] ?? '').startsWith('image/');
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      esImagen ? Icons.image : Icons.insert_drive_file,
+                      color: AppTheme.primaryColor,
+                    ),
+                    title: Text(adj['nombre'] ?? 'Archivo',
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis),
+                    subtitle: Text(adj['tipo'] ?? '',
+                        style: const TextStyle(fontSize: 11)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                      onPressed: () {
+                        setDialogState(() => adjuntos.removeAt(i));
+                      },
+                    ),
+                  );
+                }),
               ],
             ),
           ),
@@ -177,7 +286,7 @@ class ManageEventsScreen extends StatelessWidget {
               child: const Text('Cancelar'),
             ),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: uploading ? null : () async {
                 if (tituloController.text.isEmpty) return;
                 final firestoreService = dialogContext.read<FirestoreService>();
                 final newEvento = Evento(
@@ -193,6 +302,7 @@ class ManageEventsScreen extends StatelessWidget {
                       : null,
                   publicado: publicado,
                   soloCofrades: soloCofrades,
+                  adjuntos: adjuntos,
                 );
                 if (evento == null) {
                   await firestoreService.createEvento(newEvento);
@@ -224,6 +334,12 @@ class ManageEventsScreen extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
+              final storageService = context.read<StorageService>();
+              for (final adj in evento.adjuntos) {
+                if (adj['url'] != null) {
+                  await storageService.deleteFile(adj['url']!);
+                }
+              }
               await context.read<FirestoreService>().deleteEvento(evento.id);
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             },

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:boanerges1714/config/firebase_config.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/config/routes.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/notification_service.dart';
+import 'package:boanerges1714/services/storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +16,8 @@ void main() async {
   await Firebase.initializeApp(
     options: FirebaseConfig.currentPlatformOptions,
   );
+
+  await initializeDateFormatting('es_ES', null);
 
   runApp(const BoanergesApp());
 }
@@ -28,6 +32,7 @@ class BoanergesApp extends StatefulWidget {
 class _BoanergesAppState extends State<BoanergesApp> {
   late final AuthService _authService;
   late final FirestoreService _firestoreService;
+  late final StorageService _storageService;
   late final NotificationService _notificationService;
   late final goRouter;
 
@@ -36,6 +41,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
     super.initState();
     _authService = AuthService();
     _firestoreService = FirestoreService();
+    _storageService = StorageService();
     _notificationService = NotificationService();
     _notificationService.initialize();
     goRouter = createRouter(_authService);
@@ -47,6 +53,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
       providers: [
         ChangeNotifierProvider.value(value: _authService),
         Provider.value(value: _firestoreService),
+        Provider.value(value: _storageService),
         Provider.value(value: _notificationService),
       ],
       child: MaterialApp.router(
