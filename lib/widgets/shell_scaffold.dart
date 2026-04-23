@@ -44,6 +44,16 @@ class ShellScaffold extends StatelessWidget {
       _NavButton(label: 'Noticias', route: '/news'),
       _NavButton(label: 'Galería', route: '/gallery'),
       _NavButton(label: 'Contacto', route: '/contact'),
+      PopupMenuButton<String>(
+        tooltip: 'Más secciones',
+        icon: const Icon(Icons.more_horiz, color: Colors.white),
+        onSelected: (route) => context.go(route),
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: '/social-media', child: Text('Redes Sociales')),
+          const PopupMenuItem(value: '/la-rosa', child: Text('La Rosa')),
+          const PopupMenuItem(value: '/boanerges', child: Text('Revista Boanerges')),
+        ],
+      ),
       if (isLoggedIn) ...[
         _NavButton(label: 'Mi Zona', route: '/dashboard'),
         if (isAdmin) _NavButton(label: 'Admin', route: '/admin'),
@@ -88,12 +98,18 @@ class ShellScaffold extends StatelessWidget {
           _DrawerItem(icon: Icons.newspaper, label: 'Noticias', route: '/news'),
           _DrawerItem(icon: Icons.photo_library, label: 'Galería', route: '/gallery'),
           _DrawerItem(icon: Icons.contact_mail, label: 'Contacto', route: '/contact'),
+          _DrawerItem(icon: Icons.camera_alt, label: 'Redes Sociales', route: '/social-media'),
+          _DrawerItem(icon: Icons.local_florist, label: 'La Rosa', route: '/la-rosa'),
+          _DrawerItem(icon: Icons.menu_book, label: 'Revista Boanerges', route: '/boanerges'),
           const Divider(),
           if (isLoggedIn) ...[
             _DrawerItem(icon: Icons.dashboard, label: 'Mi Zona', route: '/dashboard'),
             _DrawerItem(icon: Icons.person, label: 'Mi Perfil', route: '/profile'),
             _DrawerItem(icon: Icons.payment, label: 'Mis Cuotas', route: '/cuotas'),
             _DrawerItem(icon: Icons.folder, label: 'Documentos', route: '/documents'),
+            _DrawerItem(icon: Icons.how_to_vote, label: 'Convocatorias', route: '/convocatorias'),
+            _DrawerItem(icon: Icons.lightbulb_outline, label: 'Sugerencias', route: '/sugerencias'),
+            _DrawerItem(icon: Icons.checkroom, label: 'Túnicas', route: '/tunicas'),
             if (isAdmin) ...[
               const Divider(),
               const Padding(

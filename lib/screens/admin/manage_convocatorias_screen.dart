@@ -443,8 +443,24 @@ class _AdminConvocatoriaCard extends StatelessWidget {
             ),
             const Divider(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Row(
+                  children: [
+                    const Text('Mostrar resultados', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Switch(
+                      value: c.mostrarResultados,
+                      activeColor: AppTheme.accentColor,
+                      onChanged: (val) async {
+                        await firestoreService.updateConvocatoria(
+                            c.id, {'mostrar_resultados': val});
+                      },
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
                 if (c.activa)
                   TextButton.icon(
                     onPressed: () async {
@@ -493,6 +509,8 @@ class _AdminConvocatoriaCard extends StatelessWidget {
                       const Icon(Icons.delete, size: 18, color: Colors.red),
                   label: const Text('Eliminar',
                       style: TextStyle(color: Colors.red)),
+                ),
+                  ],
                 ),
               ],
             ),

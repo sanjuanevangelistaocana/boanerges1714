@@ -926,6 +926,149 @@ exports.cleanupOldData = functions
     });
 
 // ============================================================
+// Evangelio del Día - Daily Gospel
+// ============================================================
+
+/**
+ * Scheduled function to populate the evangelio_dia collection daily.
+ * Fetches the daily gospel reading and stores it in Firestore.
+ * Runs every day at 6:00 AM Madrid time.
+ */
+exports.fetchEvangelioDelDia = functions
+    .region("europe-west1")
+    .pubsub.schedule("0 6 * * *")
+    .timeZone("Europe/Madrid")
+    .onRun(async () => {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      const fechaStr = `${yyyy}-${mm}-${dd}`;
+
+      // Check if already exists
+      const existing = await db.collection("evangelio_dia").doc(fechaStr).get();
+      if (existing.exists) {
+        console.log(`Evangelio for ${fechaStr} already exists.`);
+        return null;
+      }
+
+      try {
+        // Fetch from Vatican API (daily readings)
+        const fetch = (await import("node-fetch")).default;
+        const url = `https://publication.evangelizo.ws/SP/days/${fechaStr}`;
+        const resp = await fetch(url, {headers: {"Accept": "application/json"}});
+
+        if (resp.ok) {
+          const data = await resp.json();
+          const readings = data.data || data;
+          const gospel = readings.readings ?
+            readings.readings.find((r) => r.type === "gospel" || r.reading_code === "gospel") : null;
+
+          await db.collection("evangelio_dia").doc(fechaStr).set({
+            fecha: fechaStr,
+            titulo: gospel ? (gospel.title || "Evangelio del día") : "Evangelio del día",
+            texto: gospel ? (gospel.text || JSON.stringify(readings).substring(0, 2000)) :
+              JSON.stringify(readings).substring(0, 2000),
+            referencia: gospel ? (gospel.reference || "") : "",
+            fuente: "evangelizo.ws",
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log(`Evangelio for ${fechaStr} saved.`);
+        } else {
+          // Fallback: create placeholder entry
+          await db.collection("evangelio_dia").doc(fechaStr).set({
+            fecha: fechaStr,
+            titulo: "Evangelio del día",
+            texto: "No se pudo obtener el evangelio automáticamente. Un administrador puede editarlo manualmente.",
+            referencia: "",
+            fuente: "manual",
+            fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log(`Evangelio placeholder for ${fechaStr} created (API status: ${resp.status}).`);
+        }
+      } catch (err) {
+        console.error("Error fetching evangelio:", err);
+        await db.collection("evangelio_dia").doc(fechaStr).set({
+          fecha: fechaStr,
+          titulo: "Evangelio del día",
+          texto: "No se pudo obtener el evangelio automáticamente.",
+          referencia: "",
+          fuente: "manual",
+          fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+
+      return null;
+    });
+
+// ============================================================
+// Sugerencias Email Notification
+// ============================================================
+
+/**
+ * Send email notification to admin when a new sugerencia is created.
+ */
+exports.onNewSugerencia = functions
+    .region("europe-west1")
+    .firestore.document("sugerencias/{sugerenciaId}")
+    .onCreate(async (snap, context) => {
+      const data = snap.data();
+      console.log(`New sugerencia from ${data.cofrade_nombre}: ${data.titulo}`);
+
+      if (!GMAIL_APP_PASSWORD) {
+        console.log("Gmail app password not configured. Skipping email.");
+        return null;
+      }
+
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: GMAIL_EMAIL,
+          pass: GMAIL_APP_PASSWORD,
+        },
+      });
+
+      const tipoLabel = data.tipo === "peticion" ? "Petición" : "Sugerencia";
+      const mailOptions = {
+        from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
+        to: GMAIL_EMAIL,
+        subject: `[${tipoLabel}] ${data.titulo} - ${data.cofrade_nombre}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #6B1024; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+              <h2 style="margin: 0;">Nueva ${tipoLabel}</h2>
+            </div>
+            <div style="padding: 20px; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px;">
+              <p><strong>De:</strong> ${data.cofrade_nombre || "Anónimo"}</p>
+              <p><strong>Tipo:</strong> ${tipoLabel}</p>
+              <p><strong>Título:</strong> ${data.titulo || "Sin título"}</p>
+              <hr/>
+              <p>${(data.descripcion || "").replace(/\n/g, "<br/>")}</p>
+              <hr/>
+              <p style="color: #666; font-size: 12px;">
+                Enviado desde la app de la Cofradía el ${new Date().toLocaleString("es-ES", {timeZone: "Europe/Madrid"})}
+              </p>
+              <p style="color: #666; font-size: 12px;">
+                Puedes responder desde el panel de administración.
+              </p>
+            </div>
+          </div>
+        `,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        console.log("Sugerencia email sent successfully");
+        await snap.ref.update({email_enviado: true});
+      } catch (err) {
+        console.error("Error sending sugerencia email:", err);
+        await snap.ref.update({email_enviado: false, email_error: err.message});
+      }
+
+      return null;
+    });
+
+// ============================================================
 // Admin Dashboard: Convocatorias Summary API
 // ============================================================
 

@@ -6,6 +6,9 @@ import 'package:boanerges1714/models/cuota.dart';
 import 'package:boanerges1714/models/documento.dart';
 import 'package:boanerges1714/models/solicitud.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
+import 'package:boanerges1714/models/sugerencia.dart';
+import 'package:boanerges1714/models/proveedor.dart';
+import 'package:boanerges1714/models/revista.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -151,6 +154,10 @@ class FirestoreService {
 
   Future<void> createDocumento(Documento documento) async {
     await _db.collection('documentos').add(documento.toFirestore());
+  }
+
+  Future<void> updateDocumento(String id, Map<String, dynamic> data) async {
+    await _db.collection('documentos').doc(id).update(data);
   }
 
   Future<void> deleteDocumento(String id) async {
@@ -372,6 +379,101 @@ class FirestoreService {
       'fecha': FieldValue.serverTimestamp(),
       'leido': false,
     });
+  }
+
+  // --- Sugerencias / Peticiones ---
+  Stream<List<Sugerencia>> getSugerencias({String? cofradeId}) {
+    Query query = _db.collection('sugerencias').orderBy('fecha', descending: true);
+    if (cofradeId != null) {
+      query = query.where('cofrade_id', isEqualTo: cofradeId);
+    }
+    return query.snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Sugerencia.fromFirestore(doc)).toList());
+  }
+
+  Stream<List<Sugerencia>> getSugerenciasPendientes() {
+    return _db
+        .collection('sugerencias')
+        .where('estado', isEqualTo: 'pendiente')
+        .orderBy('fecha', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Sugerencia.fromFirestore(doc)).toList());
+  }
+
+  Future<void> createSugerencia(Sugerencia sugerencia) async {
+    await _db.collection('sugerencias').add(sugerencia.toFirestore());
+  }
+
+  Future<void> responderSugerencia(String id, String respuesta) async {
+    await _db.collection('sugerencias').doc(id).update({
+      'estado': 'respondida',
+      'respuesta_admin': respuesta,
+      'fecha_respuesta': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> marcarSugerenciaLeida(String id) async {
+    await _db.collection('sugerencias').doc(id).update({
+      'estado': 'leida',
+    });
+  }
+
+  // --- Proveedores Túnicas ---
+  Stream<List<Proveedor>> getProveedores({bool soloActivos = false}) {
+    Query query = _db.collection('proveedores_tunicas').orderBy('nombre');
+    if (soloActivos) {
+      query = query.where('activo', isEqualTo: true);
+    }
+    return query.snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Proveedor.fromFirestore(doc)).toList());
+  }
+
+  Future<void> createProveedor(Proveedor proveedor) async {
+    await _db.collection('proveedores_tunicas').add(proveedor.toFirestore());
+  }
+
+  Future<void> updateProveedor(String id, Map<String, dynamic> data) async {
+    await _db.collection('proveedores_tunicas').doc(id).update(data);
+  }
+
+  Future<void> deleteProveedor(String id) async {
+    await _db.collection('proveedores_tunicas').doc(id).delete();
+  }
+
+  // --- Revistas (Boanerges) ---
+  Stream<List<Revista>> getRevistas() {
+    return _db
+        .collection('revistas')
+        .orderBy('fecha', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Revista.fromFirestore(doc)).toList());
+  }
+
+  Future<void> createRevista(Revista revista) async {
+    await _db.collection('revistas').add(revista.toFirestore());
+  }
+
+  Future<void> updateRevista(String id, Map<String, dynamic> data) async {
+    await _db.collection('revistas').doc(id).update(data);
+  }
+
+  Future<void> deleteRevista(String id) async {
+    await _db.collection('revistas').doc(id).delete();
+  }
+
+  // --- Páginas estáticas (La Rosa, etc.) ---
+  Stream<Map<String, dynamic>?> getPaginaEstatica(String slug) {
+    return _db
+        .collection('paginas_estaticas')
+        .doc(slug)
+        .snapshots()
+        .map((doc) => doc.exists ? doc.data() : null);
+  }
+
+  Future<void> updatePaginaEstatica(String slug, Map<String, dynamic> data) async {
+    await _db.collection('paginas_estaticas').doc(slug).set(data, SetOptions(merge: true));
   }
 
   Future<void> responderConvocatoria({
