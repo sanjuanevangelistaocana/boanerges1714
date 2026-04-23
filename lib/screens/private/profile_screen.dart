@@ -245,7 +245,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             contentPadding: EdgeInsets.zero,
                           ),
                         ),
-                      ],
                         const SizedBox(height: 24),
                         Row(
                           children: [
