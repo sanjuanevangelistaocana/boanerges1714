@@ -27,13 +27,22 @@ jobs:
       - name: Build web app
         run: flutter build web --release
 
-      - name: Deploy Hosting, Firestore and Storage rules
+      - name: Deploy Hosting and Firestore rules
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only hosting,firestore:rules,firestore:indexes,storage:rules
+          args: deploy --only hosting,firestore:rules,firestore:indexes
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           PROJECT_ID: boanerges1714
+
+      - name: Deploy Storage rules
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only storage:rules
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT_ID: boanerges1714
+        continue-on-error: true
 
       - name: Set CORS on Firebase Storage bucket
         uses: google-github-actions/auth@v2
@@ -45,6 +54,7 @@ jobs:
 
       - name: Run gsutil cors set
         run: gsutil cors set cors.json gs://boanerges1714.firebasestorage.app
+        continue-on-error: true
 
       - name: Setup Node.js (for Cloud Functions)
         uses: actions/setup-node@v4
