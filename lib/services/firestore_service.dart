@@ -84,18 +84,19 @@ class FirestoreService {
   }
 
   Stream<List<Noticia>> getUltimasNoticias({int limit = 3, bool incluirSoloCofrades = false}) {
-    Query query = _db
+    return _db
         .collection('noticias')
-        .where('publicado', isEqualTo: true);
-    if (!incluirSoloCofrades) {
-      query = query.where('solo_cofrades', isEqualTo: false);
-    }
-    return query
+        .where('publicado', isEqualTo: true)
         .orderBy('fecha', descending: true)
-        .limit(limit)
+        .limit(incluirSoloCofrades ? limit : limit + 10)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList());
+        .map((snapshot) {
+          var noticias = snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList();
+          if (!incluirSoloCofrades) {
+            noticias = noticias.where((n) => n.soloCofrades != true).toList();
+          }
+          return noticias.take(limit).toList();
+        });
   }
 
   Future<void> createNoticia(Noticia noticia) async {

@@ -10,6 +10,7 @@ class Evento {
   final String? imagenUrl;
   final bool publicado;
   final bool soloCofrades;
+  final List<Map<String, String>> adjuntos;
   final DateTime? fechaCreacion;
 
   Evento({
@@ -22,6 +23,7 @@ class Evento {
     this.imagenUrl,
     this.publicado = true,
     this.soloCofrades = false,
+    this.adjuntos = const [],
     this.fechaCreacion,
   });
 
@@ -37,6 +39,9 @@ class Evento {
       imagenUrl: data['imagen_url'],
       publicado: data['publicado'] ?? true,
       soloCofrades: data['solo_cofrades'] ?? false,
+      adjuntos: ((data['adjuntos'] as List<dynamic>?) ?? [])
+          .map((a) => Map<String, String>.from(a as Map))
+          .toList(),
       fechaCreacion: (data['fecha_creacion'] as Timestamp?)?.toDate(),
     );
   }
@@ -51,6 +56,7 @@ class Evento {
       'imagen_url': imagenUrl,
       'publicado': publicado,
       'solo_cofrades': soloCofrades,
+      'adjuntos': adjuntos,
       'fecha_creacion': fechaCreacion != null
           ? Timestamp.fromDate(fechaCreacion!)
           : FieldValue.serverTimestamp(),

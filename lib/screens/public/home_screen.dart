@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:boanerges1714/config/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/models/evento.dart';
@@ -537,6 +538,32 @@ class HomeScreen extends StatelessWidget {
                                       height: 1.5,
                                     ),
                               ),
+                              if (noticia.adjuntos.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: noticia.adjuntos.map((adj) {
+                                    final esImagen = (adj['tipo'] ?? '').startsWith('image/');
+                                    return ActionChip(
+                                      avatar: Icon(
+                                        esImagen ? Icons.image : Icons.attach_file,
+                                        size: 16,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                      label: Text(adj['nombre'] ?? 'Archivo',
+                                          style: const TextStyle(fontSize: 12)),
+                                      onPressed: () {
+                                        final url = adj['url'];
+                                        if (url != null) {
+                                          launchUrl(Uri.parse(url),
+                                              mode: LaunchMode.externalApplication);
+                                        }
+                                      },
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
                           ),
                         ),
