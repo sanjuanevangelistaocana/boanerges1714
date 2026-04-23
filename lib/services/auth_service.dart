@@ -22,6 +22,7 @@ class AuthService extends ChangeNotifier {
   String? get userId => _user?.uid;
 
   AuthService() {
+    _auth.setLanguageCode('es');
     _auth.authStateChanges().listen(_onAuthStateChanged);
   }
 

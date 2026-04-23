@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/noticia.dart';
@@ -19,9 +20,13 @@ class HomeScreen extends StatelessWidget {
           _buildHeroBanner(context),
           _buildFeatureCards(context),
           const SizedBox(height: 40),
-          _buildProximosEventos(context, firestoreService),
+          _buildEvangelioDelDia(context, firestoreService),
+          const SizedBox(height: 40),
+          _buildCalendarioEventos(context, firestoreService),
           const SizedBox(height: 40),
           _buildUltimasNoticias(context, firestoreService),
+          const SizedBox(height: 40),
+          _buildAsistenciaSocial(context),
           const SizedBox(height: 40),
           _buildCtaSection(context),
           const SizedBox(height: 48),
@@ -106,12 +111,12 @@ class HomeScreen extends StatelessWidget {
                   textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              OutlinedButton.icon(
+              ElevatedButton.icon(
                 onPressed: () => context.go('/contact'),
-                icon: const Icon(Icons.mail_outline),
+                icon: const Icon(Icons.mail_outline, color: Colors.white),
                 label: const Text('Contacto'),
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: Colors.white.withAlpha(20),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white.withAlpha(30),
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Colors.white, width: 1.5),
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
@@ -163,7 +168,143 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProximosEventos(BuildContext context, FirestoreService service) {
+  Widget _buildEvangelioDelDia(BuildContext context, FirestoreService service) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: AppTheme.primaryColor.withAlpha(30), width: 1),
+          bottom: BorderSide(color: AppTheme.primaryColor.withAlpha(30), width: 1),
+        ),
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withAlpha(15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.menu_book, size: 36, color: AppTheme.primaryColor),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Evangelio del D\u00eda',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                DateFormat("EEEE d 'de' MMMM, yyyy", 'es_ES').format(DateTime.now()),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+              ),
+              const SizedBox(height: 20),
+              StreamBuilder<Map<String, dynamic>?>(
+                stream: service.getEvangelioDelDia(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  final data = snapshot.data;
+                  if (data == null) {
+                    return Card(
+                      elevation: 0,
+                      color: AppTheme.backgroundColor,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.auto_stories, size: 40, color: AppTheme.textSecondary),
+                            const SizedBox(height: 12),
+                            Text(
+                              'El evangelio de hoy a\u00fan no est\u00e1 disponible.',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Se actualiza diariamente.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  final referencia = data['referencia'] as String? ?? '';
+                  final texto = data['texto'] as String? ?? '';
+                  final titulo = data['titulo'] as String? ?? '';
+                  return Card(
+                    elevation: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (titulo.isNotEmpty) ...[
+                            Text(
+                              titulo,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (referencia.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentColor.withAlpha(20),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                referencia,
+                                style: const TextStyle(
+                                  color: AppTheme.accentColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          if (referencia.isNotEmpty) const SizedBox(height: 16),
+                          Text(
+                            texto,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  height: 1.7,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarioEventos(BuildContext context, FirestoreService service) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Center(
@@ -185,7 +326,7 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text('Próximos Eventos',
+                      Text('Calendario de Eventos',
                           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               )),
@@ -219,62 +360,68 @@ class HomeScreen extends StatelessWidget {
                     return _buildEmptyState(
                       context,
                       icon: Icons.event,
-                      message: 'No hay eventos próximos programados.',
+                      message: 'No hay eventos pr\u00f3ximos programados.',
                       buttonText: 'Ver calendario completo',
                       onTap: () => context.go('/events'),
                     );
                   }
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: eventos.length,
-                    itemBuilder: (context, index) {
-                      final evento = eventos[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          leading: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '${evento.fecha.day}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
+                  return Column(
+                    children: [
+                      _buildMiniCalendar(context, eventos),
+                      const SizedBox(height: 20),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: eventos.length,
+                        itemBuilder: (context, index) {
+                          final evento = eventos[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: ListTile(
+                              leading: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                Text(
-                                  _getMonthName(evento.fecha.month),
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 10,
-                                  ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${evento.fecha.day}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                    Text(
+                                      _getMonthName(evento.fecha.month),
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
+                              title: Text(evento.titulo,
+                                  style: const TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle: Text(
+                                [
+                                  if (evento.hora != null) evento.hora!,
+                                  if (evento.lugar != null) evento.lugar!,
+                                ].join(' \u00b7 '),
+                                style: const TextStyle(color: AppTheme.textSecondary),
+                              ),
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                              onTap: () => context.go('/events'),
                             ),
-                          ),
-                          title: Text(evento.titulo,
-                              style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text(
-                            [
-                              if (evento.hora != null) evento.hora!,
-                              if (evento.lugar != null) evento.lugar!,
-                            ].join(' · '),
-                            style: const TextStyle(color: AppTheme.textSecondary),
-                          ),
-                          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                          onTap: () => context.go('/events'),
-                        ),
-                      );
-                    },
+                          );
+                        },
+                      ),
+                    ],
                   );
                 },
               ),
@@ -361,40 +508,18 @@ class HomeScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      '${noticia.fecha.day}/${noticia.fecha.month}/${noticia.fecha.year}',
-                                      style: const TextStyle(
-                                          color: Colors.white, fontSize: 12),
-                                    ),
-                                  ),
-                                  if (noticia.soloCofrades) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.accentColor.withAlpha(30),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        'Solo cofrades',
-                                        style: TextStyle(
-                                            color: AppTheme.accentColor,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '${noticia.fecha.day}/${noticia.fecha.month}/${noticia.fecha.year}',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 12),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               Text(noticia.titulo,
@@ -471,11 +596,12 @@ class HomeScreen extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                         ),
                       ),
-                      OutlinedButton.icon(
+                      ElevatedButton.icon(
                         onPressed: () => context.go('/contact'),
-                        icon: const Icon(Icons.mail_outline),
+                        icon: const Icon(Icons.mail_outline, color: Colors.white),
                         label: const Text('Enviar mensaje'),
-                        style: OutlinedButton.styleFrom(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withAlpha(30),
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white70),
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -510,6 +636,248 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onTap, child: Text(buttonText)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniCalendar(BuildContext context, List<Evento> eventos) {
+    final now = DateTime.now();
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+    final startWeekday = firstDayOfMonth.weekday;
+
+    final eventDays = <int>{};
+    for (final e in eventos) {
+      if (e.fecha.year == now.year && e.fecha.month == now.month) {
+        eventDays.add(e.fecha.day);
+      }
+    }
+
+    const dayNames = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+    final monthName = DateFormat('MMMM yyyy', 'es_ES').format(now);
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Text(
+              monthName[0].toUpperCase() + monthName.substring(1),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: dayNames
+                  .map((d) => SizedBox(
+                        width: 36,
+                        child: Center(
+                          child: Text(d,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: d == 'D' ? AppTheme.primaryColor : AppTheme.textSecondary,
+                                fontSize: 12,
+                              )),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+            ...List.generate(
+              ((lastDayOfMonth.day + startWeekday - 1) / 7).ceil(),
+              (weekIndex) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(7, (dayIndex) {
+                    final dayNum = weekIndex * 7 + dayIndex + 1 - (startWeekday - 1);
+                    if (dayNum < 1 || dayNum > lastDayOfMonth.day) {
+                      return const SizedBox(width: 36, height: 36);
+                    }
+                    final isToday = dayNum == now.day;
+                    final hasEvent = eventDays.contains(dayNum);
+                    return SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isToday
+                              ? AppTheme.primaryColor
+                              : hasEvent
+                                  ? AppTheme.accentColor.withAlpha(30)
+                                  : null,
+                          shape: BoxShape.circle,
+                          border: hasEvent && !isToday
+                              ? Border.all(color: AppTheme.accentColor, width: 1.5)
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$dayNum',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: isToday || hasEvent ? FontWeight.bold : FontWeight.normal,
+                              color: isToday
+                                  ? Colors.white
+                                  : hasEvent
+                                      ? AppTheme.accentColor
+                                      : AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              },
+            ),
+            if (eventDays.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.accentColor, width: 1.5),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text('Evento programado',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                  const SizedBox(width: 16),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text('Hoy',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAsistenciaSocial(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('Asistencia Social',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          )),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Card(
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor.withAlpha(20),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.volunteer_activism,
+                                size: 32, color: AppTheme.accentColor),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Compromiso con nuestra comunidad',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'La Cofrad\u00eda de San Juan Evangelista mantiene un firme compromiso '
+                                  'con la asistencia social y la solidaridad. Colaboramos activamente '
+                                  'con las necesidades de nuestra comunidad en Oca\u00f1a.',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: AppTheme.textSecondary,
+                                        height: 1.6,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 32),
+                      Wrap(
+                        spacing: 24,
+                        runSpacing: 16,
+                        children: const [
+                          _AsistenciaItem(
+                            icon: Icons.food_bank,
+                            title: 'Banco de Alimentos',
+                            subtitle: 'Recogida y reparto de alimentos',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.elderly,
+                            title: 'Atenci\u00f3n a Mayores',
+                            subtitle: 'Acompa\u00f1amiento y visitas',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.diversity_3,
+                            title: 'Acci\u00f3n Solidaria',
+                            subtitle: 'Campa\u00f1as ben\u00e9ficas y ayuda social',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Center(
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.go('/contact'),
+                          icon: const Icon(Icons.mail_outline),
+                          label: const Text('\u00bfQuieres colaborar? Cont\u00e1ctanos'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -574,6 +942,48 @@ class _FeatureCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AsistenciaItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _AsistenciaItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 280,
+      child: Row(
+        children: [
+          Icon(icon, size: 28, color: AppTheme.accentColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    )),
+                Text(subtitle,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    )),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
