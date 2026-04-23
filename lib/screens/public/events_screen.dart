@@ -86,8 +86,22 @@ class EventsScreen extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final evento = eventos[index];
                       final isPast = evento.fecha.isBefore(DateTime.now());
-                      return Card(
+                      final daysUntil = evento.fecha.difference(DateTime.now()).inDays;
+                      final isToday = !isPast && daysUntil == 0;
+                      final isTomorrow = !isPast && daysUntil == 1;
+                      final isThisWeek = !isPast && daysUntil <= 7;
+                      return Stack(
+                        children: [
+                        Card(
                         margin: const EdgeInsets.only(bottom: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: isToday
+                              ? BorderSide(color: Colors.orange.shade600, width: 2)
+                              : isTomorrow
+                                  ? BorderSide(color: AppTheme.accentColor, width: 1.5)
+                                  : BorderSide.none,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Row(
@@ -99,7 +113,9 @@ class EventsScreen extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: isPast
                                       ? Colors.grey[300]
-                                      : AppTheme.primaryColor,
+                                      : isToday
+                                          ? Colors.orange.shade600
+                                          : AppTheme.primaryColor,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Column(
@@ -131,16 +147,49 @@ class EventsScreen extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      evento.titulo,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                            color: isPast
-                                                ? AppTheme.textSecondary
-                                                : null,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            evento.titulo,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .headlineSmall
+                                                ?.copyWith(
+                                                  color: isPast
+                                                      ? AppTheme.textSecondary
+                                                      : null,
+                                                ),
                                           ),
+                                        ),
+                                        if (isToday)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.shade600,
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: const Text('HOY', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                          )
+                                        else if (isTomorrow)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.accentColor,
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: const Text('MA\u00d1ANA', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                          )
+                                        else if (isThisWeek)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryColor.withAlpha(20),
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: Text('En $daysUntil d\u00edas', style: TextStyle(color: AppTheme.primaryColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                                          ),
+                                      ],
                                     ),
                                     const SizedBox(height: 4),
                                     if (evento.hora != null)
@@ -200,11 +249,10 @@ class EventsScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+                        ],
                       );
                     },
                   );
-                  // Separator for past events
-                  // The sorting already handles upcoming first, past last
                 },
               ),
             ),

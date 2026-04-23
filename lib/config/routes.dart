@@ -20,7 +20,15 @@ import 'package:boanerges1714/screens/admin/send_notification_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_solicitudes_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_convocatorias_screen.dart';
 import 'package:boanerges1714/screens/private/convocatorias_screen.dart';
+import 'package:boanerges1714/screens/private/sugerencias_screen.dart';
+import 'package:boanerges1714/screens/private/tunicas_screen.dart';
+import 'package:boanerges1714/screens/public/social_media_screen.dart';
+import 'package:boanerges1714/screens/public/la_rosa_screen.dart';
+import 'package:boanerges1714/screens/public/boanerges_screen.dart';
 import 'package:boanerges1714/screens/public/solicitud_alta_screen.dart';
+import 'package:boanerges1714/screens/admin/manage_sugerencias_screen.dart';
+import 'package:boanerges1714/screens/admin/manage_tunicas_screen.dart';
+import 'package:boanerges1714/screens/admin/manage_documentos_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 
@@ -37,7 +45,7 @@ GoRouter createRouter(AuthService authService) {
       final isAdmin = authService.isAdmin;
       final path = state.matchedLocation;
 
-      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias'];
+      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias', '/sugerencias', '/tunicas'];
       if (privateRoutes.any((r) => path.startsWith(r)) && !isLoggedIn) {
         return '/login';
       }
@@ -75,6 +83,14 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(path: '/admin/solicitudes', builder: (context, state) => const ManageSolicitudesScreen()),
           GoRoute(path: '/admin/convocatorias', builder: (context, state) => const ManageConvocatoriasScreen()),
           GoRoute(path: '/convocatorias', builder: (context, state) => const ConvocatoriasScreen()),
+          GoRoute(path: '/sugerencias', builder: (context, state) => const SugerenciasScreen()),
+          GoRoute(path: '/tunicas', builder: (context, state) => const TunicasScreen()),
+          GoRoute(path: '/social-media', builder: (context, state) => const SocialMediaScreen()),
+          GoRoute(path: '/la-rosa', builder: (context, state) => const LaRosaScreen()),
+          GoRoute(path: '/boanerges', builder: (context, state) => const BoanergesScreen()),
+          GoRoute(path: '/admin/sugerencias', builder: (context, state) => const ManageSugerenciasScreen()),
+          GoRoute(path: '/admin/tunicas', builder: (context, state) => const ManageTunicasScreen()),
+          GoRoute(path: '/admin/documentos', builder: (context, state) => const ManageDocumentosScreen()),
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),

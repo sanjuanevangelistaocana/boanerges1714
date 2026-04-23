@@ -12,14 +12,28 @@ import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/models/evento.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _popupShown = false;
 
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
     final firestoreService = context.read<FirestoreService>();
     final cofrade = authService.cofrade;
+
+    if (!_popupShown && cofrade != null) {
+      _popupShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkUnansweredConvocatorias(context, firestoreService, cofrade.id);
+      });
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -62,6 +76,91 @@ class DashboardScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _checkUnansweredConvocatorias(
+      BuildContext context, FirestoreService firestoreService, String cofradeId) async {
+    try {
+      final activasSnapshot = await firestoreService.getConvocatoriasActivas().first;
+      final unanswered = <Convocatoria>[];
+      for (final c in activasSnapshot) {
+        if (!c.isVigente) continue;
+        final resp = await firestoreService.getMiRespuesta(c.id, cofradeId);
+        if (resp == null) unanswered.add(c);
+      }
+      if (unanswered.isNotEmpty && mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.how_to_vote, color: Colors.orange.shade700),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Convocatorias pendientes')),
+              ],
+            ),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tienes ${unanswered.length} convocatoria${unanswered.length > 1 ? 's' : ''} sin responder:',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 12),
+                  ...unanswered.map((c) {
+                    final dias = c.fechaLimite.difference(DateTime.now()).inDays;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(Icons.pending_actions, size: 18, color: Colors.orange.shade700),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(c.titulo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                                Text(
+                                  dias <= 0 ? '\u00a1\u00daltimo d\u00eda!' : 'Quedan $dias d\u00edas',
+                                  style: TextStyle(fontSize: 12, color: dias <= 1 ? Colors.red : AppTheme.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('M\u00e1s tarde'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.go('/convocatorias');
+                },
+                child: const Text('Responder ahora'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (_) {}
   }
 }
 
@@ -419,14 +518,21 @@ class _CofradiaStatsSection extends StatelessWidget {
             final conTunica = activos.where((c) => c.tieneTunicaPropia).length;
             final conCuota = activos.where((c) => c.tieneCuota).length;
 
-            final ageRanges = <String, int>{'0-17': 0, '18-30': 0, '31-45': 0, '46-60': 0, '61-75': 0, '75+': 0};
+            final ageRanges = <String, int>{
+              '0-9': 0, '10-19': 0, '20-29': 0, '30-39': 0, '40-49': 0,
+              '50-59': 0, '60-69': 0, '70-79': 0, '80-89': 0, '90+': 0,
+            };
             for (final edad in edades) {
-              if (edad <= 17) { ageRanges['0-17'] = ageRanges['0-17']! + 1; }
-              else if (edad <= 30) { ageRanges['18-30'] = ageRanges['18-30']! + 1; }
-              else if (edad <= 45) { ageRanges['31-45'] = ageRanges['31-45']! + 1; }
-              else if (edad <= 60) { ageRanges['46-60'] = ageRanges['46-60']! + 1; }
-              else if (edad <= 75) { ageRanges['61-75'] = ageRanges['61-75']! + 1; }
-              else { ageRanges['75+'] = ageRanges['75+']! + 1; }
+              if (edad <= 9) { ageRanges['0-9'] = ageRanges['0-9']! + 1; }
+              else if (edad <= 19) { ageRanges['10-19'] = ageRanges['10-19']! + 1; }
+              else if (edad <= 29) { ageRanges['20-29'] = ageRanges['20-29']! + 1; }
+              else if (edad <= 39) { ageRanges['30-39'] = ageRanges['30-39']! + 1; }
+              else if (edad <= 49) { ageRanges['40-49'] = ageRanges['40-49']! + 1; }
+              else if (edad <= 59) { ageRanges['50-59'] = ageRanges['50-59']! + 1; }
+              else if (edad <= 69) { ageRanges['60-69'] = ageRanges['60-69']! + 1; }
+              else if (edad <= 79) { ageRanges['70-79'] = ageRanges['70-79']! + 1; }
+              else if (edad <= 89) { ageRanges['80-89'] = ageRanges['80-89']! + 1; }
+              else { ageRanges['90+'] = ageRanges['90+']! + 1; }
             }
 
             return Column(
@@ -625,7 +731,7 @@ class _AgeDistCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxVal = ageRanges.values.fold(0, math.max);
     if (maxVal == 0) return const SizedBox.shrink();
-    final colors = [AppTheme.accentColor, AppTheme.primaryLight, AppTheme.primaryColor, AppTheme.primaryDark, Colors.brown.shade600, Colors.brown.shade800];
+    final colors = [AppTheme.accentColor, Colors.teal.shade400, AppTheme.primaryLight, AppTheme.primaryColor, AppTheme.primaryDark, Colors.brown.shade400, Colors.brown.shade600, Colors.brown.shade800, Colors.blueGrey.shade600, Colors.grey.shade700];
 
     return Card(
       elevation: 0,
