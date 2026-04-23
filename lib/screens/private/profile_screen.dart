@@ -24,11 +24,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _telefonoSecundarioController;
   bool _isEditing = false;
   bool _isSaving = false;
+  late bool _tieneTunicaPropia;
 
   @override
   void initState() {
     super.initState();
     final cofrade = context.read<AuthService>().cofrade;
+    _tieneTunicaPropia = cofrade?.tieneTunicaPropia ?? false;
     _telefonoFijoController = TextEditingController(text: cofrade?.telefonoFijo ?? '');
     _telefonoMovilController = TextEditingController(text: cofrade?.telefonoMovil ?? '');
     _domicilioController = TextEditingController(text: cofrade?.domicilio ?? '');
@@ -61,6 +63,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final authService = context.watch<AuthService>();
     final cofrade = authService.cofrade;
 
+    final incompleteFields = <String>[];
+    if (cofrade != null) {
+      if (cofrade.telefonoMovil.isEmpty) incompleteFields.add('Tel\u00e9fono m\u00f3vil');
+      if (cofrade.domicilio.isEmpty) incompleteFields.add('Domicilio');
+      if (cofrade.localidad.isEmpty) incompleteFields.add('Localidad');
+      if (cofrade.codigoPostal.isEmpty) incompleteFields.add('C\u00f3digo postal');
+      if (cofrade.dni == null || cofrade.dni!.isEmpty) incompleteFields.add('DNI');
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: ConstrainedBox(
@@ -68,6 +79,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (incompleteFields.isNotEmpty) ...[
+              Card(
+                color: Colors.orange.shade50,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.orange.shade300),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Perfil incompleto',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Faltan por rellenar: ${incompleteFields.join(", ")}',
+                              style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -187,6 +234,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           keyboardType: TextInputType.number),
                       _buildField('Talla', _tallaController),
                       if (_isEditing) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: SwitchListTile(
+                            title: const Text('Tengo t\u00fanica propia'),
+                            subtitle: const Text('Marca si dispones de t\u00fanica propia'),
+                            value: _tieneTunicaPropia,
+                            onChanged: (v) => setState(() => _tieneTunicaPropia = v),
+                            secondary: const Icon(Icons.checkroom),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
                         const SizedBox(height: 24),
                         Row(
                           children: [
@@ -316,6 +375,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+            const SizedBox(height: 16),
+            if (cofrade != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Datos Bancarios',
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Estos datos solo pueden ser modificados por la administraci\u00f3n.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      _InfoRow(
+                          label: 'Cuota activa',
+                          value: cofrade.tieneCuota ? 'S\u00ed' : 'No',
+                          icon: Icons.payments),
+                      if (cofrade.tieneCuota) ...[
+                        _InfoRow(
+                            label: 'Tipo',
+                            value: cofrade.cuotaDomiciliada
+                                ? 'Domiciliada'
+                                : cofrade.cuotaMetalico
+                                    ? 'Met\u00e1lico'
+                                    : 'No especificado',
+                            icon: Icons.account_balance),
+                        if (cofrade.iban != null && cofrade.iban!.isNotEmpty)
+                          _InfoRow(
+                              label: 'IBAN',
+                              value: cofrade.iban!,
+                              icon: Icons.credit_card),
+                        if (cofrade.titularIban != null && cofrade.titularIban!.isNotEmpty)
+                          _InfoRow(
+                              label: 'Titular IBAN',
+                              value: cofrade.titularIban!,
+                              icon: Icons.person_outline),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -353,6 +456,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _tallaController.text = cofrade?.talla ?? '';
     _emailSecundarioController.text = cofrade?.emailSecundario ?? '';
     _telefonoSecundarioController.text = cofrade?.telefonoSecundario ?? '';
+    _tieneTunicaPropia = cofrade?.tieneTunicaPropia ?? false;
   }
 
   Future<void> _saveProfile() async {
@@ -375,6 +479,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'talla': _tallaController.text,
         'email_secundario': _emailSecundarioController.text,
         'telefono_secundario': _telefonoSecundarioController.text,
+        'tiene_tunica_propia': _tieneTunicaPropia,
       });
 
       await context.read<AuthService>().refreshCofradeData();
