@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   String? _error;
   bool _obscurePassword = true;
+  bool _loginWithDni = false;
 
   @override
   void dispose() {
@@ -61,7 +62,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Text('Iniciar Sesión',
                               style: Theme.of(context).textTheme.headlineSmall),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
+                          SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(value: false, label: Text('Email'), icon: Icon(Icons.email_outlined)),
+                              ButtonSegment(value: true, label: Text('DNI'), icon: Icon(Icons.badge_outlined)),
+                            ],
+                            selected: {_loginWithDni},
+                            onSelectionChanged: (v) => setState(() {
+                              _loginWithDni = v.first;
+                              _error = null;
+                              _emailController.clear();
+                            }),
+                          ),
+                          const SizedBox(height: 16),
                           if (_error != null)
                             Container(
                               padding: const EdgeInsets.all(12),
@@ -74,17 +88,37 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: const TextStyle(
                                       color: AppTheme.errorColor)),
                             ),
-                          TextFormField(
-                            controller: _emailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.email_outlined),
+                          if (!_loginWithDni)
+                            TextFormField(
+                              controller: _emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.email_outlined),
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) => v == null || !v.contains('@')
+                                  ? 'Introduce un email válido'
+                                  : null,
                             ),
-                            keyboardType: TextInputType.emailAddress,
-                            validator: (v) => v == null || !v.contains('@')
-                                ? 'Introduce un email válido'
-                                : null,
-                          ),
+                          if (_loginWithDni)
+                            TextFormField(
+                              controller: _emailController,
+                              decoration: const InputDecoration(
+                                labelText: 'DNI / NIE',
+                                prefixIcon: Icon(Icons.badge_outlined),
+                                hintText: '12345678A',
+                              ),
+                              textCapitalization: TextCapitalization.characters,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) return 'Introduce tu DNI';
+                                final cleaned = v.trim().toUpperCase();
+                                if (!RegExp(r'^[0-9]{8}[A-Z]$').hasMatch(cleaned) &&
+                                    !RegExp(r'^[XYZ][0-9]{7}[A-Z]$').hasMatch(cleaned)) {
+                                  return 'Formato DNI/NIE no válido';
+                                }
+                                return null;
+                              },
+                            ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _passwordController,
@@ -173,10 +207,18 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _error = null);
 
-    final error = await context.read<AuthService>().signIn(
-          _emailController.text,
-          _passwordController.text,
-        );
+    final String? error;
+    if (_loginWithDni) {
+      error = await context.read<AuthService>().signInWithDni(
+            _emailController.text,
+            _passwordController.text,
+          );
+    } else {
+      error = await context.read<AuthService>().signIn(
+            _emailController.text,
+            _passwordController.text,
+          );
+    }
 
     if (error != null && mounted) {
       setState(() => _error = error);

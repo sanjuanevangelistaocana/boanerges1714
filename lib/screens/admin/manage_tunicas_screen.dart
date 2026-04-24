@@ -49,33 +49,46 @@ void _showProveedorDialog(BuildContext context, FirestoreService fs, {Proveedor?
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              if (nombreC.text.trim().isEmpty) return;
-              if (proveedor == null) {
-                await fs.createProveedor(Proveedor(
-                  id: '',
-                  nombre: nombreC.text.trim(),
-                  telefono: telefonoC.text.trim(),
-                  email: emailC.text.trim(),
-                  direccion: direccionC.text.trim(),
-                  descripcion: descripcionC.text.trim(),
-                  web: webC.text.trim(),
-                  precios: preciosC.text.trim(),
-                  activo: activo,
-                  fechaCreacion: DateTime.now(),
-                ));
-              } else {
-                await fs.updateProveedor(proveedor.id, {
-                  'nombre': nombreC.text.trim(),
-                  'telefono': telefonoC.text.trim(),
-                  'email': emailC.text.trim(),
-                  'direccion': direccionC.text.trim(),
-                  'descripcion': descripcionC.text.trim(),
-                  'web': webC.text.trim(),
-                  'precios': preciosC.text.trim(),
-                  'activo': activo,
-                });
+              if (nombreC.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('El nombre es obligatorio'), backgroundColor: Colors.red),
+                );
+                return;
               }
-              if (ctx.mounted) Navigator.pop(ctx);
+              try {
+                if (proveedor == null) {
+                  await fs.createProveedor(Proveedor(
+                    id: '',
+                    nombre: nombreC.text.trim(),
+                    telefono: telefonoC.text.trim(),
+                    email: emailC.text.trim(),
+                    direccion: direccionC.text.trim(),
+                    descripcion: descripcionC.text.trim(),
+                    web: webC.text.trim(),
+                    precios: preciosC.text.trim(),
+                    activo: activo,
+                    fechaCreacion: DateTime.now(),
+                  ));
+                } else {
+                  await fs.updateProveedor(proveedor.id, {
+                    'nombre': nombreC.text.trim(),
+                    'telefono': telefonoC.text.trim(),
+                    'email': emailC.text.trim(),
+                    'direccion': direccionC.text.trim(),
+                    'descripcion': descripcionC.text.trim(),
+                    'web': webC.text.trim(),
+                    'precios': preciosC.text.trim(),
+                    'activo': activo,
+                  });
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
             },
             child: Text(proveedor == null ? 'Crear' : 'Guardar'),
           ),

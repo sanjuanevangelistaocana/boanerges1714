@@ -15,19 +15,37 @@ class StorageService {
     if (user == null) {
       throw Exception('Debes iniciar sesi\u00f3n para subir archivos.');
     }
-    // Force token refresh to ensure valid auth state for Storage
-    await user.getIdToken(true);
+    try {
+      // Force token refresh to ensure valid auth state for Storage
+      await user.getIdToken(true);
 
-    final ref = _storage.ref().child(path).child(fileName);
-    final ct = contentType ?? _inferContentType(fileName);
-    final metadata = SettableMetadata(contentType: ct);
-    await ref.putData(bytes, metadata);
-    final url = await ref.getDownloadURL();
-    return {
-      'nombre': fileName,
-      'url': url,
-      'tipo': ct,
-    };
+      final ref = _storage.ref().child(path).child(fileName);
+      final ct = contentType ?? _inferContentType(fileName);
+      final metadata = SettableMetadata(contentType: ct);
+      await ref.putData(bytes, metadata);
+      final url = await ref.getDownloadURL();
+      return {
+        'nombre': fileName,
+        'url': url,
+        'tipo': ct,
+      };
+    } on FirebaseException catch (e) {
+      if (e.code == 'unauthorized' || e.code == 'storage/unauthorized') {
+        // Retry once with fresh token
+        await user.getIdToken(true);
+        final ref = _storage.ref().child(path).child(fileName);
+        final ct = contentType ?? _inferContentType(fileName);
+        final metadata = SettableMetadata(contentType: ct);
+        await ref.putData(bytes, metadata);
+        final url = await ref.getDownloadURL();
+        return {
+          'nombre': fileName,
+          'url': url,
+          'tipo': ct,
+        };
+      }
+      rethrow;
+    }
   }
 
   Future<void> deleteFile(String url) async {
