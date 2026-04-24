@@ -157,6 +157,7 @@ class AdminDashboardScreen extends StatelessWidget {
                         ),
                       ),
                       _AdminActionCard(icon: Icons.checkroom, title: 'T\u00fanicas', subtitle: 'Proveedores', onTap: () => context.go('/admin/tunicas')),
+                      _AdminActionCard(icon: Icons.volunteer_activism, title: 'Banco T\u00fanicas', subtitle: 'Ofertas y demandas', onTap: () => context.go('/admin/banco-tunicas')),
                       _AdminActionCard(icon: Icons.folder_open, title: 'Documentos', subtitle: 'Docs y revistas', onTap: () => context.go('/admin/documentos')),
                     ],
                   ),
