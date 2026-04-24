@@ -20,11 +20,11 @@ class ConvocatoriasScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Convocatorias',
+            Text('Consultas y Encuestas',
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
             const Text(
-              'Responde a las convocatorias activas de la cofradía.',
+              'Responde a las consultas activas de la cofradía.',
               style: TextStyle(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 24),
@@ -44,7 +44,7 @@ class ConvocatoriasScreen extends StatelessWidget {
                           children: [
                             Icon(Icons.inbox, size: 48, color: Colors.grey),
                             SizedBox(height: 12),
-                            Text('No hay convocatorias activas.',
+                            Text('No hay consultas activas.',
                                 style: TextStyle(color: Colors.grey)),
                           ],
                         ),

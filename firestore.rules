@@ -46,16 +46,28 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['auth_uid', 'fecha_actualizacion']);
 
-      // Cofrades can update their own non-sensitive fields
-      // (iban, titular_iban, email, dni are now editable from profile)
-      allow update: if (isOwner(cofradeId) || isTutor()) &&
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
-                   'anio_mayordomia', 'fecha_baja', 'causa_baja',
-                   'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
-                   'gdpr_firmado', 'auth_uid',
-                   'dni_tutor', 'cargo', 'gdpr_firmado_digital',
-                   'fecha_gdpr_digital', 'fecha_registro_app']);
+        // Cofrades can update their own non-sensitive fields
+        // (iban, titular_iban, email, dni are now editable from profile)
+        allow update: if (isOwner(cofradeId) || isTutor()) &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
+                     'anio_mayordomia', 'fecha_baja', 'causa_baja',
+                     'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
+                     'gdpr_firmado', 'auth_uid',
+                     'dni_tutor', 'cargo', 'gdpr_firmado_digital',
+                     'fecha_gdpr_digital', 'fecha_registro_app']);
+
+        // Fallback: allow cofrade to update if their email matches
+        // (covers cases where auth_uid is not yet set on the document)
+        allow update: if isAuth() &&
+          resource.data.email == request.auth.token.email &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
+                     'anio_mayordomia', 'fecha_baja', 'causa_baja',
+                     'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
+                     'gdpr_firmado', 'auth_uid',
+                     'dni_tutor', 'cargo', 'gdpr_firmado_digital',
+                     'fecha_gdpr_digital', 'fecha_registro_app']);
 
       // Admins can create, update, delete any cofrade
       allow create, update, delete: if isAdmin();
@@ -132,6 +144,21 @@ service cloud.firestore {
 
     // Sugerencias / Peticiones
     match /sugerencias/{sugerenciaId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+
+      // Mensajes subcollection (conversation thread)
+      match /mensajes/{mensajeId} {
+        allow read: if isAuth();
+        allow create: if isAuth();
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // Tablón de Anuncios
+    match /tablon_anuncios/{anuncioId} {
       allow read: if isAuth();
       allow create: if isAuth();
       allow update, delete: if isAdmin();

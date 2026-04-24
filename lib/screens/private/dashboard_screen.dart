@@ -275,19 +275,36 @@ class _NovedadesSection extends StatefulWidget {
 class _NovedadesSectionState extends State<_NovedadesSection> {
   Set<String> _leidas = {};
   bool _leidasLoaded = false;
+  String? _lastCofradeId;
 
   @override
   void initState() {
     super.initState();
+    _lastCofradeId = widget.cofradeId;
     _loadLeidas();
   }
 
+  @override
+  void didUpdateWidget(covariant _NovedadesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cofradeId != widget.cofradeId) {
+      _lastCofradeId = widget.cofradeId;
+      _leidas = {};
+      _leidasLoaded = false;
+      _loadLeidas();
+    }
+  }
+
   Future<void> _loadLeidas() async {
-    if (widget.cofradeId == null) return;
+    if (widget.cofradeId == null) {
+      if (mounted) setState(() => _leidasLoaded = true);
+      return;
+    }
     try {
       final leidas = await widget.firestoreService.getNovedadesLeidas(widget.cofradeId!);
       if (mounted) setState(() { _leidas = leidas; _leidasLoaded = true; });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error loading novedades leidas: $e');
       if (mounted) setState(() => _leidasLoaded = true);
     }
   }
@@ -297,7 +314,9 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
     setState(() => _leidas.add(id));
     try {
       await widget.firestoreService.marcarNovedadLeida(widget.cofradeId!, id);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error marking novedad as read: $e');
+    }
   }
 
   Future<void> _marcarTodasLeidas(List<String> ids) async {
@@ -305,7 +324,9 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
     setState(() => _leidas.addAll(ids));
     try {
       await widget.firestoreService.marcarTodasNovedadesLeidas(widget.cofradeId!, ids);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error marking all novedades as read: $e');
+    }
   }
 
   @override

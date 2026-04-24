@@ -107,8 +107,9 @@ class ShellScaffold extends StatelessWidget {
             _DrawerItem(icon: Icons.person, label: 'Mi Perfil', route: '/profile'),
             _DrawerItem(icon: Icons.payment, label: 'Mis Cuotas', route: '/cuotas'),
             _DrawerItem(icon: Icons.folder, label: 'Documentos', route: '/documents'),
-            _DrawerItem(icon: Icons.how_to_vote, label: 'Convocatorias', route: '/convocatorias'),
+            _DrawerItem(icon: Icons.how_to_vote, label: 'Consultas', route: '/convocatorias'),
             _DrawerItem(icon: Icons.lightbulb_outline, label: 'Sugerencias', route: '/sugerencias'),
+            _DrawerItem(icon: Icons.campaign, label: 'Tablón', route: '/tablon'),
             _DrawerItem(icon: Icons.checkroom, label: 'Túnicas', route: '/tunicas'),
             if (isAdmin) ...[
               const Divider(),

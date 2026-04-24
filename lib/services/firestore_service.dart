@@ -419,6 +419,149 @@ class FirestoreService {
     });
   }
 
+  Future<void> cerrarSugerencia(String id, String cerradaPor) async {
+    await _db.collection('sugerencias').doc(id).update({
+      'estado': 'cerrada',
+      'cerrada_por': cerradaPor,
+      'fecha_cierre': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<MensajeSugerencia>> getMensajesSugerencia(String sugerenciaId) {
+    return _db
+        .collection('sugerencias')
+        .doc(sugerenciaId)
+        .collection('mensajes')
+        .orderBy('fecha')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => MensajeSugerencia.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<void> enviarMensajeSugerencia({
+    required String sugerenciaId,
+    required String autor,
+    required String autorNombre,
+    required String mensaje,
+  }) async {
+    await _db
+        .collection('sugerencias')
+        .doc(sugerenciaId)
+        .collection('mensajes')
+        .add({
+      'autor': autor,
+      'autor_nombre': autorNombre,
+      'mensaje': mensaje,
+      'fecha': FieldValue.serverTimestamp(),
+    });
+    final nuevoEstado = autor == 'admin' ? 'respondida' : 'pendiente';
+    final updateData = <String, dynamic>{'estado': nuevoEstado};
+    if (autor == 'admin') {
+      updateData['respuesta_admin'] = mensaje;
+      updateData['fecha_respuesta'] = FieldValue.serverTimestamp();
+    }
+    await _db.collection('sugerencias').doc(sugerenciaId).update(updateData);
+  }
+
+  // --- Tablón de Anuncios ---
+  Stream<List<Map<String, dynamic>>> getAnuncios({bool soloAprobados = false}) {
+    Query query = _db.collection('tablon_anuncios').orderBy('fecha', descending: true);
+    if (soloAprobados) {
+      query = query.where('aprobado', isEqualTo: true);
+    }
+    return query.snapshots().map((snapshot) => snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id;
+      return data;
+    }).toList());
+  }
+
+  Future<void> crearAnuncio({
+    required String cofradeId,
+    required String cofradeNombre,
+    required String titulo,
+    required String mensaje,
+    String? categoria,
+  }) async {
+    await _db.collection('tablon_anuncios').add({
+      'cofrade_id': cofradeId,
+      'cofrade_nombre': cofradeNombre,
+      'titulo': titulo,
+      'mensaje': mensaje,
+      'categoria': categoria ?? 'general',
+      'fecha': FieldValue.serverTimestamp(),
+      'aprobado': false,
+      'visible': true,
+    });
+  }
+
+  Future<void> aprobarAnuncio(String id) async {
+    await _db.collection('tablon_anuncios').doc(id).update({'aprobado': true});
+  }
+
+  Future<void> rechazarAnuncio(String id) async {
+    await _db.collection('tablon_anuncios').doc(id).update({'visible': false, 'aprobado': false});
+  }
+
+  Future<void> eliminarAnuncio(String id) async {
+    await _db.collection('tablon_anuncios').doc(id).delete();
+  }
+
+  // --- Admin Badge Counts ---
+  Future<int> getSolicitudesPendientesCount() async {
+    final snapshot = await _db
+        .collection('solicitudes')
+        .where('estado', isEqualTo: 'pendiente')
+        .count()
+        .get();
+    return snapshot.count ?? 0;
+  }
+
+  Future<int> getSugerenciasPendientesCount() async {
+    final snapshot = await _db
+        .collection('sugerencias')
+        .where('estado', isEqualTo: 'pendiente')
+        .count()
+        .get();
+    return snapshot.count ?? 0;
+  }
+
+  Future<int> getAnunciosPendientesCount() async {
+    final snapshot = await _db
+        .collection('tablon_anuncios')
+        .where('aprobado', isEqualTo: false)
+        .where('visible', isEqualTo: true)
+        .count()
+        .get();
+    return snapshot.count ?? 0;
+  }
+
+  Stream<int> getSolicitudesPendientesCountStream() {
+    return _db
+        .collection('solicitudes')
+        .where('estado', isEqualTo: 'pendiente')
+        .snapshots()
+        .map((s) => s.docs.length);
+  }
+
+  Stream<int> getSugerenciasPendientesCountStream() {
+    return _db
+        .collection('sugerencias')
+        .where('estado', isEqualTo: 'pendiente')
+        .snapshots()
+        .map((s) => s.docs.length);
+  }
+
+  Stream<int> getAnunciosPendientesCountStream() {
+    return _db
+        .collection('tablon_anuncios')
+        .where('aprobado', isEqualTo: false)
+        .where('visible', isEqualTo: true)
+        .snapshots()
+        .map((s) => s.docs.length);
+  }
+
   // --- Proveedores Túnicas ---
   Stream<List<Proveedor>> getProveedores({bool soloActivos = false}) {
     Query query = _db.collection('proveedores_tunicas').orderBy('nombre');
