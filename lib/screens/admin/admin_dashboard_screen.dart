@@ -131,9 +131,31 @@ class AdminDashboardScreen extends StatelessWidget {
                       _AdminActionCard(icon: Icons.event_note, title: 'Eventos', subtitle: 'Crear y editar', onTap: () => context.go('/admin/events')),
                       _AdminActionCard(icon: Icons.article, title: 'Noticias', subtitle: 'Publicar y editar', onTap: () => context.go('/admin/news')),
                       _AdminActionCard(icon: Icons.notifications_active, title: 'Notificaciones', subtitle: 'Enviar avisos', onTap: () => context.go('/admin/notifications')),
-                      _AdminActionCard(icon: Icons.person_add, title: 'Solicitudes', subtitle: 'Aprobar o rechazar', onTap: () => context.go('/admin/solicitudes')),
-                      _AdminActionCard(icon: Icons.how_to_vote, title: 'Convocatorias', subtitle: 'Crear y gestionar', onTap: () => context.go('/admin/convocatorias')),
-                      _AdminActionCard(icon: Icons.lightbulb_outline, title: 'Sugerencias', subtitle: 'Ver y responder', onTap: () => context.go('/admin/sugerencias')),
+                      StreamBuilder<int>(
+                        stream: firestoreService.getSolicitudesPendientesCountStream(),
+                        builder: (context, snap) => _AdminActionCard(
+                          icon: Icons.person_add, title: 'Solicitudes', subtitle: 'Aprobar o rechazar',
+                          badgeCount: snap.data ?? 0,
+                          onTap: () => context.go('/admin/solicitudes'),
+                        ),
+                      ),
+                      _AdminActionCard(icon: Icons.how_to_vote, title: 'Consultas', subtitle: 'Crear y gestionar', onTap: () => context.go('/admin/convocatorias')),
+                      StreamBuilder<int>(
+                        stream: firestoreService.getSugerenciasPendientesCountStream(),
+                        builder: (context, snap) => _AdminActionCard(
+                          icon: Icons.lightbulb_outline, title: 'Sugerencias', subtitle: 'Ver y responder',
+                          badgeCount: snap.data ?? 0,
+                          onTap: () => context.go('/admin/sugerencias'),
+                        ),
+                      ),
+                      StreamBuilder<int>(
+                        stream: firestoreService.getAnunciosPendientesCountStream(),
+                        builder: (context, snap) => _AdminActionCard(
+                          icon: Icons.campaign, title: 'Tablón', subtitle: 'Moderar anuncios',
+                          badgeCount: snap.data ?? 0,
+                          onTap: () => context.go('/admin/tablon'),
+                        ),
+                      ),
                       _AdminActionCard(icon: Icons.checkroom, title: 'T\u00fanicas', subtitle: 'Proveedores', onTap: () => context.go('/admin/tunicas')),
                       _AdminActionCard(icon: Icons.folder_open, title: 'Documentos', subtitle: 'Docs y revistas', onTap: () => context.go('/admin/documentos')),
                     ],
@@ -194,7 +216,7 @@ class _ConvocatoriasDrilldownState extends State<_ConvocatoriasDrilldown> {
                 width: 4, height: 24,
                 decoration: BoxDecoration(color: Colors.orange.shade700, borderRadius: BorderRadius.circular(2))),
             const SizedBox(width: 10),
-            Expanded(child: Text('Resumen de Convocatorias', style: Theme.of(context).textTheme.headlineSmall)),
+            Expanded(child: Text('Resumen de Consultas y Encuestas', style: Theme.of(context).textTheme.headlineSmall)),
           ],
         ),
         const SizedBox(height: 12),
@@ -216,7 +238,7 @@ class _ConvocatoriasDrilldownState extends State<_ConvocatoriasDrilldown> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(color: Colors.grey.shade200)),
-                    child: const Padding(padding: EdgeInsets.all(20), child: Text('No hay convocatorias creadas.')),
+                    child: const Padding(padding: EdgeInsets.all(20), child: Text('No hay consultas creadas.')),
                   );
                 }
 
@@ -397,12 +419,14 @@ class _AdminActionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final int badgeCount;
 
   const _AdminActionCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -418,14 +442,26 @@ class _AdminActionCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withAlpha(15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, size: 28, color: AppTheme.primaryColor),
-              ),
+              badgeCount > 0
+                  ? Badge(
+                      label: Text('$badgeCount', style: const TextStyle(fontSize: 11)),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withAlpha(15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(icon, size: 28, color: AppTheme.primaryColor),
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withAlpha(15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, size: 28, color: AppTheme.primaryColor),
+                    ),
               const SizedBox(height: 10),
               Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 2),

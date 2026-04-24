@@ -29,6 +29,8 @@ import 'package:boanerges1714/screens/public/solicitud_alta_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_sugerencias_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_tunicas_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_documentos_screen.dart';
+import 'package:boanerges1714/screens/admin/manage_tablon_screen.dart';
+import 'package:boanerges1714/screens/private/tablon_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 
@@ -45,7 +47,7 @@ GoRouter createRouter(AuthService authService) {
       final isAdmin = authService.isAdmin;
       final path = state.matchedLocation;
 
-      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias', '/sugerencias', '/tunicas'];
+      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias', '/sugerencias', '/tunicas', '/tablon'];
       if (privateRoutes.any((r) => path.startsWith(r)) && !isLoggedIn) {
         return '/login';
       }
@@ -91,6 +93,8 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(path: '/admin/sugerencias', builder: (context, state) => const ManageSugerenciasScreen()),
           GoRoute(path: '/admin/tunicas', builder: (context, state) => const ManageTunicasScreen()),
           GoRoute(path: '/admin/documentos', builder: (context, state) => const ManageDocumentosScreen()),
+          GoRoute(path: '/admin/tablon', builder: (context, state) => const ManageTablonScreen()),
+          GoRoute(path: '/tablon', builder: (context, state) => const TablonScreen()),
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),

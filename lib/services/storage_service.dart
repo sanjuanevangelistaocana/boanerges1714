@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
@@ -18,43 +19,54 @@ class StorageService {
 
     // Force token refresh before any upload attempt
     await user.getIdToken(true);
-    // Small delay to ensure token propagation
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 300));
 
-    final ref = _storage.ref().child(path).child(fileName);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final safeName = '${timestamp}_$fileName';
+    final ref = _storage.ref().child(path).child(safeName);
     final ct = contentType ?? _inferContentType(fileName);
-    final metadata = SettableMetadata(contentType: ct);
+    final metadata = SettableMetadata(
+      contentType: ct,
+      customMetadata: {
+        'uploadedBy': user.uid,
+        'originalName': fileName,
+      },
+    );
 
-    try {
-      await ref.putData(bytes, metadata);
-      final url = await ref.getDownloadURL();
-      return {
-        'nombre': fileName,
-        'url': url,
-        'tipo': ct,
-      };
-    } on FirebaseException catch (e) {
-      if (e.code == 'unauthorized' || e.code == 'storage/unauthorized') {
-        // Retry once with fresh token after a longer delay
-        await user.getIdToken(true);
-        await Future.delayed(const Duration(seconds: 1));
-        try {
-          await ref.putData(bytes, metadata);
-          final url = await ref.getDownloadURL();
-          return {
-            'nombre': fileName,
-            'url': url,
-            'tipo': ct,
-          };
-        } on FirebaseException catch (_) {
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        await ref.putData(bytes, metadata);
+        final url = await ref.getDownloadURL();
+        return {
+          'nombre': fileName,
+          'url': url,
+          'tipo': ct,
+        };
+      } on FirebaseException catch (e) {
+        debugPrint('Storage upload attempt ${attempt + 1} failed: ${e.code} - ${e.message}');
+        if (e.code == 'unauthorized' || e.code == 'storage/unauthorized') {
+          if (attempt < 2) {
+            await user.getIdToken(true);
+            await Future.delayed(Duration(seconds: 1 + attempt));
+            continue;
+          }
           throw Exception(
             'Error de autorizaci\u00f3n en Storage. '
-            'Verifica que Firebase Storage est\u00e9 activado y las reglas permitan escritura a usuarios autenticados.'
+            'Verifica que Firebase Storage est\u00e9 activado y las reglas permitan escritura a usuarios autenticados. '
+            'C\u00f3digo: ${e.code}',
           );
         }
+        rethrow;
+      } catch (e) {
+        debugPrint('Storage upload attempt ${attempt + 1} unexpected error: $e');
+        if (attempt < 2) {
+          await Future.delayed(Duration(seconds: 1 + attempt));
+          continue;
+        }
+        rethrow;
       }
-      rethrow;
     }
+    throw Exception('Error inesperado al subir archivo.');
   }
 
   Future<void> deleteFile(String url) async {
