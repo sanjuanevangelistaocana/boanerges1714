@@ -34,6 +34,32 @@ class ManageSolicitudesScreen extends StatelessWidget {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
+                if (snapshot.hasError) {
+                  return Card(
+                    color: Colors.red.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Error al cargar solicitudes: ${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Puede ser necesario crear un \u00edndice en Firestore. '
+                            'Revisa la consola de Firebase para m\u00e1s detalles.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
                 final solicitudes = snapshot.data ?? [];
                 if (solicitudes.isEmpty) {
                   return const Card(

@@ -47,13 +47,14 @@ service cloud.firestore {
           .hasOnly(['auth_uid', 'fecha_actualizacion']);
 
       // Cofrades can update their own non-sensitive fields
+      // (iban, titular_iban, email, dni are now editable from profile)
       allow update: if (isOwner(cofradeId) || isTutor()) &&
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
                    'anio_mayordomia', 'fecha_baja', 'causa_baja',
                    'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
-                   'iban', 'titular_iban', 'gdpr_firmado', 'auth_uid',
-                   'dni', 'dni_tutor', 'cargo', 'gdpr_firmado_digital',
+                   'gdpr_firmado', 'auth_uid',
+                   'dni_tutor', 'cargo', 'gdpr_firmado_digital',
                    'fecha_gdpr_digital', 'fecha_registro_app']);
 
       // Admins can create, update, delete any cofrade
@@ -114,6 +115,37 @@ service cloud.firestore {
 
       // Only admins can read, update, delete messages
       allow read, update, delete: if isAdmin();
+    }
+
+    // Evangelio del Día (populated by Cloud Functions)
+    match /evangelio_dia/{fecha} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Sugerencias / Peticiones
+    match /sugerencias/{sugerenciaId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAdmin();
+    }
+
+    // Proveedores de Túnicas
+    match /proveedores_tunicas/{proveedorId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Revistas (Boanerges)
+    match /revistas/{revistaId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Páginas estáticas (La Rosa, etc.)
+    match /paginas_estaticas/{slug} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Admin roles collection (managed by Cloud Functions only)

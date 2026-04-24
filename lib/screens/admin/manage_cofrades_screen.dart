@@ -121,49 +121,59 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                         subtitle: Text(
                           '${cofrade.email} · Nº ${cofrade.numero ?? "-"}',
                         ),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (action) =>
-                              _handleAction(action, cofrade),
-                          itemBuilder: (context) => [
-                            if (cofrade.estado == 'Pendiente' ||
-                                cofrade.estado == 'pendiente')
-                              const PopupMenuItem(
-                                value: 'aprobar',
-                                child: ListTile(
-                                  leading: Icon(Icons.check, color: Colors.green),
-                                  title: Text('Aprobar'),
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
-                            if (!cofrade.isBaja)
-                              const PopupMenuItem(
-                                value: 'baja',
-                                child: ListTile(
-                                  leading: Icon(Icons.block, color: Colors.red),
-                                  title: Text('Dar de baja'),
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
-                            if (cofrade.isBaja)
-                              const PopupMenuItem(
-                                value: 'reactivar',
-                                child: ListTile(
-                                  leading:
-                                      Icon(Icons.refresh, color: Colors.blue),
-                                  title: Text('Reactivar'),
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
-                            if (!cofrade.isAdmin)
-                              const PopupMenuItem(
-                                value: 'hacer_admin',
-                                child: ListTile(
-                                  leading: Icon(Icons.admin_panel_settings,
-                                      color: AppTheme.primaryColor),
-                                  title: Text('Hacer admin'),
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              tooltip: 'Editar cofrade',
+                              onPressed: () => _showEditCofradeDialog(cofrade),
+                            ),
+                            PopupMenuButton<String>(
+                              onSelected: (action) =>
+                                  _handleAction(action, cofrade),
+                              itemBuilder: (context) => [
+                                if (cofrade.estado == 'Pendiente' ||
+                                    cofrade.estado == 'pendiente')
+                                  const PopupMenuItem(
+                                    value: 'aprobar',
+                                    child: ListTile(
+                                      leading: Icon(Icons.check, color: Colors.green),
+                                      title: Text('Aprobar'),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                if (!cofrade.isBaja)
+                                  const PopupMenuItem(
+                                    value: 'baja',
+                                    child: ListTile(
+                                      leading: Icon(Icons.block, color: Colors.red),
+                                      title: Text('Dar de baja'),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                if (cofrade.isBaja)
+                                  const PopupMenuItem(
+                                    value: 'reactivar',
+                                    child: ListTile(
+                                      leading:
+                                          Icon(Icons.refresh, color: Colors.blue),
+                                      title: Text('Reactivar'),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                if (!cofrade.isAdmin)
+                                  const PopupMenuItem(
+                                    value: 'hacer_admin',
+                                    child: ListTile(
+                                      leading: Icon(Icons.admin_panel_settings,
+                                          color: AppTheme.primaryColor),
+                                      title: Text('Hacer admin'),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -189,6 +199,97 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  void _showEditCofradeDialog(Cofrade cofrade) {
+    final nombreC = TextEditingController(text: cofrade.nombre);
+    final apellidosC = TextEditingController(text: cofrade.apellidos);
+    final emailC = TextEditingController(text: cofrade.email);
+    final dniC = TextEditingController(text: cofrade.dni ?? '');
+    final telefonoMovilC = TextEditingController(text: cofrade.telefonoMovil);
+    final telefonoFijoC = TextEditingController(text: cofrade.telefonoFijo);
+    final domicilioC = TextEditingController(text: cofrade.domicilio);
+    final localidadC = TextEditingController(text: cofrade.localidad);
+    final codigoPostalC = TextEditingController(text: cofrade.codigoPostal);
+    final ibanC = TextEditingController(text: cofrade.iban ?? '');
+    final titularIbanC = TextEditingController(text: cofrade.titularIban ?? '');
+    final comentariosC = TextEditingController(text: cofrade.comentarios ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Editar: ${cofrade.nombreCompleto}'),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nombreC, decoration: const InputDecoration(labelText: 'Nombre')),
+                const SizedBox(height: 8),
+                TextField(controller: apellidosC, decoration: const InputDecoration(labelText: 'Apellidos')),
+                const SizedBox(height: 8),
+                TextField(controller: emailC, decoration: const InputDecoration(labelText: 'Email')),
+                const SizedBox(height: 8),
+                TextField(controller: dniC, decoration: const InputDecoration(labelText: 'DNI')),
+                const SizedBox(height: 8),
+                TextField(controller: telefonoMovilC, decoration: const InputDecoration(labelText: 'Tel\u00e9fono m\u00f3vil')),
+                const SizedBox(height: 8),
+                TextField(controller: telefonoFijoC, decoration: const InputDecoration(labelText: 'Tel\u00e9fono fijo')),
+                const SizedBox(height: 8),
+                TextField(controller: domicilioC, decoration: const InputDecoration(labelText: 'Domicilio')),
+                const SizedBox(height: 8),
+                TextField(controller: localidadC, decoration: const InputDecoration(labelText: 'Localidad')),
+                const SizedBox(height: 8),
+                TextField(controller: codigoPostalC, decoration: const InputDecoration(labelText: 'C\u00f3digo postal')),
+                const SizedBox(height: 8),
+                TextField(controller: ibanC, decoration: const InputDecoration(labelText: 'IBAN')),
+                const SizedBox(height: 8),
+                TextField(controller: titularIbanC, decoration: const InputDecoration(labelText: 'Titular IBAN')),
+                const SizedBox(height: 8),
+                TextField(controller: comentariosC, decoration: const InputDecoration(labelText: 'Comentarios'), maxLines: 3),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await context.read<FirestoreService>().updateCofrade(cofrade.id, {
+                  'nombre': nombreC.text.trim(),
+                  'apellidos': apellidosC.text.trim(),
+                  'email': emailC.text.trim(),
+                  'dni': dniC.text.trim().toUpperCase(),
+                  'telefono_movil': telefonoMovilC.text.trim(),
+                  'telefono_fijo': telefonoFijoC.text.trim(),
+                  'domicilio': domicilioC.text.trim(),
+                  'localidad': localidadC.text.trim(),
+                  'codigo_postal': codigoPostalC.text.trim(),
+                  'iban': ibanC.text.trim(),
+                  'titular_iban': titularIbanC.text.trim(),
+                  'comentarios': comentariosC.text.trim(),
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${cofrade.nombreCompleto} actualizado.')),
+                  );
+                }
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleAction(String action, Cofrade cofrade) async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
@@ -22,6 +23,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _tallaController;
   late TextEditingController _emailSecundarioController;
   late TextEditingController _telefonoSecundarioController;
+  late TextEditingController _dniController;
+  late TextEditingController _emailController;
+  late TextEditingController _ibanController;
+  late TextEditingController _titularIbanController;
   bool _isEditing = false;
   bool _isSaving = false;
   late bool _tieneTunicaPropia;
@@ -42,6 +47,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _tallaController = TextEditingController(text: cofrade?.talla ?? '');
     _emailSecundarioController = TextEditingController(text: cofrade?.emailSecundario ?? '');
     _telefonoSecundarioController = TextEditingController(text: cofrade?.telefonoSecundario ?? '');
+    _dniController = TextEditingController(text: cofrade?.dni ?? '');
+    _emailController = TextEditingController(text: cofrade?.email ?? '');
+    _ibanController = TextEditingController(text: cofrade?.iban ?? '');
+    _titularIbanController = TextEditingController(text: cofrade?.titularIban ?? '');
   }
 
   @override
@@ -55,13 +64,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _tallaController.dispose();
     _emailSecundarioController.dispose();
     _telefonoSecundarioController.dispose();
+    _dniController.dispose();
+    _emailController.dispose();
+    _ibanController.dispose();
+    _titularIbanController.dispose();
     super.dispose();
+  }
+
+  String? _validateIban(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final cleaned = value.replaceAll(RegExp(r'\s'), '').toUpperCase();
+    if (cleaned.length < 15 || cleaned.length > 34) {
+      return 'IBAN debe tener entre 15 y 34 caracteres';
+    }
+    if (!RegExp(r'^[A-Z]{2}[0-9]{2}').hasMatch(cleaned)) {
+      return 'Formato IBAN no v\u00e1lido (ej: ES12 3456 7890 1234 5678 9012)';
+    }
+    return null;
+  }
+
+  String? _validateDni(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final cleaned = value.trim().toUpperCase();
+    if (!RegExp(r'^[0-9]{8}[A-Z]$').hasMatch(cleaned) &&
+        !RegExp(r'^[XYZ][0-9]{7}[A-Z]$').hasMatch(cleaned)) {
+      return 'Formato DNI/NIE no v\u00e1lido (ej: 12345678A)';
+    }
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    if (!value.contains('@') || !value.contains('.')) {
+      return 'Email no v\u00e1lido';
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
     final cofrade = authService.cofrade;
+
+    final bool dniLocked = cofrade?.dni != null && cofrade!.dni!.isNotEmpty;
 
     final incompleteFields = <String>[];
     if (cofrade != null) {
@@ -214,10 +259,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           value: cofrade?.nombre ?? '', enabled: false),
                       _buildField('Apellidos', null,
                           value: cofrade?.apellidos ?? '', enabled: false),
-                      _buildField('DNI', null,
-                          value: cofrade?.dni ?? '', enabled: false),
-                      _buildField('Email', null,
-                          value: cofrade?.email ?? '', enabled: false),
+                      _buildField('DNI', _dniController,
+                          enabled: !dniLocked,
+                          validator: _validateDni,
+                          helperText: dniLocked
+                              ? 'El DNI no se puede modificar una vez guardado'
+                              : null),
+                      _buildField('Email', _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: _validateEmail),
                       _buildField('Email Secundario', _emailSecundarioController,
                           keyboardType: TextInputType.emailAddress),
                       _buildField('Teléfono Móvil', _telefonoMovilController,
@@ -385,10 +435,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Text('Datos Bancarios',
                           style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
-                      Text(
-                        'Estos datos solo pueden ser modificados por la administraci\u00f3n.',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                      ),
+                      if (!_isEditing)
+                        Text(
+                          'Pulsa "Editar" para modificar tus datos bancarios.',
+                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        ),
                       const SizedBox(height: 16),
                       _InfoRow(
                           label: 'Cuota activa',
@@ -403,7 +454,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ? 'Met\u00e1lico'
                                     : 'No especificado',
                             icon: Icons.account_balance),
-                        if (cofrade.iban != null && cofrade.iban!.isNotEmpty)
+                      ],
+                      if (_isEditing) ...[                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _ibanController,
+                          decoration: const InputDecoration(
+                            labelText: 'IBAN',
+                            prefixIcon: Icon(Icons.credit_card),
+                            hintText: 'ES12 3456 7890 1234 5678 9012',
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s]')),
+                            _UpperCaseTextFormatter(),
+                          ],
+                          validator: _validateIban,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _titularIbanController,
+                          decoration: const InputDecoration(
+                            labelText: 'Titular IBAN',
+                            prefixIcon: Icon(Icons.person_outline),
+                            hintText: 'Nombre del titular de la cuenta',
+                          ),
+                        ),
+                      ] else ...[                        if (cofrade.iban != null && cofrade.iban!.isNotEmpty)
                           _InfoRow(
                               label: 'IBAN',
                               value: cofrade.iban!,
@@ -428,18 +503,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       {String? value,
       bool enabled = true,
       bool required = false,
-      TextInputType? keyboardType}) {
+      TextInputType? keyboardType,
+      String? Function(String?)? validator,
+      String? helperText}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
         initialValue: controller == null ? value : null,
         enabled: _isEditing && enabled,
-        decoration: InputDecoration(labelText: label),
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: (_isEditing && !enabled && helperText != null) ? helperText : null,
+          helperStyle: TextStyle(color: Colors.orange.shade700, fontSize: 12),
+        ),
         keyboardType: keyboardType,
-        validator: required
-            ? (v) => v == null || v.isEmpty ? 'Campo obligatorio' : null
-            : null,
+        validator: validator ??
+            (required
+                ? (v) => v == null || v.isEmpty ? 'Campo obligatorio' : null
+                : null),
       ),
     );
   }
@@ -455,6 +537,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _tallaController.text = cofrade?.talla ?? '';
     _emailSecundarioController.text = cofrade?.emailSecundario ?? '';
     _telefonoSecundarioController.text = cofrade?.telefonoSecundario ?? '';
+    _dniController.text = cofrade?.dni ?? '';
+    _emailController.text = cofrade?.email ?? '';
+    _ibanController.text = cofrade?.iban ?? '';
+    _titularIbanController.text = cofrade?.titularIban ?? '';
     _tieneTunicaPropia = cofrade?.tieneTunicaPropia ?? false;
   }
 
@@ -466,7 +552,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final cofradeId = context.read<AuthService>().cofrade?.id;
       if (cofradeId == null) return;
 
-      await context.read<FirestoreService>().updateCofrade(cofradeId, {
+      final data = <String, dynamic>{
         'telefono_fijo': _telefonoFijoController.text,
         'telefono_movil': _telefonoMovilController.text,
         'domicilio': _domicilioController.text,
@@ -479,7 +565,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'email_secundario': _emailSecundarioController.text,
         'telefono_secundario': _telefonoSecundarioController.text,
         'tiene_tunica_propia': _tieneTunicaPropia,
-      });
+        'iban': _ibanController.text.trim(),
+        'titular_iban': _titularIbanController.text.trim(),
+        'email': _emailController.text.trim(),
+      };
+
+      final cofrade = context.read<AuthService>().cofrade;
+      final dniIsLocked = cofrade?.dni != null && cofrade!.dni!.isNotEmpty;
+      if (!dniIsLocked && _dniController.text.trim().isNotEmpty) {
+        data['dni'] = _dniController.text.trim().toUpperCase();
+      }
+
+      await context.read<FirestoreService>().updateCofrade(cofradeId, data);
 
       await context.read<AuthService>().refreshCofradeData();
 
@@ -498,6 +595,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+}
+
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
   }
 }
 

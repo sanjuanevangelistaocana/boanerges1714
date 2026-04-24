@@ -31,31 +31,43 @@ class _SugerenciasScreenState extends State<SugerenciasScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _enviando = true);
 
-    final auth = context.read<AuthService>();
-    final fs = context.read<FirestoreService>();
-    final cofrade = auth.cofrade;
+    try {
+      final auth = context.read<AuthService>();
+      final fs = context.read<FirestoreService>();
+      final cofrade = auth.cofrade;
 
-    await fs.createSugerencia(Sugerencia(
-      id: '',
-      cofradeId: cofrade?.id ?? '',
-      cofradeNombre: cofrade?.nombreCompleto ?? 'Cofrade',
-      tipo: _tipo,
-      titulo: _tituloController.text.trim(),
-      mensaje: _mensajeController.text.trim(),
-      fecha: DateTime.now(),
-    ));
+      await fs.createSugerencia(Sugerencia(
+        id: '',
+        cofradeId: cofrade?.id ?? '',
+        cofradeNombre: cofrade?.nombreCompleto ?? 'Cofrade',
+        tipo: _tipo,
+        titulo: _tituloController.text.trim(),
+        mensaje: _mensajeController.text.trim(),
+        fecha: DateTime.now(),
+      ));
 
-    _tituloController.clear();
-    _mensajeController.clear();
-    setState(() => _enviando = false);
+      _tituloController.clear();
+      _mensajeController.clear();
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_tipo == 'sugerencia' ? 'Sugerencia enviada' : 'Petición enviada'),
-          backgroundColor: AppTheme.accentColor,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_tipo == 'sugerencia' ? 'Sugerencia enviada' : 'Petici\u00f3n enviada'),
+            backgroundColor: AppTheme.accentColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al enviar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enviando = false);
     }
   }
 

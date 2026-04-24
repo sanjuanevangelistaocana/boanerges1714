@@ -109,6 +109,44 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<String?> signInWithDni(String dni, String password) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      final cleanDni = dni.trim().toUpperCase();
+      final snapshot = await _firestore
+          .collection('cofrades')
+          .where('dni', isEqualTo: cleanDni)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        return 'No se encontr\u00f3 ning\u00fan cofrade con ese DNI.';
+      }
+
+      final cofradeData = snapshot.docs.first.data();
+      final cofradeEmail = cofradeData['email'] as String?;
+      if (cofradeEmail == null || cofradeEmail.isEmpty) {
+        return 'El cofrade con ese DNI no tiene email asociado. Contacta con la Junta.';
+      }
+
+      await _auth.signInWithEmailAndPassword(
+        email: cofradeEmail,
+        password: password,
+      );
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _getErrorMessage(e.code);
+    } catch (e) {
+      debugPrint('DNI login error: $e');
+      return 'Error al iniciar sesi\u00f3n. Int\u00e9ntalo de nuevo.';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<String?> register({
     required String email,
     required String password,
