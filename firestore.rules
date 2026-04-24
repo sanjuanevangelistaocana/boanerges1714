@@ -59,6 +59,13 @@ service cloud.firestore {
 
       // Admins can create, update, delete any cofrade
       allow create, update, delete: if isAdmin();
+
+      // Preferencias subcollection (novedades leidas, etc.)
+      match /preferencias/{prefId} {
+        allow read, write: if isAuth() &&
+          (get(/databases/$(database)/documents/cofrades/$(cofradeId)).data.auth_uid == request.auth.uid ||
+           isAdmin());
+      }
     }
 
     // Cuotas collection

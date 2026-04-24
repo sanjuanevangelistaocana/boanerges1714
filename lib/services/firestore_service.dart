@@ -476,6 +476,45 @@ class FirestoreService {
     await _db.collection('paginas_estaticas').doc(slug).set(data, SetOptions(merge: true));
   }
 
+  // --- Novedades read tracking ---
+  Future<Set<String>> getNovedadesLeidas(String cofradeId) async {
+    final doc = await _db.collection('cofrades').doc(cofradeId)
+        .collection('preferencias').doc('novedades_leidas').get();
+    if (!doc.exists) return {};
+    final data = doc.data();
+    final list = data?['ids'] as List<dynamic>? ?? [];
+    return list.map((e) => e.toString()).toSet();
+  }
+
+  Future<void> marcarNovedadLeida(String cofradeId, String novedadId) async {
+    await _db.collection('cofrades').doc(cofradeId)
+        .collection('preferencias').doc('novedades_leidas')
+        .set({
+      'ids': FieldValue.arrayUnion([novedadId]),
+      'ultima_actualizacion': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> marcarTodasNovedadesLeidas(String cofradeId, List<String> ids) async {
+    await _db.collection('cofrades').doc(cofradeId)
+        .collection('preferencias').doc('novedades_leidas')
+        .set({
+      'ids': FieldValue.arrayUnion(ids),
+      'ultima_actualizacion': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  // --- Sugerencias con respuesta (para novedades) ---
+  Stream<List<Sugerencia>> getSugerenciasRespondidas(String cofradeId) {
+    return _db
+        .collection('sugerencias')
+        .where('cofrade_id', isEqualTo: cofradeId)
+        .where('estado', isEqualTo: 'respondida')
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Sugerencia.fromFirestore(doc)).toList());
+  }
+
   Future<void> responderConvocatoria({
     required String convocatoriaId,
     required String cofradeId,

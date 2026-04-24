@@ -76,6 +76,25 @@ class TunicasScreen extends StatelessWidget {
                     StreamBuilder<List<Proveedor>>(
                       stream: fs.getProveedores(soloActivos: true),
                       builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Card(
+                            elevation: 0,
+                            color: Colors.red.shade50,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Colors.red, size: 36),
+                                  const SizedBox(height: 8),
+                                  Text('Error al cargar proveedores: ${snapshot.error}',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: Colors.red, fontSize: 13)),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: CircularProgressIndicator());
                         }
