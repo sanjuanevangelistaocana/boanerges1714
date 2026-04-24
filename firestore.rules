@@ -164,6 +164,16 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Banco de Túnicas (ofertas y demandas de préstamo)
+    match /banco_tunicas/{publicacionId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() &&
+        (resource.data.cofrade_id == request.auth.uid || isAdmin());
+      allow delete: if isAuth() &&
+        (resource.data.cofrade_id == request.auth.uid || isAdmin());
+    }
+
     // Proveedores de Túnicas
     match /proveedores_tunicas/{proveedorId} {
       allow read: if isAuth();

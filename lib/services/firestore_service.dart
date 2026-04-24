@@ -658,6 +658,74 @@ class FirestoreService {
             snapshot.docs.map((doc) => Sugerencia.fromFirestore(doc)).toList());
   }
 
+  // --- Banco de Túnicas ---
+  Stream<List<Map<String, dynamic>>> getBancoTunicas({required String tipo}) {
+    return _db
+        .collection('banco_tunicas')
+        .where('tipo', isEqualTo: tipo)
+        .orderBy('fecha', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id;
+              return data;
+            }).toList());
+  }
+
+  Future<void> crearOferta({
+    required String cofradeId,
+    required String nombrePublicador,
+    required String telefonoPublicador,
+    required List<String> elementos,
+    required String talla,
+    required String estadoConservacion,
+    required String observaciones,
+    required String propiedad,
+  }) async {
+    await _db.collection('banco_tunicas').add({
+      'tipo': 'oferta',
+      'cofrade_id': cofradeId,
+      'nombre_publicador': nombrePublicador,
+      'telefono_publicador': telefonoPublicador,
+      'elementos': elementos,
+      'talla': talla,
+      'estado_conservacion': estadoConservacion,
+      'observaciones': observaciones,
+      'propiedad': propiedad,
+      'estado': 'disponible',
+      'fecha': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> crearDemanda({
+    required String cofradeId,
+    required String nombreDemandante,
+    required String telefonoDemandante,
+    required List<String> elementos,
+    required String talla,
+    required String observaciones,
+  }) async {
+    await _db.collection('banco_tunicas').add({
+      'tipo': 'demanda',
+      'cofrade_id': cofradeId,
+      'nombre_demandante': nombreDemandante,
+      'telefono_demandante': telefonoDemandante,
+      'elementos': elementos,
+      'talla': talla,
+      'observaciones': observaciones,
+      'estado': 'activa',
+      'fecha': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> cambiarEstadoPublicacionBanco(String id, String nuevoEstado) async {
+    await _db.collection('banco_tunicas').doc(id).update({'estado': nuevoEstado});
+  }
+
+  Future<void> eliminarPublicacionBanco(String id) async {
+    await _db.collection('banco_tunicas').doc(id).delete();
+  }
+
   Future<void> responderConvocatoria({
     required String convocatoriaId,
     required String cofradeId,
