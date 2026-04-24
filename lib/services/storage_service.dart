@@ -15,13 +15,17 @@ class StorageService {
     if (user == null) {
       throw Exception('Debes iniciar sesi\u00f3n para subir archivos.');
     }
-    try {
-      // Force token refresh to ensure valid auth state for Storage
-      await user.getIdToken(true);
 
-      final ref = _storage.ref().child(path).child(fileName);
-      final ct = contentType ?? _inferContentType(fileName);
-      final metadata = SettableMetadata(contentType: ct);
+    // Force token refresh before any upload attempt
+    await user.getIdToken(true);
+    // Small delay to ensure token propagation
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    final ref = _storage.ref().child(path).child(fileName);
+    final ct = contentType ?? _inferContentType(fileName);
+    final metadata = SettableMetadata(contentType: ct);
+
+    try {
       await ref.putData(bytes, metadata);
       final url = await ref.getDownloadURL();
       return {
@@ -31,18 +35,23 @@ class StorageService {
       };
     } on FirebaseException catch (e) {
       if (e.code == 'unauthorized' || e.code == 'storage/unauthorized') {
-        // Retry once with fresh token
+        // Retry once with fresh token after a longer delay
         await user.getIdToken(true);
-        final ref = _storage.ref().child(path).child(fileName);
-        final ct = contentType ?? _inferContentType(fileName);
-        final metadata = SettableMetadata(contentType: ct);
-        await ref.putData(bytes, metadata);
-        final url = await ref.getDownloadURL();
-        return {
-          'nombre': fileName,
-          'url': url,
-          'tipo': ct,
-        };
+        await Future.delayed(const Duration(seconds: 1));
+        try {
+          await ref.putData(bytes, metadata);
+          final url = await ref.getDownloadURL();
+          return {
+            'nombre': fileName,
+            'url': url,
+            'tipo': ct,
+          };
+        } on FirebaseException catch (_) {
+          throw Exception(
+            'Error de autorizaci\u00f3n en Storage. '
+            'Verifica que Firebase Storage est\u00e9 activado y las reglas permitan escritura a usuarios autenticados.'
+          );
+        }
       }
       rethrow;
     }

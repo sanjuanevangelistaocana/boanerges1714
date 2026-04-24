@@ -40,6 +40,38 @@
         { "fieldPath": "activa", "order": "ASCENDING" },
         { "fieldPath": "fecha_evento", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sugerencias",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cofrade_id", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "proveedores_tunicas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sugerencias",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sugerencias",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cofrade_id", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -169,6 +169,29 @@ class _SugerenciasScreenState extends State<SugerenciasScreen> {
                       StreamBuilder<List<Sugerencia>>(
                         stream: fs.getSugerencias(cofradeId: cofrade.id),
                         builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Card(
+                              elevation: 0,
+                              color: Colors.red.shade50,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  children: [
+                                    const Icon(Icons.error_outline, color: Colors.red, size: 36),
+                                    const SizedBox(height: 8),
+                                    Text('Error al cargar env\u00edos: ${snapshot.error}',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: Colors.red, fontSize: 13)),
+                                    const SizedBox(height: 4),
+                                    const Text('Es posible que se est\u00e9 creando un \u00edndice en Firestore. Int\u00e9ntalo de nuevo en unos minutos.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
                           if (snapshot.connectionState == ConnectionState.waiting) {
                             return const Center(child: CircularProgressIndicator());
                           }
