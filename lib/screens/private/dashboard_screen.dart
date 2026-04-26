@@ -723,6 +723,7 @@ class _QuickActions extends StatelessWidget {
         _ActionCard(icon: Icons.folder, label: 'Documentos', subtitle: 'Actas y estatutos', onTap: () => context.go('/documents')),
         _ActionCard(icon: Icons.checkroom, label: 'T\u00fanicas', subtitle: 'Proveedores', onTap: () => context.go('/tunicas')),
         _ActionCard(icon: Icons.lightbulb_outline, label: 'Sugerencias', subtitle: 'Env\u00eda tu opini\u00f3n', onTap: () => context.go('/sugerencias')),
+        _ActionCard(icon: Icons.campaign, label: 'Tabl\u00f3n', subtitle: 'Anuncios cofrades', onTap: () => context.go('/tablon')),
         if (authService.isAdmin)
           _ActionCard(icon: Icons.admin_panel_settings, label: 'Admin', subtitle: 'Panel de gesti\u00f3n', onTap: () => context.go('/admin'), isAdmin: true),
       ],
@@ -877,6 +878,109 @@ class _CofradiaStatsSection extends StatelessWidget {
             );
           },
         ),
+        const SizedBox(height: 16),
+        _BancoTunicasKPIs(firestoreService: firestoreService),
+      ],
+    );
+  }
+}
+
+class _BancoTunicasKPIs extends StatelessWidget {
+  final FirestoreService firestoreService;
+  const _BancoTunicasKPIs({required this.firestoreService});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: firestoreService.getAllBancoTunicas(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        final items = snapshot.data ?? [];
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        final ofertas = items.where((i) => i['tipo'] == 'oferta').toList();
+        final demandas = items.where((i) => i['tipo'] == 'demanda').toList();
+        final ofertasDisp = ofertas.where((i) => i['estado'] == 'disponible').length;
+        final ofertasReserv = ofertas.where((i) => i['estado'] == 'reservada').length;
+        final demandasActivas = demandas.where((i) => i['estado'] == 'activa').length;
+        final demandasCubiertas = demandas.where((i) => i['estado'] == 'cubierta').length;
+
+        final elementCount = <String, int>{};
+        for (final item in ofertas.where((i) => i['estado'] == 'disponible')) {
+          final elementos = List<String>.from(item['elementos'] ?? []);
+          for (final e in elementos) {
+            elementCount[e] = (elementCount[e] ?? 0) + 1;
+          }
+        }
+
+        return Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: AppTheme.accentColor.withAlpha(20), borderRadius: BorderRadius.circular(6)),
+                      child: const Icon(Icons.volunteer_activism, size: 18, color: AppTheme.accentColor),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('Banco de T\u00fanicas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _KpiChip(value: '$ofertasDisp', label: 'Disponibles', color: AppTheme.accentColor),
+                    _KpiChip(value: '$ofertasReserv', label: 'Reservadas', color: Colors.orange),
+                    _KpiChip(value: '$demandasActivas', label: 'Demandas', color: Colors.blue),
+                    _KpiChip(value: '$demandasCubiertas', label: 'Cubiertas', color: Colors.grey),
+                  ],
+                ),
+                if (elementCount.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  const Text('Elementos disponibles', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: elementCount.entries.map((e) => Chip(
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      label: Text('${e.key} (${e.value})', style: const TextStyle(fontSize: 11)),
+                    )).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _KpiChip extends StatelessWidget {
+  final String value;
+  final String label;
+  final Color color;
+  const _KpiChip({required this.value, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
       ],
     );
   }
