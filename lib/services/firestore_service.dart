@@ -33,7 +33,8 @@ class FirestoreService {
 
   Future<void> updateCofrade(String id, Map<String, dynamic> data) async {
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
-    await _db.collection('cofrades').doc(id).update(data);
+    data.removeWhere((key, value) => value == null);
+    await _db.collection('cofrades').doc(id).set(data, SetOptions(merge: true));
   }
 
   Future<void> deleteCofrade(String id) async {
@@ -678,6 +679,7 @@ class FirestoreService {
     required String telefonoPublicador,
     required List<String> elementos,
     required String talla,
+    required Map<String, String> tallasPorElemento,
     required String estadoConservacion,
     required String observaciones,
     required String propiedad,
@@ -689,6 +691,7 @@ class FirestoreService {
       'telefono_publicador': telefonoPublicador,
       'elementos': elementos,
       'talla': talla,
+      'tallas_por_elemento': tallasPorElemento,
       'estado_conservacion': estadoConservacion,
       'observaciones': observaciones,
       'propiedad': propiedad,
@@ -703,6 +706,7 @@ class FirestoreService {
     required String telefonoDemandante,
     required List<String> elementos,
     required String talla,
+    required Map<String, String> tallasPorElemento,
     required String observaciones,
   }) async {
     await _db.collection('banco_tunicas').add({
@@ -712,6 +716,7 @@ class FirestoreService {
       'telefono_demandante': telefonoDemandante,
       'elementos': elementos,
       'talla': talla,
+      'tallas_por_elemento': tallasPorElemento,
       'observaciones': observaciones,
       'estado': 'activa',
       'fecha': FieldValue.serverTimestamp(),
@@ -724,6 +729,22 @@ class FirestoreService {
 
   Future<void> eliminarPublicacionBanco(String id) async {
     await _db.collection('banco_tunicas').doc(id).delete();
+  }
+
+  Future<void> editarPublicacionBanco(String id, Map<String, dynamic> data) async {
+    await _db.collection('banco_tunicas').doc(id).update(data);
+  }
+
+  Stream<List<Map<String, dynamic>>> getAllBancoTunicas() {
+    return _db
+        .collection('banco_tunicas')
+        .orderBy('fecha', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              final data = doc.data();
+              data['id'] = doc.id;
+              return data;
+            }).toList());
   }
 
   Future<void> responderConvocatoria({

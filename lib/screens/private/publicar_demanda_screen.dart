@@ -15,11 +15,11 @@ class PublicarDemandaScreen extends StatefulWidget {
 
 class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _tallaController = TextEditingController();
   final _observacionesController = TextEditingController();
   final _telefonoController = TextEditingController();
 
   final Set<String> _elementosSeleccionados = {};
+  final Map<String, TextEditingController> _tallaControllers = {};
   bool _isLoading = false;
 
   @override
@@ -31,10 +31,16 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
 
   @override
   void dispose() {
-    _tallaController.dispose();
+    for (final c in _tallaControllers.values) {
+      c.dispose();
+    }
     _observacionesController.dispose();
     _telefonoController.dispose();
     super.dispose();
+  }
+
+  TextEditingController _getTallaController(String elemento) {
+    return _tallaControllers.putIfAbsent(elemento, () => TextEditingController());
   }
 
   Future<void> _publicar() async {
@@ -52,12 +58,20 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
       final auth = context.read<AuthService>();
       final fs = context.read<FirestoreService>();
 
+      final tallasPorElemento = <String, String>{};
+      for (final e in _elementosSeleccionados) {
+        final t = _getTallaController(e).text.trim();
+        if (t.isNotEmpty) tallasPorElemento[e] = t;
+      }
+      final tallaResumen = tallasPorElemento.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+
       await fs.crearDemanda(
         cofradeId: auth.cofrade?.id ?? '',
         nombreDemandante: '${auth.cofrade?.nombre ?? ''} ${auth.cofrade?.apellidos ?? ''}'.trim(),
         telefonoDemandante: _telefonoController.text.trim(),
         elementos: _elementosSeleccionados.toList(),
-        talla: _tallaController.text.trim(),
+        talla: tallaResumen,
+        tallasPorElemento: tallasPorElemento,
         observaciones: _observacionesController.text.trim(),
       );
 
@@ -155,16 +169,24 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
                         }).toList(),
                       ),
                       const SizedBox(height: 20),
-                      TextFormField(
-                        controller: _tallaController,
-                        decoration: const InputDecoration(
-                          labelText: 'Talla / Medidas',
-                          hintText: 'Ej: M, 42, 1.75m...',
-                          prefixIcon: Icon(Icons.straighten),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                      if (_elementosSeleccionados.isNotEmpty) ..[
+                        const Text('Talla / Medidas por elemento',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        const SizedBox(height: 8),
+                        ..._elementosSeleccionados.map((elemento) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: TextFormField(
+                            controller: _getTallaController(elemento),
+                            decoration: InputDecoration(
+                              labelText: 'Talla de $elemento',
+                              hintText: 'Ej: M, 42, 1.75m...',
+                              prefixIcon: Icon(kElementoIcons[elemento] ?? Icons.straighten, size: 20),
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        )),
+                        const SizedBox(height: 6),
+                      ],
                       TextFormField(
                         controller: _telefonoController,
                         decoration: const InputDecoration(

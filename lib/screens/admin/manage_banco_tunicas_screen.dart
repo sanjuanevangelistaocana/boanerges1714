@@ -220,6 +220,9 @@ class _AdminCard extends StatelessWidget {
           icon: const Icon(Icons.more_vert),
           onSelected: (action) => _handleAction(context, action, id),
           itemBuilder: (_) => [
+            const PopupMenuItem(
+                value: 'editar',
+                child: Text('Editar')),
             if (tipo == 'oferta') ...[
               const PopupMenuItem(
                   value: 'disponible', child: Text('Disponible')),
@@ -265,11 +268,140 @@ class _AdminCard extends StatelessWidget {
           ],
         ),
       );
+    } else if (action == 'editar') {
+      _showEditDialog(context, id);
     } else {
       fs.cambiarEstadoPublicacionBanco(id, action);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Estado cambiado a: ${_estadoLabel(action)}')));
     }
+  }
+
+  void _showEditDialog(BuildContext context, String id) {
+    final elementos = List<String>.from(data['elementos'] ?? []);
+    final talla = data['talla'] ?? '';
+    final observaciones = data['observaciones'] ?? '';
+    final nombre = tipo == 'oferta'
+        ? (data['nombre_publicador'] ?? '')
+        : (data['nombre_demandante'] ?? '');
+    final telefono = tipo == 'oferta'
+        ? (data['telefono_publicador'] ?? '')
+        : (data['telefono_demandante'] ?? '');
+    final conservacion = data['estado_conservacion'] ?? '';
+
+    final tallaCtrl = TextEditingController(text: talla);
+    final obsCtrl = TextEditingController(text: observaciones);
+    final nombreCtrl = TextEditingController(text: nombre);
+    final telCtrl = TextEditingController(text: telefono);
+    final conservCtrl = TextEditingController(text: conservacion);
+    final selectedElements = Set<String>.from(elementos);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('Editar ${tipo == "oferta" ? "oferta" : "demanda"}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nombreCtrl,
+                  decoration: InputDecoration(
+                    labelText: tipo == 'oferta' ? 'Publicador' : 'Demandante',
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: telCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Tel\u00e9fono',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Elementos:', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: kElementosHabito.map((e) {
+                    final sel = selectedElements.contains(e);
+                    return FilterChip(
+                      label: Text(e, style: const TextStyle(fontSize: 12)),
+                      selected: sel,
+                      onSelected: (val) {
+                        setDialogState(() {
+                          if (val) { selectedElements.add(e); } else { selectedElements.remove(e); }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: tallaCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Talla / Medidas',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (tipo == 'oferta') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: conservCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Estado conservaci\u00f3n',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: obsCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Observaciones',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final updateData = <String, dynamic>{
+                  'elementos': selectedElements.toList(),
+                  'talla': tallaCtrl.text.trim(),
+                  'observaciones': obsCtrl.text.trim(),
+                };
+                if (tipo == 'oferta') {
+                  updateData['nombre_publicador'] = nombreCtrl.text.trim();
+                  updateData['telefono_publicador'] = telCtrl.text.trim();
+                  updateData['estado_conservacion'] = conservCtrl.text.trim();
+                } else {
+                  updateData['nombre_demandante'] = nombreCtrl.text.trim();
+                  updateData['telefono_demandante'] = telCtrl.text.trim();
+                }
+                fs.editarPublicacionBanco(id, updateData);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Publicaci\u00f3n actualizada')),
+                );
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   static String _formatDate(DateTime date) =>

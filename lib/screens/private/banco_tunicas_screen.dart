@@ -435,14 +435,17 @@ class _PublicacionCard extends StatelessWidget {
                       ))
                   .toList(),
             ),
-            if (talla.isNotEmpty) ...[
+            if (_hasTallas(data)) ...[
+              const SizedBox(height: 8),
+              ..._buildTallaRows(data),
+            ] else if (talla.isNotEmpty) ...[
               const SizedBox(height: 8),
               Row(children: [
                 const Icon(Icons.straighten,
                     size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
-                Text('Talla/Medidas: $talla',
-                    style: const TextStyle(fontSize: 13)),
+                Flexible(child: Text('Talla/Medidas: $talla',
+                    style: const TextStyle(fontSize: 13))),
               ]),
             ],
             if (tipo == 'oferta' && conservacion.isNotEmpty) ...[
@@ -526,6 +529,25 @@ class _PublicacionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static bool _hasTallas(Map<String, dynamic> data) {
+    final tpe = data['tallas_por_elemento'];
+    return tpe is Map && tpe.isNotEmpty;
+  }
+
+  static List<Widget> _buildTallaRows(Map<String, dynamic> data) {
+    final tpe = Map<String, dynamic>.from(data['tallas_por_elemento'] as Map);
+    return tpe.entries.map((e) => Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        Icon(kElementoIcons[e.key] ?? Icons.straighten,
+            size: 16, color: AppTheme.textSecondary),
+        const SizedBox(width: 6),
+        Text('${e.key}: ${e.value}',
+            style: const TextStyle(fontSize: 13)),
+      ]),
+    )).toList();
   }
 
   void _handleAction(BuildContext context, String action, String id) {
