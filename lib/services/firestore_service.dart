@@ -33,8 +33,17 @@ class FirestoreService {
 
   Future<void> updateCofrade(String id, Map<String, dynamic> data) async {
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
-    data.removeWhere((key, value) => value == null);
-    await _db.collection('cofrades').doc(id).set(data, SetOptions(merge: true));
+    // Convert explicit null values to FieldValue.delete() so cleared fields
+    // are actually removed from Firestore instead of being silently skipped.
+    final cleaned = <String, dynamic>{};
+    for (final entry in data.entries) {
+      if (entry.value == null) {
+        cleaned[entry.key] = FieldValue.delete();
+      } else {
+        cleaned[entry.key] = entry.value;
+      }
+    }
+    await _db.collection('cofrades').doc(id).update(cleaned);
   }
 
   Future<void> deleteCofrade(String id) async {
@@ -65,7 +74,14 @@ class FirestoreService {
   }
 
   Future<void> createEvento(Evento evento) async {
-    await _db.collection('eventos').add(evento.toFirestore());
+    final docRef = await _db.collection('eventos').add(evento.toFirestore());
+    await crearNovedad(
+      tipo: 'evento',
+      titulo: evento.titulo,
+      descripcion: 'Nuevo evento: ${evento.titulo}',
+      referenciaId: docRef.id,
+      ruta: '/events',
+    );
   }
 
   Future<void> updateEvento(String id, Map<String, dynamic> data) async {
@@ -312,7 +328,14 @@ class FirestoreService {
   }
 
   Future<void> createConvocatoria(Convocatoria convocatoria) async {
-    await _db.collection('convocatorias').add(convocatoria.toFirestore());
+    final docRef = await _db.collection('convocatorias').add(convocatoria.toFirestore());
+    await crearNovedad(
+      tipo: 'convocatoria',
+      titulo: convocatoria.titulo,
+      descripcion: 'Nueva convocatoria: ${convocatoria.titulo}',
+      referenciaId: docRef.id,
+      ruta: '/convocatorias',
+    );
   }
 
   Future<void> updateConvocatoria(
@@ -499,6 +522,15 @@ class FirestoreService {
 
   Future<void> aprobarAnuncio(String id) async {
     await _db.collection('tablon_anuncios').doc(id).update({'aprobado': true});
+    final doc = await _db.collection('tablon_anuncios').doc(id).get();
+    final data = doc.data();
+    await crearNovedad(
+      tipo: 'anuncio',
+      titulo: data?['titulo'] ?? 'Nuevo anuncio',
+      descripcion: 'Nuevo anuncio en el tablón de la cofradía.',
+      referenciaId: id,
+      ruta: '/tablon',
+    );
   }
 
   Future<void> rechazarAnuncio(String id) async {
@@ -574,7 +606,14 @@ class FirestoreService {
   }
 
   Future<void> createProveedor(Proveedor proveedor) async {
-    await _db.collection('proveedores_tunicas').add(proveedor.toFirestore());
+    final docRef = await _db.collection('proveedores_tunicas').add(proveedor.toFirestore());
+    await crearNovedad(
+      tipo: 'proveedor',
+      titulo: proveedor.nombre,
+      descripcion: 'Nuevo proveedor de túnicas: ${proveedor.nombre}',
+      referenciaId: docRef.id,
+      ruta: '/tunicas',
+    );
   }
 
   Future<void> updateProveedor(String id, Map<String, dynamic> data) async {
@@ -698,6 +737,13 @@ class FirestoreService {
       'estado': 'disponible',
       'fecha': FieldValue.serverTimestamp(),
     });
+    await crearNovedad(
+      tipo: 'oferta',
+      titulo: 'Nueva oferta de túnica',
+      descripcion: 'Oferta de $nombrePublicador: ${elementos.join(", ")}',
+      referenciaId: '${cofradeId}_oferta_${DateTime.now().millisecondsSinceEpoch}',
+      ruta: '/banco-tunicas',
+    );
   }
 
   Future<void> crearDemanda({
@@ -721,6 +767,13 @@ class FirestoreService {
       'estado': 'activa',
       'fecha': FieldValue.serverTimestamp(),
     });
+    await crearNovedad(
+      tipo: 'demanda',
+      titulo: 'Nueva demanda de túnica',
+      descripcion: 'Demanda de $nombreDemandante: ${elementos.join(", ")}',
+      referenciaId: '${cofradeId}_demanda_${DateTime.now().millisecondsSinceEpoch}',
+      ruta: '/banco-tunicas',
+    );
   }
 
   Future<void> cambiarEstadoPublicacionBanco(String id, String nuevoEstado) async {
@@ -983,6 +1036,50 @@ class FirestoreService {
         .collection('inscripciones')
         .doc(inscId)
         .delete();
+  }
+
+  // =============================================
+  // --- Novedades (centralized notification system) ---
+  // =============================================
+
+  Stream<List<Map<String, dynamic>>> getNovedades({int limit = 50}) {
+    return _db
+        .collection('novedades')
+        .orderBy('fecha_creacion', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((s) => s.docs.map((d) {
+              final data = d.data();
+              data['id'] = d.id;
+              return data;
+            }).toList());
+  }
+
+  Future<void> crearNovedad({
+    required String tipo,
+    required String titulo,
+    required String descripcion,
+    required String referenciaId,
+    String? ruta,
+  }) async {
+    // Prevent duplicate novedades for the same resource
+    final existing = await _db
+        .collection('novedades')
+        .where('tipo', isEqualTo: tipo)
+        .where('referencia_id', isEqualTo: referenciaId)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) return;
+
+    await _db.collection('novedades').add({
+      'tipo': tipo,
+      'titulo': titulo,
+      'descripcion': descripcion,
+      'referencia_id': referenciaId,
+      'ruta': ruta ?? '',
+      'fecha_creacion': FieldValue.serverTimestamp(),
+      'visible_para': 'todos',
+    });
   }
 
   // Search cofrades for autocomplete

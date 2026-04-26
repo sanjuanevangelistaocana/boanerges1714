@@ -98,76 +98,153 @@ class ManageFestividadScreen extends StatelessWidget {
     final lugarCtrl = TextEditingController();
     final direccionCtrl = TextEditingController();
     final descripcionCtrl = TextEditingController();
+    DateTime fechaEvento = DateTime(anio, 12, 27);
+    DateTime fechaLimite = DateTime(anio, 12, 20);
+    TimeOfDay horaEvento = const TimeOfDay(hour: 14, minute: 0);
+    TimeOfDay horaLimite = const TimeOfDay(hour: 23, minute: 59);
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Nueva edición'),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: nombreCtrl,
-                    decoration: const InputDecoration(labelText: 'Nombre del evento', border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                Row(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final fmt = DateFormat('dd/MM/yyyy');
+          return AlertDialog(
+            title: const Text('Nueva edición'),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(child: TextField(controller: precioHermanoCtrl,
-                        decoration: const InputDecoration(labelText: 'Precio hermano (€)', border: OutlineInputBorder()),
-                        keyboardType: TextInputType.number)),
-                    const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: precioInvitadoCtrl,
-                        decoration: const InputDecoration(labelText: 'Precio invitado (€)', border: OutlineInputBorder()),
-                        keyboardType: TextInputType.number)),
+                    TextField(controller: nombreCtrl,
+                        decoration: const InputDecoration(labelText: 'Nombre del evento', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: precioHermanoCtrl,
+                            decoration: const InputDecoration(labelText: 'Precio hermano (€)', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number)),
+                        const SizedBox(width: 12),
+                        Expanded(child: TextField(controller: precioInvitadoCtrl,
+                            decoration: const InputDecoration(labelText: 'Precio invitado (€)', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Align(alignment: Alignment.centerLeft, child: Text('Fecha y hora del evento', style: TextStyle(fontWeight: FontWeight.w600))),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(context: ctx, initialDate: fechaEvento, firstDate: DateTime(anio - 1), lastDate: DateTime(anio + 2));
+                              if (picked != null) setDialogState(() => fechaEvento = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Fecha evento', border: OutlineInputBorder(), suffixIcon: Icon(Icons.calendar_today)),
+                              child: Text(fmt.format(fechaEvento)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(context: ctx, initialTime: horaEvento);
+                              if (picked != null) setDialogState(() => horaEvento = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Hora evento', border: OutlineInputBorder(), suffixIcon: Icon(Icons.access_time)),
+                              child: Text(horaEvento.format(ctx)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Align(alignment: Alignment.centerLeft, child: Text('Fecha y hora límite inscripción', style: TextStyle(fontWeight: FontWeight.w600))),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(context: ctx, initialDate: fechaLimite, firstDate: DateTime(anio - 1), lastDate: DateTime(anio + 2));
+                              if (picked != null) setDialogState(() => fechaLimite = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Fecha límite', border: OutlineInputBorder(), suffixIcon: Icon(Icons.calendar_today)),
+                              child: Text(fmt.format(fechaLimite)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(context: ctx, initialTime: horaLimite);
+                              if (picked != null) setDialogState(() => horaLimite = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Hora límite', border: OutlineInputBorder(), suffixIcon: Icon(Icons.access_time)),
+                              child: Text(horaLimite.format(ctx)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: horaCtrl,
+                            decoration: const InputDecoration(labelText: 'Hora (texto)', border: OutlineInputBorder()))),
+                        const SizedBox(width: 12),
+                        Expanded(child: TextField(controller: lugarCtrl,
+                            decoration: const InputDecoration(labelText: 'Lugar', border: OutlineInputBorder()))),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(controller: direccionCtrl,
+                        decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    TextField(controller: descripcionCtrl,
+                        decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                        maxLines: 3),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: horaCtrl,
-                        decoration: const InputDecoration(labelText: 'Hora', border: OutlineInputBorder()))),
-                    const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: lugarCtrl,
-                        decoration: const InputDecoration(labelText: 'Lugar', border: OutlineInputBorder()))),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(controller: direccionCtrl,
-                    decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                TextField(controller: descripcionCtrl,
-                    decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
-                    maxLines: 3),
-              ],
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () async {
-              final data = {
-                'nombre': nombreCtrl.text.trim(),
-                'anio': anio,
-                'fecha': Timestamp.fromDate(DateTime(anio, 12, 27)),
-                'hora': horaCtrl.text.trim(),
-                'lugar': lugarCtrl.text.trim(),
-                'direccion': direccionCtrl.text.trim(),
-                'descripcion': descripcionCtrl.text.trim(),
-                'precio_hermano': double.tryParse(precioHermanoCtrl.text) ?? 5.0,
-                'precio_invitado': double.tryParse(precioInvitadoCtrl.text) ?? 27.0,
-                'precio_protocolo': 0.0,
-                'fecha_limite': Timestamp.fromDate(DateTime(anio, 12, 20)),
-                'estado': 'borrador',
-              };
-              await fs.createFestividadEdicion(data);
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Crear'),
-          ),
-        ],
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              ElevatedButton(
+                onPressed: () async {
+                  final fechaEventoFull = DateTime(fechaEvento.year, fechaEvento.month, fechaEvento.day, horaEvento.hour, horaEvento.minute);
+                  final fechaLimiteFull = DateTime(fechaLimite.year, fechaLimite.month, fechaLimite.day, horaLimite.hour, horaLimite.minute);
+                  final data = {
+                    'nombre': nombreCtrl.text.trim(),
+                    'anio': anio,
+                    'fecha': Timestamp.fromDate(fechaEventoFull),
+                    'hora': horaCtrl.text.trim(),
+                    'hora_evento': '${horaEvento.hour.toString().padLeft(2, '0')}:${horaEvento.minute.toString().padLeft(2, '0')}',
+                    'lugar': lugarCtrl.text.trim(),
+                    'direccion': direccionCtrl.text.trim(),
+                    'descripcion': descripcionCtrl.text.trim(),
+                    'precio_hermano': double.tryParse(precioHermanoCtrl.text) ?? 5.0,
+                    'precio_invitado': double.tryParse(precioInvitadoCtrl.text) ?? 27.0,
+                    'precio_protocolo': 0.0,
+                    'fecha_limite': Timestamp.fromDate(fechaLimiteFull),
+                    'hora_limite': '${horaLimite.hour.toString().padLeft(2, '0')}:${horaLimite.minute.toString().padLeft(2, '0')}',
+                    'estado': 'borrador',
+                  };
+                  await fs.createFestividadEdicion(data);
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Crear'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -267,6 +344,16 @@ class _EdicionCard extends StatelessWidget {
 
   void _cambiarEstado(BuildContext context, String id, String nuevoEstado) async {
     await fs.updateFestividadEdicion(id, {'estado': nuevoEstado});
+    // Fix 7: Create novedad when state changes to 'abierto'
+    if (nuevoEstado == 'abierto') {
+      await fs.crearNovedad(
+        tipo: 'festividad',
+        titulo: 'Inscripciones abiertas: ${edicion['nombre'] ?? 'Festividad SJE'}',
+        descripcion: 'Ya puedes inscribirte en la Festividad de San Juan Evangelista.',
+        referenciaId: id,
+        ruta: '/festividad',
+      );
+    }
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Estado cambiado a: $nuevoEstado')));
@@ -282,69 +369,158 @@ class _EdicionCard extends StatelessWidget {
     final direccionCtrl = TextEditingController(text: ed['direccion'] ?? '');
     final descripcionCtrl = TextEditingController(text: ed['descripcion'] ?? '');
 
+    final fechaTs = ed['fecha'] as Timestamp?;
+    final fechaLimTs = ed['fecha_limite'] as Timestamp?;
+    DateTime fechaEvento = fechaTs?.toDate() ?? DateTime(DateTime.now().year, 12, 27);
+    DateTime fechaLimite = fechaLimTs?.toDate() ?? DateTime(DateTime.now().year, 12, 20);
+
+    final horaEventoStr = ed['hora_evento'] as String?;
+    final horaLimiteStr = ed['hora_limite'] as String?;
+    TimeOfDay horaEvento = horaEventoStr != null && horaEventoStr.contains(':')
+        ? TimeOfDay(hour: int.tryParse(horaEventoStr.split(':')[0]) ?? 14, minute: int.tryParse(horaEventoStr.split(':')[1]) ?? 0)
+        : TimeOfDay(hour: fechaEvento.hour != 0 ? fechaEvento.hour : 14, minute: fechaEvento.minute);
+    TimeOfDay horaLimiteTime = horaLimiteStr != null && horaLimiteStr.contains(':')
+        ? TimeOfDay(hour: int.tryParse(horaLimiteStr.split(':')[0]) ?? 23, minute: int.tryParse(horaLimiteStr.split(':')[1]) ?? 59)
+        : TimeOfDay(hour: fechaLimite.hour != 0 ? fechaLimite.hour : 23, minute: fechaLimite.minute);
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Editar edición'),
-        content: SizedBox(
-          width: 500,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: nombreCtrl,
-                    decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                Row(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final fmt = DateFormat('dd/MM/yyyy');
+          return AlertDialog(
+            title: const Text('Editar edición'),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(child: TextField(controller: precioHermanoCtrl,
-                        decoration: const InputDecoration(labelText: 'Precio hermano (€)', border: OutlineInputBorder()),
-                        keyboardType: TextInputType.number)),
-                    const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: precioInvitadoCtrl,
-                        decoration: const InputDecoration(labelText: 'Precio invitado (€)', border: OutlineInputBorder()),
-                        keyboardType: TextInputType.number)),
+                    TextField(controller: nombreCtrl,
+                        decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: precioHermanoCtrl,
+                            decoration: const InputDecoration(labelText: 'Precio hermano (€)', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number)),
+                        const SizedBox(width: 12),
+                        Expanded(child: TextField(controller: precioInvitadoCtrl,
+                            decoration: const InputDecoration(labelText: 'Precio invitado (€)', border: OutlineInputBorder()),
+                            keyboardType: TextInputType.number)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Align(alignment: Alignment.centerLeft, child: Text('Fecha y hora del evento', style: TextStyle(fontWeight: FontWeight.w600))),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(context: ctx, initialDate: fechaEvento, firstDate: DateTime(DateTime.now().year - 1), lastDate: DateTime(DateTime.now().year + 2));
+                              if (picked != null) setDialogState(() => fechaEvento = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Fecha evento', border: OutlineInputBorder(), suffixIcon: Icon(Icons.calendar_today)),
+                              child: Text(fmt.format(fechaEvento)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(context: ctx, initialTime: horaEvento);
+                              if (picked != null) setDialogState(() => horaEvento = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Hora evento', border: OutlineInputBorder(), suffixIcon: Icon(Icons.access_time)),
+                              child: Text(horaEvento.format(ctx)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Align(alignment: Alignment.centerLeft, child: Text('Fecha y hora límite inscripción', style: TextStyle(fontWeight: FontWeight.w600))),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showDatePicker(context: ctx, initialDate: fechaLimite, firstDate: DateTime(DateTime.now().year - 1), lastDate: DateTime(DateTime.now().year + 2));
+                              if (picked != null) setDialogState(() => fechaLimite = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Fecha límite', border: OutlineInputBorder(), suffixIcon: Icon(Icons.calendar_today)),
+                              child: Text(fmt.format(fechaLimite)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final picked = await showTimePicker(context: ctx, initialTime: horaLimiteTime);
+                              if (picked != null) setDialogState(() => horaLimiteTime = picked);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Hora límite', border: OutlineInputBorder(), suffixIcon: Icon(Icons.access_time)),
+                              child: Text(horaLimiteTime.format(ctx)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: horaCtrl,
+                            decoration: const InputDecoration(labelText: 'Hora (texto)', border: OutlineInputBorder()))),
+                        const SizedBox(width: 12),
+                        Expanded(child: TextField(controller: lugarCtrl,
+                            decoration: const InputDecoration(labelText: 'Lugar', border: OutlineInputBorder()))),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(controller: direccionCtrl,
+                        decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder())),
+                    const SizedBox(height: 12),
+                    TextField(controller: descripcionCtrl,
+                        decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                        maxLines: 3),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: TextField(controller: horaCtrl,
-                        decoration: const InputDecoration(labelText: 'Hora', border: OutlineInputBorder()))),
-                    const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: lugarCtrl,
-                        decoration: const InputDecoration(labelText: 'Lugar', border: OutlineInputBorder()))),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(controller: direccionCtrl,
-                    decoration: const InputDecoration(labelText: 'Dirección', border: OutlineInputBorder())),
-                const SizedBox(height: 12),
-                TextField(controller: descripcionCtrl,
-                    decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
-                    maxLines: 3),
-              ],
+              ),
             ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () async {
-              await fs.updateFestividadEdicion(ed['id'], {
-                'nombre': nombreCtrl.text.trim(),
-                'precio_hermano': double.tryParse(precioHermanoCtrl.text) ?? 5.0,
-                'precio_invitado': double.tryParse(precioInvitadoCtrl.text) ?? 27.0,
-                'hora': horaCtrl.text.trim(),
-                'lugar': lugarCtrl.text.trim(),
-                'direccion': direccionCtrl.text.trim(),
-                'descripcion': descripcionCtrl.text.trim(),
-              });
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              ElevatedButton(
+                onPressed: () async {
+                  final fechaEventoFull = DateTime(fechaEvento.year, fechaEvento.month, fechaEvento.day, horaEvento.hour, horaEvento.minute);
+                  final fechaLimiteFull = DateTime(fechaLimite.year, fechaLimite.month, fechaLimite.day, horaLimiteTime.hour, horaLimiteTime.minute);
+                  await fs.updateFestividadEdicion(ed['id'], {
+                    'nombre': nombreCtrl.text.trim(),
+                    'precio_hermano': double.tryParse(precioHermanoCtrl.text) ?? 5.0,
+                    'precio_invitado': double.tryParse(precioInvitadoCtrl.text) ?? 27.0,
+                    'fecha': Timestamp.fromDate(fechaEventoFull),
+                    'hora_evento': '${horaEvento.hour.toString().padLeft(2, '0')}:${horaEvento.minute.toString().padLeft(2, '0')}',
+                    'hora': horaCtrl.text.trim(),
+                    'lugar': lugarCtrl.text.trim(),
+                    'direccion': direccionCtrl.text.trim(),
+                    'descripcion': descripcionCtrl.text.trim(),
+                    'fecha_limite': Timestamp.fromDate(fechaLimiteFull),
+                    'hora_limite': '${horaLimiteTime.hour.toString().padLeft(2, '0')}:${horaLimiteTime.minute.toString().padLeft(2, '0')}',
+                  });
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Guardar'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
