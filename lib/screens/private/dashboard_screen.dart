@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
@@ -57,6 +58,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                   if (cofrade?.estado == 'Pendiente' || cofrade?.estado == 'pendiente')
                     _PendingBanner(),
+                  _FestividadBanner(firestoreService: firestoreService),
                   _NovedadesSection(firestoreService: firestoreService, cofradeId: cofrade?.id),
                   const SizedBox(height: 24),
                   _BirthdaySection(firestoreService: firestoreService, currentCofrade: cofrade),
@@ -263,6 +265,80 @@ class _PendingBanner extends StatelessWidget {
   }
 }
 
+class _FestividadBanner extends StatelessWidget {
+  final FirestoreService firestoreService;
+  const _FestividadBanner({required this.firestoreService});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<Map<String, dynamic>?>(
+      stream: firestoreService.getFestividadEdicionActivaStream(),
+      builder: (context, snap) {
+        final edicion = snap.data;
+        if (edicion == null) return const SizedBox.shrink();
+        final estado = edicion['estado'] ?? 'borrador';
+        if (estado != 'abierto') return const SizedBox.shrink();
+        final fechaLimite = (edicion['fecha_limite'] as Timestamp?)?.toDate();
+        if (fechaLimite != null && fechaLimite.isBefore(DateTime.now())) return const SizedBox.shrink();
+
+        final fmt = DateFormat('dd/MM/yyyy');
+        final diasRestantes = fechaLimite != null ? fechaLimite.difference(DateTime.now()).inDays : null;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.accentColor.withAlpha(20), AppTheme.primaryColor.withAlpha(15)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.accentColor.withAlpha(80)),
+          ),
+          child: InkWell(
+            onTap: () => context.go('/festividad'),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withAlpha(25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.celebration, color: AppTheme.accentColor, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        edicion['nombre'] ?? 'Festividad San Juan Evangelista',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        diasRestantes != null && diasRestantes <= 3
+                            ? (diasRestantes <= 0 ? '\u00a1\u00daltimo d\u00eda para inscribirse!' : '\u00a1Quedan $diasRestantes d\u00eda${diasRestantes == 1 ? '' : 's'}! Inscr\u00edbete antes del ${fmt.format(fechaLimite!)}')
+                            : 'Inscripciones abiertas${fechaLimite != null ? ' hasta el ${fmt.format(fechaLimite)}' : ''}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: diasRestantes != null && diasRestantes <= 3 ? Colors.red.shade700 : AppTheme.accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textSecondary),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _NovedadesSection extends StatefulWidget {
   final FirestoreService firestoreService;
   final String? cofradeId;
@@ -329,198 +405,261 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
     }
   }
 
+  IconData _iconForNovedadTipo(String tipo) {
+    switch (tipo) {
+      case 'evento': return Icons.event;
+      case 'convocatoria': return Icons.how_to_vote;
+      case 'oferta': return Icons.sell;
+      case 'demanda': return Icons.shopping_bag;
+      case 'proveedor': return Icons.store;
+      case 'anuncio': return Icons.campaign;
+      case 'festividad': return Icons.celebration;
+      default: return Icons.notifications;
+    }
+  }
+
+  Color _colorForNovedadTipo(String tipo) {
+    switch (tipo) {
+      case 'evento': return AppTheme.accentColor;
+      case 'convocatoria': return Colors.orange.shade700;
+      case 'oferta': return Colors.green.shade700;
+      case 'demanda': return Colors.blue.shade700;
+      case 'proveedor': return Colors.purple.shade700;
+      case 'anuncio': return Colors.teal.shade700;
+      case 'festividad': return AppTheme.primaryColor;
+      default: return AppTheme.primaryColor;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Evento>>(
-      stream: widget.firestoreService.getProximosEventos(),
-      builder: (context, eventSnap) {
-        return StreamBuilder<List<Convocatoria>>(
-          stream: widget.firestoreService.getConvocatoriasActivas(),
-          builder: (context, convoSnap) {
-            return StreamBuilder<List<Noticia>>(
-              stream: widget.firestoreService.getUltimasNoticias(limit: 3, incluirSoloCofrades: true),
-              builder: (context, newsSnap) {
-                return StreamBuilder<List<Sugerencia>>(
-                  stream: widget.cofradeId != null
-                      ? widget.firestoreService.getSugerenciasRespondidas(widget.cofradeId!)
-                      : const Stream.empty(),
-                  builder: (context, sugSnap) {
-                    final now = DateTime.now();
-                    final sevenDaysAgo = now.subtract(const Duration(days: 7));
-                    final List<_NovedadItem> items = [];
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: widget.firestoreService.getNovedades(limit: 20),
+      builder: (context, novedadesSnap) {
+        return StreamBuilder<List<Evento>>(
+          stream: widget.firestoreService.getProximosEventos(),
+          builder: (context, eventSnap) {
+            return StreamBuilder<List<Convocatoria>>(
+              stream: widget.firestoreService.getConvocatoriasActivas(),
+              builder: (context, convoSnap) {
+                return StreamBuilder<List<Noticia>>(
+                  stream: widget.firestoreService.getUltimasNoticias(limit: 3, incluirSoloCofrades: true),
+                  builder: (context, newsSnap) {
+                    return StreamBuilder<List<Sugerencia>>(
+                      stream: widget.cofradeId != null
+                          ? widget.firestoreService.getSugerenciasRespondidas(widget.cofradeId!)
+                          : const Stream.empty(),
+                      builder: (context, sugSnap) {
+                        final now = DateTime.now();
+                        final sevenDaysAgo = now.subtract(const Duration(days: 7));
+                        final List<_NovedadItem> items = [];
 
-                    for (final e in (eventSnap.data ?? <Evento>[])) {
-                      if (!e.fecha.isBefore(now)) {
-                        final dias = e.fecha.difference(now).inDays;
-                        items.add(_NovedadItem(
-                          id: 'evento_${e.id}',
-                          icon: Icons.event,
-                          color: AppTheme.accentColor,
-                          title: e.titulo,
-                          subtitle: dias == 0
-                              ? '\u00a1Hoy!'
-                              : dias == 1
-                                  ? 'Ma\u00f1ana'
-                                  : 'En $dias d\u00edas \u00b7 ${DateFormat("dd/MM").format(e.fecha)}',
-                          route: '/events',
-                        ));
-                      }
-                    }
-                    for (final c in (convoSnap.data ?? <Convocatoria>[])) {
-                      if (c.isVigente) {
-                        final dias = c.fechaLimite.difference(now).inDays;
-                        items.add(_NovedadItem(
-                          id: 'convo_${c.id}',
-                          icon: Icons.how_to_vote,
-                          color: Colors.orange.shade700,
-                          title: c.titulo,
-                          subtitle: dias <= 0
-                              ? '\u00a1\u00daltimo d\u00eda para responder!'
-                              : 'Quedan $dias d\u00edas para responder',
-                          route: '/convocatorias',
-                        ));
-                      }
-                    }
-                    for (final n in (newsSnap.data ?? <Noticia>[])) {
-                      if (n.fecha.isAfter(sevenDaysAgo)) {
-                        items.add(_NovedadItem(
-                          id: 'noticia_${n.id}',
-                          icon: Icons.article,
-                          color: AppTheme.primaryColor,
-                          title: n.titulo,
-                          subtitle: 'Nueva noticia \u00b7 ${DateFormat("dd/MM").format(n.fecha)}',
-                          route: '/news',
-                        ));
-                      }
-                    }
-                    for (final s in (sugSnap.data ?? <Sugerencia>[])) {
-                      items.add(_NovedadItem(
-                        id: 'sug_${s.id}',
-                        icon: Icons.reply,
-                        color: AppTheme.accentColor,
-                        title: 'Respuesta: ${s.titulo}',
-                        subtitle: 'Tu ${s.tipo} ha sido respondida por la Junta',
-                        route: '/sugerencias',
-                        isPriority: true,
-                      ));
-                    }
+                        // Novedades from Firestore collection (centralized system)
+                        for (final nov in (novedadesSnap.data ?? <Map<String, dynamic>>[])) {
+                          final tipo = nov['tipo'] as String? ?? '';
+                          final ruta = nov['ruta'] as String? ?? '/dashboard';
+                          items.add(_NovedadItem(
+                            id: 'nov_${nov['id']}',
+                            icon: _iconForNovedadTipo(tipo),
+                            color: _colorForNovedadTipo(tipo),
+                            title: nov['titulo'] as String? ?? '',
+                            subtitle: nov['descripcion'] as String? ?? '',
+                            route: ruta,
+                          ));
+                        }
 
-                    // Sort: priority items first (sugerencia responses), then rest
-                    items.sort((a, b) {
-                      if (a.isPriority && !b.isPriority) return -1;
-                      if (!a.isPriority && b.isPriority) return 1;
-                      return 0;
-                    });
+                        for (final e in (eventSnap.data ?? <Evento>[])) {
+                          if (!e.fecha.isBefore(now)) {
+                            final dias = e.fecha.difference(now).inDays;
+                            items.add(_NovedadItem(
+                              id: 'evento_${e.id}',
+                              icon: Icons.event,
+                              color: AppTheme.accentColor,
+                              title: e.titulo,
+                              subtitle: dias == 0
+                                  ? '\u00a1Hoy!'
+                                  : dias == 1
+                                      ? 'Ma\u00f1ana'
+                                      : 'En $dias d\u00edas \u00b7 ${DateFormat("dd/MM").format(e.fecha)}',
+                              route: '/events',
+                            ));
+                          }
+                        }
+                        for (final c in (convoSnap.data ?? <Convocatoria>[])) {
+                          if (c.isVigente) {
+                            final dias = c.fechaLimite.difference(now).inDays;
+                            items.add(_NovedadItem(
+                              id: 'convo_${c.id}',
+                              icon: Icons.how_to_vote,
+                              color: Colors.orange.shade700,
+                              title: c.titulo,
+                              subtitle: dias <= 0
+                                  ? '\u00a1\u00daltimo d\u00eda para responder!'
+                                  : 'Quedan $dias d\u00edas para responder',
+                              route: '/convocatorias',
+                            ));
+                          }
+                        }
+                        for (final n in (newsSnap.data ?? <Noticia>[])) {
+                          if (n.fecha.isAfter(sevenDaysAgo)) {
+                            items.add(_NovedadItem(
+                              id: 'noticia_${n.id}',
+                              icon: Icons.article,
+                              color: AppTheme.primaryColor,
+                              title: n.titulo,
+                              subtitle: 'Nueva noticia \u00b7 ${DateFormat("dd/MM").format(n.fecha)}',
+                              route: '/news',
+                            ));
+                          }
+                        }
+                        for (final s in (sugSnap.data ?? <Sugerencia>[])) {
+                          items.add(_NovedadItem(
+                            id: 'sug_${s.id}',
+                            icon: Icons.reply,
+                            color: AppTheme.accentColor,
+                            title: 'Respuesta: ${s.titulo}',
+                            subtitle: 'Tu ${s.tipo} ha sido respondida por la Junta',
+                            route: '/sugerencias',
+                            isPriority: true,
+                          ));
+                        }
 
-                    // Filter out read items
-                    final unread = items.where((i) => !_leidas.contains(i.id)).toList();
-                    final allIds = items.map((i) => i.id).toList();
+                        // Sort: priority items first (sugerencia responses), then rest
+                        items.sort((a, b) {
+                          if (a.isPriority && !b.isPriority) return -1;
+                          if (!a.isPriority && b.isPriority) return 1;
+                          return 0;
+                        });
 
-                    if (items.isEmpty) return const SizedBox.shrink();
+                        // Filter out read items
+                        final unread = items.where((i) => !_leidas.contains(i.id)).toList();
+                        final allIds = items.map((i) => i.id).toList();
 
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppTheme.accentColor.withAlpha(15), AppTheme.primaryColor.withAlpha(10)],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.accentColor.withAlpha(40)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.notifications_active, color: AppTheme.primaryColor, size: 22),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text('Novedades',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                              ),
-                              if (unread.isNotEmpty && _leidasLoaded)
-                                TextButton.icon(
-                                  onPressed: () => _marcarTodasLeidas(allIds),
-                                  icon: const Icon(Icons.done_all, size: 16),
-                                  label: const Text('Marcar todo le\u00eddo', style: TextStyle(fontSize: 12)),
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                ),
-                            ],
+                        if (items.isEmpty) return const SizedBox.shrink();
+
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppTheme.accentColor.withAlpha(15), AppTheme.primaryColor.withAlpha(10)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.accentColor.withAlpha(40)),
                           ),
-                          if (unread.isEmpty && _leidasLoaded) ...[
-                            const SizedBox(height: 12),
-                            const Text('No tienes novedades pendientes.',
-                                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
-                          ],
-                          if (unread.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            ...unread.take(8).map((item) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: InkWell(
-                                    onTap: () => context.go(item.route),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                                      child: Row(
-                                        children: [
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.notifications_active, color: AppTheme.primaryColor, size: 22),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        const Text('Novedades',
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                                        if (unread.isNotEmpty && _leidasLoaded) ...[
+                                          const SizedBox(width: 8),
                                           Container(
-                                            padding: const EdgeInsets.all(8),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: item.color.withAlpha(20),
-                                              borderRadius: BorderRadius.circular(8),
+                                              color: Colors.red,
+                                              borderRadius: BorderRadius.circular(12),
                                             ),
-                                            child: Icon(item.icon, size: 20, color: item.color),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    if (item.isPriority)
-                                                      Container(
-                                                        margin: const EdgeInsets.only(right: 6),
-                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                                        decoration: BoxDecoration(
-                                                          color: AppTheme.accentColor.withAlpha(30),
-                                                          borderRadius: BorderRadius.circular(4),
-                                                        ),
-                                                        child: const Text('Respuesta', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
-                                                      ),
-                                                    Expanded(
-                                                      child: Text(item.title,
-                                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Text(item.subtitle,
-                                                    style: TextStyle(fontSize: 12, color: item.color, fontWeight: FontWeight.w500)),
-                                              ],
+                                            child: Text(
+                                              '${unread.length}',
+                                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                                             ),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(Icons.check_circle_outline, size: 20, color: Colors.grey.shade400),
-                                            tooltip: 'Marcar como le\u00eddo',
-                                            onPressed: () => _marcarLeida(item.id),
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
                                           ),
                                         ],
-                                      ),
+                                      ],
                                     ),
                                   ),
-                                )),
-                          ],
-                        ],
-                      ),
+                                  if (unread.isNotEmpty && _leidasLoaded)
+                                    TextButton.icon(
+                                      onPressed: () => _marcarTodasLeidas(allIds),
+                                      icon: const Icon(Icons.done_all, size: 16),
+                                      label: const Text('Marcar todo le\u00eddo', style: TextStyle(fontSize: 12)),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              if (unread.isEmpty && _leidasLoaded) ...[
+                                const SizedBox(height: 12),
+                                const Text('No tienes novedades pendientes.',
+                                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                              ],
+                              if (unread.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                ...unread.take(8).map((item) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: InkWell(
+                                        onTap: () => context.go(item.route),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  color: item.color.withAlpha(20),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Icon(item.icon, size: 20, color: item.color),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        if (item.isPriority)
+                                                          Container(
+                                                            margin: const EdgeInsets.only(right: 6),
+                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                                            decoration: BoxDecoration(
+                                                              color: AppTheme.accentColor.withAlpha(30),
+                                                              borderRadius: BorderRadius.circular(4),
+                                                            ),
+                                                            child: const Text('Respuesta', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.accentColor)),
+                                                          ),
+                                                        Expanded(
+                                                          child: Text(item.title,
+                                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    Text(item.subtitle,
+                                                        style: TextStyle(fontSize: 12, color: item.color, fontWeight: FontWeight.w500)),
+                                                  ],
+                                                ),
+                                              ),
+                                              IconButton(
+                                                icon: Icon(Icons.check_circle_outline, size: 20, color: Colors.grey.shade400),
+                                                tooltip: 'Marcar como le\u00eddo',
+                                                onPressed: () => _marcarLeida(item.id),
+                                                padding: EdgeInsets.zero,
+                                                constraints: const BoxConstraints(),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    )),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
                     );
                   },
                 );
@@ -724,6 +863,7 @@ class _QuickActions extends StatelessWidget {
         _ActionCard(icon: Icons.checkroom, label: 'T\u00fanicas', subtitle: 'Proveedores', onTap: () => context.go('/tunicas')),
         _ActionCard(icon: Icons.lightbulb_outline, label: 'Sugerencias', subtitle: 'Env\u00eda tu opini\u00f3n', onTap: () => context.go('/sugerencias')),
         _ActionCard(icon: Icons.campaign, label: 'Tabl\u00f3n', subtitle: 'Anuncios cofrades', onTap: () => context.go('/tablon')),
+        _ActionCard(icon: Icons.celebration, label: 'Festividad', subtitle: '27 de diciembre', onTap: () => context.go('/festividad')),
         if (authService.isAdmin)
           _ActionCard(icon: Icons.admin_panel_settings, label: 'Admin', subtitle: 'Panel de gesti\u00f3n', onTap: () => context.go('/admin'), isAdmin: true),
       ],

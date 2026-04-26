@@ -88,6 +88,22 @@
         { "fieldPath": "cofrade_id", "order": "ASCENDING" },
         { "fieldPath": "estado", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "novedades",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "referencia_id", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tablon_anuncios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "aprobado", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

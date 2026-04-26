@@ -215,6 +215,13 @@ service cloud.firestore {
       }
     }
 
+    // Novedades (centralized notification system)
+    match /novedades/{novedadId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if isAdmin();
+    }
+
     // Convocatorias collection
     match /convocatorias/{convocatoriaId} {
       // Authenticated users can read convocatorias
