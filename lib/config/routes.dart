@@ -35,6 +35,12 @@ import 'package:boanerges1714/screens/private/tablon_screen.dart';
 import 'package:boanerges1714/screens/private/banco_tunicas_screen.dart';
 import 'package:boanerges1714/screens/private/publicar_oferta_screen.dart';
 import 'package:boanerges1714/screens/private/publicar_demanda_screen.dart';
+import 'package:boanerges1714/screens/private/festividad/festividad_screen.dart';
+import 'package:boanerges1714/screens/private/festividad/inscripcion_screen.dart';
+import 'package:boanerges1714/screens/admin/festividad/manage_festividad_screen.dart';
+import 'package:boanerges1714/screens/admin/festividad/manage_menus_screen.dart';
+import 'package:boanerges1714/screens/admin/festividad/manage_inscripciones_screen.dart';
+import 'package:boanerges1714/screens/admin/festividad/informe_festividad_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 
@@ -51,7 +57,7 @@ GoRouter createRouter(AuthService authService) {
       final isAdmin = authService.isAdmin;
       final path = state.matchedLocation;
 
-      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias', '/sugerencias', '/tunicas', '/tablon', '/banco-tunicas'];
+      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias', '/sugerencias', '/tunicas', '/tablon', '/banco-tunicas', '/festividad'];
       if (privateRoutes.any((r) => path.startsWith(r)) && !isLoggedIn) {
         return '/login';
       }
@@ -103,6 +109,25 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(path: '/banco-tunicas/publicar-oferta', builder: (context, state) => const PublicarOfertaScreen()),
           GoRoute(path: '/banco-tunicas/publicar-demanda', builder: (context, state) => const PublicarDemandaScreen()),
           GoRoute(path: '/admin/banco-tunicas', builder: (context, state) => const ManageBancoTunicasScreen()),
+          GoRoute(path: '/festividad', builder: (context, state) => const FestividadScreen()),
+          GoRoute(path: '/festividad/inscripcion', builder: (context, state) {
+            final edicionId = state.uri.queryParameters['edicionId'] ?? '';
+            final inscripcionId = state.uri.queryParameters['inscripcionId'];
+            return InscripcionFestividadScreen(edicionId: edicionId, inscripcionId: inscripcionId);
+          }),
+          GoRoute(path: '/admin/festividad', builder: (context, state) => const ManageFestividadScreen()),
+          GoRoute(path: '/admin/festividad/menus', builder: (context, state) {
+            final edicionId = state.uri.queryParameters['edicionId'] ?? '';
+            return ManageMenusFestividadScreen(edicionId: edicionId);
+          }),
+          GoRoute(path: '/admin/festividad/inscripciones', builder: (context, state) {
+            final edicionId = state.uri.queryParameters['edicionId'] ?? '';
+            return ManageInscripcionesFestividadScreen(edicionId: edicionId);
+          }),
+          GoRoute(path: '/admin/festividad/informe', builder: (context, state) {
+            final edicionId = state.uri.queryParameters['edicionId'] ?? '';
+            return InformeFestividadScreen(edicionId: edicionId);
+          }),
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),

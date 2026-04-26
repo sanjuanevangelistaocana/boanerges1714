@@ -195,6 +195,26 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Festividad San Juan Evangelista
+    match /festividad_sje/{edicionId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+
+      // Menus subcollection
+      match /menus/{menuId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin();
+      }
+
+      // Inscripciones subcollection
+      match /inscripciones/{inscripcionId} {
+        allow read: if isAuth();
+        allow create: if isAuth();
+        allow update: if isAuth();
+        allow delete: if isAdmin();
+      }
+    }
+
     // Convocatorias collection
     match /convocatorias/{convocatoriaId} {
       // Authenticated users can read convocatorias

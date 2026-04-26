@@ -783,4 +783,223 @@ class FirestoreService {
       });
     }
   }
+
+  // =============================================
+  // --- Festividad San Juan Evangelista ---
+  // =============================================
+
+  // --- Ediciones del evento ---
+  Stream<List<Map<String, dynamic>>> getFestividadEdiciones() {
+    return _db
+        .collection('festividad_sje')
+        .orderBy('anio', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) {
+              final data = d.data();
+              data['id'] = d.id;
+              return data;
+            }).toList());
+  }
+
+  Future<Map<String, dynamic>?> getFestividadEdicionActiva() async {
+    final snap = await _db
+        .collection('festividad_sje')
+        .where('estado', whereIn: ['abierto', 'cerrado'])
+        .orderBy('anio', descending: true)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    final data = snap.docs.first.data();
+    data['id'] = snap.docs.first.id;
+    return data;
+  }
+
+  Stream<Map<String, dynamic>?> getFestividadEdicionActivaStream() {
+    return _db
+        .collection('festividad_sje')
+        .orderBy('anio', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((s) {
+      if (s.docs.isEmpty) return null;
+      final data = s.docs.first.data();
+      data['id'] = s.docs.first.id;
+      return data;
+    });
+  }
+
+  Future<Map<String, dynamic>?> getFestividadEdicion(String id) async {
+    final doc = await _db.collection('festividad_sje').doc(id).get();
+    if (!doc.exists) return null;
+    final data = doc.data()!;
+    data['id'] = doc.id;
+    return data;
+  }
+
+  Future<String> createFestividadEdicion(Map<String, dynamic> data) async {
+    data['created_at'] = FieldValue.serverTimestamp();
+    data['updated_at'] = FieldValue.serverTimestamp();
+    final ref = await _db.collection('festividad_sje').add(data);
+    return ref.id;
+  }
+
+  Future<void> updateFestividadEdicion(String id, Map<String, dynamic> data) async {
+    data['updated_at'] = FieldValue.serverTimestamp();
+    await _db.collection('festividad_sje').doc(id).update(data);
+  }
+
+  // --- Menús de una edición ---
+  Stream<List<Map<String, dynamic>>> getFestividadMenus(String edicionId) {
+    return _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('menus')
+        .orderBy('orden')
+        .snapshots()
+        .map((s) => s.docs.map((d) {
+              final data = d.data();
+              data['id'] = d.id;
+              return data;
+            }).toList());
+  }
+
+  Future<String> createFestividadMenu(String edicionId, Map<String, dynamic> data) async {
+    data['created_at'] = FieldValue.serverTimestamp();
+    final ref = await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('menus')
+        .add(data);
+    return ref.id;
+  }
+
+  Future<void> updateFestividadMenu(String edicionId, String menuId, Map<String, dynamic> data) async {
+    await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('menus')
+        .doc(menuId)
+        .update(data);
+  }
+
+  Future<void> deleteFestividadMenu(String edicionId, String menuId) async {
+    await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('menus')
+        .doc(menuId)
+        .delete();
+  }
+
+  Future<bool> isMenuUsedInInscripciones(String edicionId, String menuId) async {
+    final snap = await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .limit(100)
+        .get();
+    for (final doc in snap.docs) {
+      final asistentes = List<Map<String, dynamic>>.from(
+          (doc.data()['asistentes'] as List<dynamic>?) ?? []);
+      for (final a in asistentes) {
+        if (a['menu_id'] == menuId) return true;
+      }
+    }
+    return false;
+  }
+
+  // --- Inscripciones ---
+  Stream<List<Map<String, dynamic>>> getFestividadInscripciones(String edicionId) {
+    return _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) {
+              final data = d.data();
+              data['id'] = d.id;
+              return data;
+            }).toList());
+  }
+
+  Future<Map<String, dynamic>?> getMiInscripcionFestividad(String edicionId, String cofradeId) async {
+    final snap = await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .where('cofrade_id', isEqualTo: cofradeId)
+        .where('estado', whereIn: ['pendiente', 'confirmada'])
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    final data = snap.docs.first.data();
+    data['id'] = snap.docs.first.id;
+    return data;
+  }
+
+  Future<bool> isCofradeInscritoFestividad(String edicionId, String cofradeId) async {
+    final allInsc = await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .where('estado', whereIn: ['pendiente', 'confirmada'])
+        .get();
+    for (final doc in allInsc.docs) {
+      final asistentes = List<Map<String, dynamic>>.from(
+          (doc.data()['asistentes'] as List<dynamic>?) ?? []);
+      for (final a in asistentes) {
+        if (a['cofrade_id'] == cofradeId) return true;
+      }
+    }
+    return false;
+  }
+
+  Future<String> createFestividadInscripcion(String edicionId, Map<String, dynamic> data) async {
+    data['created_at'] = FieldValue.serverTimestamp();
+    data['updated_at'] = FieldValue.serverTimestamp();
+    final ref = await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .add(data);
+    return ref.id;
+  }
+
+  Future<void> updateFestividadInscripcion(String edicionId, String inscId, Map<String, dynamic> data) async {
+    data['updated_at'] = FieldValue.serverTimestamp();
+    await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .doc(inscId)
+        .update(data);
+  }
+
+  Future<void> deleteFestividadInscripcion(String edicionId, String inscId) async {
+    await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .doc(inscId)
+        .delete();
+  }
+
+  // Search cofrades for autocomplete
+  Future<List<Cofrade>> searchCofrades(String query) async {
+    final trimmed = query.trim().toLowerCase();
+    if (trimmed.isEmpty) return [];
+    final snap = await _db
+        .collection('cofrades')
+        .where('estado', isEqualTo: 'Activo')
+        .orderBy('apellidos')
+        .get();
+    return snap.docs
+        .map((d) => Cofrade.fromFirestore(d))
+        .where((c) =>
+            c.nombre.toLowerCase().contains(trimmed) ||
+            c.apellidos.toLowerCase().contains(trimmed) ||
+            c.nombreCompleto.toLowerCase().contains(trimmed))
+        .toList();
+  }
 }
