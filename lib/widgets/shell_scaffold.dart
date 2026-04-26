@@ -111,6 +111,7 @@ class ShellScaffold extends StatelessWidget {
             _DrawerItem(icon: Icons.lightbulb_outline, label: 'Sugerencias', route: '/sugerencias'),
             _DrawerItem(icon: Icons.campaign, label: 'Tablón', route: '/tablon'),
             _DrawerItem(icon: Icons.checkroom, label: 'Túnicas', route: '/tunicas'),
+            _DrawerItem(icon: Icons.celebration, label: 'Festividad SJE', route: '/festividad'),
             if (isAdmin) ...[
               const Divider(),
               const Padding(
@@ -123,6 +124,7 @@ class ShellScaffold extends StatelessWidget {
               _DrawerItem(icon: Icons.event_note, label: 'Gestionar Eventos', route: '/admin/events'),
               _DrawerItem(icon: Icons.article, label: 'Gestionar Noticias', route: '/admin/news'),
               _DrawerItem(icon: Icons.notifications_active, label: 'Notificaciones', route: '/admin/notifications'),
+              _DrawerItem(icon: Icons.celebration, label: 'Festividad SJE', route: '/admin/festividad'),
             ],
             const Divider(),
             ListTile(

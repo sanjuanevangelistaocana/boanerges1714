@@ -80,6 +80,14 @@
         { "fieldPath": "tipo", "order": "ASCENDING" },
         { "fieldPath": "fecha", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "inscripciones",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "cofrade_id", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
