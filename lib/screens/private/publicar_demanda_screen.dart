@@ -169,7 +169,7 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
                         }).toList(),
                       ),
                       const SizedBox(height: 20),
-                      if (_elementosSeleccionados.isNotEmpty) ..[
+                      if (_elementosSeleccionados.isNotEmpty) ...[
                         const Text('Talla / Medidas por elemento',
                             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 8),
