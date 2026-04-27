@@ -102,7 +102,7 @@ exports.syncCofradeToSheet = functions
         data.numero || "",                              // 0: Nº
         data.nombre || "",                              // 1: Nombre
         data.apellidos || "",                           // 2: Apellidos
-        data.tutelado_digital ? "TRUE" : "FALSE",       // 3: Tutelado Digital
+        data.tutelado_digital || "",                      // 3: Tutelado Digital
         data.fecha_nacimiento ?
           new Date(data.fecha_nacimiento.seconds * 1000)
               .toLocaleDateString("es-ES") : "",       // 4: Fecha Nacimiento
@@ -199,9 +199,16 @@ exports.syncSheetToFirestore = functions
         } else {
           const cofradeRef = snapshot.docs[0].ref;
           const currentData = snapshot.docs[0].data();
-          if (hasChanges(currentData, sheetData)) {
-            batch.update(cofradeRef, sheetData);
+          const diff = hasChanges(currentData, sheetData);
+          if (diff.changed) {
+            // Only write the fields that actually changed (selective update)
+            diff.changedFields.fecha_actualizacion =
+                admin.firestore.FieldValue.serverTimestamp();
+            batch.update(cofradeRef, diff.changedFields);
             updateCount++;
+            console.log(
+                `Updating cofrade #${numero}: ${Object.keys(diff.changedFields).join(", ")}`,
+            );
           }
         }
       }
@@ -265,18 +272,46 @@ function rowToFirestoreData(row, numero) {
 
 /**
  * Check if sheet data has changes compared to Firestore data.
+ * Returns an object with {changed: boolean, changedFields: Object} containing
+ * only the fields that actually differ, to avoid overwriting unchanged data.
  */
 function hasChanges(firestoreData, sheetData) {
-  const fieldsToCompare = [
+  const stringFields = [
     "nombre", "apellidos", "email", "telefono_fijo", "telefono_movil",
     "domicilio", "localidad", "codigo_postal", "estado", "genero",
     "tutelado_digital", "talla", "iban", "titular_iban", "comentarios",
     "email_secundario", "telefono_secundario", "dni", "dni_tutor",
-    "parentesco_tutor", "cargo",
+    "parentesco_tutor", "cargo", "causa_baja",
   ];
-  return fieldsToCompare.some(
-      (field) => (firestoreData[field] || "") !== (sheetData[field] || ""),
-  );
+  const numericFields = [
+    "numero", "edad", "estatura", "anio_alta", "anios_hermandad",
+    "anio_mayordomia",
+  ];
+  const booleanFields = [
+    "tiene_cuota", "cuota_metalico", "cuota_domiciliada", "gdpr_firmado",
+    "tiene_tunica_propia",
+  ];
+
+  const changedFields = {};
+
+  for (const field of stringFields) {
+    const fsVal = firestoreData[field] || "";
+    const shVal = sheetData[field] || "";
+    if (fsVal !== shVal) changedFields[field] = shVal;
+  }
+  for (const field of numericFields) {
+    const fsVal = firestoreData[field] ?? null;
+    const shVal = sheetData[field] ?? null;
+    if (fsVal !== shVal && shVal !== null) changedFields[field] = shVal;
+  }
+  for (const field of booleanFields) {
+    const fsVal = firestoreData[field] ?? false;
+    const shVal = sheetData[field] ?? false;
+    if (fsVal !== shVal) changedFields[field] = shVal;
+  }
+
+  const changed = Object.keys(changedFields).length > 0;
+  return {changed, changedFields};
 }
 
 /**

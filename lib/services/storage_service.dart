@@ -33,10 +33,12 @@ class StorageService {
       },
     );
 
+    debugPrint('[Storage] uploadFile: path=$path, file=$safeName, ct=$ct');
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
         await ref.putData(bytes, metadata);
         final url = await ref.getDownloadURL();
+        debugPrint('[Storage] uploadFile: OK → $url');
         return {
           'nombre': fileName,
           'url': url,

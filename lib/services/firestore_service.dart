@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/evento.dart';
@@ -34,17 +35,18 @@ class FirestoreService {
 
   Future<void> updateCofrade(String id, Map<String, dynamic> data) async {
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
-    // Convert explicit null values to FieldValue.delete() so cleared fields
-    // are actually removed from Firestore instead of being silently skipped.
+    // Skip null values to avoid accidentally deleting fields that were not
+    // part of this edit.  Only include non-null entries so Firestore update()
+    // only touches the fields the caller explicitly provided.
     final cleaned = <String, dynamic>{};
     for (final entry in data.entries) {
-      if (entry.value == null) {
-        cleaned[entry.key] = FieldValue.delete();
-      } else {
+      if (entry.value != null) {
         cleaned[entry.key] = entry.value;
       }
     }
+    debugPrint('[Firestore] updateCofrade($id): ${cleaned.keys.join(', ')}');
     await _db.collection('cofrades').doc(id).update(cleaned);
+    debugPrint('[Firestore] updateCofrade($id): OK');
   }
 
   Future<void> deleteCofrade(String id) async {
@@ -1244,12 +1246,18 @@ class FirestoreService {
   // Search cofrades for autocomplete
   Future<List<Cofrade>> searchCofrades(String query) async {
     final trimmed = query.trim().toLowerCase();
+    debugPrint('[Firestore] searchCofrades("$query")');
+    // Fetch all cofrades and filter client-side for case-insensitive matching
+    // (handles both 'Activo' and 'activo' estado values).
     final snap = await _db
         .collection('cofrades')
-        .where('estado', isEqualTo: 'Activo')
         .orderBy('apellidos')
         .get();
-    final all = snap.docs.map((d) => Cofrade.fromFirestore(d)).toList();
+    final all = snap.docs
+        .map((d) => Cofrade.fromFirestore(d))
+        .where((c) => c.isActivo)
+        .toList();
+    debugPrint('[Firestore] searchCofrades: ${all.length} active cofrades found');
     if (trimmed.isEmpty) return all;
     return all
         .where((c) =>
