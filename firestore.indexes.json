@@ -104,6 +104,38 @@
         { "fieldPath": "aprobado", "order": "ASCENDING" },
         { "fieldPath": "fecha", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "campanas_loteria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fecha_inicio", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sabanas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campana_id", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "asignaciones_loteria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campana_id", "order": "ASCENDING" },
+        { "fieldPath": "vendedor_id", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "asignaciones_loteria",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vendedor_id", "order": "ASCENDING" },
+        { "fieldPath": "ultima_actualizacion", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

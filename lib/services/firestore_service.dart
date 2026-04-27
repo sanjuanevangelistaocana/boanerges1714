@@ -9,6 +9,7 @@ import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/models/sugerencia.dart';
 import 'package:boanerges1714/models/proveedor.dart';
 import 'package:boanerges1714/models/revista.dart';
+import 'package:boanerges1714/models/loteria.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -1082,17 +1083,175 @@ class FirestoreService {
     });
   }
 
+  // --- Lotería de Navidad ---
+
+  // Campañas
+  Stream<List<CampanaLoteria>> getCampanasLoteria() {
+    return _db
+        .collection('campanas_loteria')
+        .orderBy('fecha_inicio', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => CampanaLoteria.fromFirestore(d)).toList());
+  }
+
+  Stream<CampanaLoteria?> getCampanaActiva() {
+    return _db
+        .collection('campanas_loteria')
+        .where('estado', isEqualTo: 'activa')
+        .limit(1)
+        .snapshots()
+        .map((s) => s.docs.isNotEmpty ? CampanaLoteria.fromFirestore(s.docs.first) : null);
+  }
+
+  Future<CampanaLoteria?> getCampanaById(String id) async {
+    final doc = await _db.collection('campanas_loteria').doc(id).get();
+    if (doc.exists) return CampanaLoteria.fromFirestore(doc);
+    return null;
+  }
+
+  Future<String> createCampanaLoteria(CampanaLoteria campana) async {
+    final docRef = await _db.collection('campanas_loteria').add(campana.toFirestore());
+    return docRef.id;
+  }
+
+  Future<void> updateCampanaLoteria(String id, Map<String, dynamic> data) async {
+    await _db.collection('campanas_loteria').doc(id).update(data);
+  }
+
+  Future<void> deleteCampanaLoteria(String id) async {
+    await _db.collection('campanas_loteria').doc(id).delete();
+  }
+
+  // Sábanas
+  Stream<List<Sabana>> getSabanas(String campanaId) {
+    return _db
+        .collection('sabanas')
+        .where('campana_id', isEqualTo: campanaId)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Sabana.fromFirestore(d)).toList());
+  }
+
+  Future<String> createSabana(Sabana sabana) async {
+    final docRef = await _db.collection('sabanas').add(sabana.toFirestore());
+    return docRef.id;
+  }
+
+  Future<void> updateSabana(String id, Map<String, dynamic> data) async {
+    await _db.collection('sabanas').doc(id).update(data);
+  }
+
+  Future<void> deleteSabana(String id) async {
+    await _db.collection('sabanas').doc(id).delete();
+  }
+
+  // Vendedores
+  Stream<List<VendedorLoteria>> getVendedoresLoteria() {
+    return _db
+        .collection('vendedores_loteria')
+        .orderBy('nombre')
+        .snapshots()
+        .map((s) => s.docs.map((d) => VendedorLoteria.fromFirestore(d)).toList());
+  }
+
+  Future<VendedorLoteria?> getVendedorById(String id) async {
+    final doc = await _db.collection('vendedores_loteria').doc(id).get();
+    if (doc.exists) return VendedorLoteria.fromFirestore(doc);
+    return null;
+  }
+
+  Future<VendedorLoteria?> getVendedorByAuthUid(String authUid) async {
+    final snap = await _db
+        .collection('vendedores_loteria')
+        .where('usuario_auth_id', isEqualTo: authUid)
+        .limit(1)
+        .get();
+    if (snap.docs.isNotEmpty) return VendedorLoteria.fromFirestore(snap.docs.first);
+    return null;
+  }
+
+  Future<String> createVendedorLoteria(VendedorLoteria vendedor) async {
+    final docRef = await _db.collection('vendedores_loteria').add(vendedor.toFirestore());
+    return docRef.id;
+  }
+
+  Future<void> updateVendedorLoteria(String id, Map<String, dynamic> data) async {
+    await _db.collection('vendedores_loteria').doc(id).update(data);
+  }
+
+  Future<void> deleteVendedorLoteria(String id) async {
+    await _db.collection('vendedores_loteria').doc(id).delete();
+  }
+
+  // Asignaciones
+  Stream<List<AsignacionLoteria>> getAsignaciones(String campanaId) {
+    return _db
+        .collection('asignaciones_loteria')
+        .where('campana_id', isEqualTo: campanaId)
+        .snapshots()
+        .map((s) => s.docs.map((d) => AsignacionLoteria.fromFirestore(d)).toList());
+  }
+
+  Stream<List<AsignacionLoteria>> getAsignacionesVendedor(String vendedorId) {
+    return _db
+        .collection('asignaciones_loteria')
+        .where('vendedor_id', isEqualTo: vendedorId)
+        .snapshots()
+        .map((s) => s.docs.map((d) => AsignacionLoteria.fromFirestore(d)).toList());
+  }
+
+  Future<AsignacionLoteria?> getAsignacionByToken(String token) async {
+    final snap = await _db
+        .collection('asignaciones_loteria')
+        .where('token_acceso', isEqualTo: token)
+        .limit(1)
+        .get();
+    if (snap.docs.isNotEmpty) return AsignacionLoteria.fromFirestore(snap.docs.first);
+    return null;
+  }
+
+  Future<String> createAsignacion(AsignacionLoteria asignacion) async {
+    final docRef = await _db.collection('asignaciones_loteria').add(asignacion.toFirestore());
+    // Update sabana estado to 'asignada'
+    await _db.collection('sabanas').doc(asignacion.sabanaId).update({'estado': 'asignada'});
+    return docRef.id;
+  }
+
+  Future<void> updateAsignacion(String id, Map<String, dynamic> data) async {
+    data['ultima_actualizacion'] = FieldValue.serverTimestamp();
+    await _db.collection('asignaciones_loteria').doc(id).update(data);
+  }
+
+  Future<void> actualizarVentasAsignacion(String id, int vendidos, int devueltos) async {
+    await _db.collection('asignaciones_loteria').doc(id).update({
+      'decimos_vendidos': vendidos,
+      'decimos_devueltos': devueltos,
+      'ultima_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteAsignacion(String id) async {
+    // Get asignacion to restore sabana
+    final doc = await _db.collection('asignaciones_loteria').doc(id).get();
+    if (doc.exists) {
+      final sabanaId = doc.data()?['sabana_id'] as String?;
+      if (sabanaId != null) {
+        await _db.collection('sabanas').doc(sabanaId).update({'estado': 'disponible'});
+      }
+    }
+    await _db.collection('asignaciones_loteria').doc(id).delete();
+  }
+
   // Search cofrades for autocomplete
   Future<List<Cofrade>> searchCofrades(String query) async {
     final trimmed = query.trim().toLowerCase();
-    if (trimmed.isEmpty) return [];
     final snap = await _db
         .collection('cofrades')
         .where('estado', isEqualTo: 'Activo')
         .orderBy('apellidos')
         .get();
-    return snap.docs
-        .map((d) => Cofrade.fromFirestore(d))
+    final all = snap.docs.map((d) => Cofrade.fromFirestore(d)).toList();
+    if (trimmed.isEmpty) return all;
+    return all
         .where((c) =>
             c.nombre.toLowerCase().contains(trimmed) ||
             c.apellidos.toLowerCase().contains(trimmed) ||

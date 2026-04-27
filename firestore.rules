@@ -222,6 +222,34 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Lotería de Navidad - Campañas
+    match /campanas_loteria/{campanaId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Lotería de Navidad - Sábanas
+    match /sabanas/{sabanaId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Lotería de Navidad - Vendedores
+    match /vendedores_loteria/{vendedorId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Lotería de Navidad - Asignaciones
+    match /asignaciones_loteria/{asignacionId} {
+      // All authenticated users can read (for availability view)
+      allow read: if isAuth();
+      // Admins can do anything
+      allow create, delete: if isAdmin();
+      // Authenticated users can update (vendedores update their own sales)
+      allow update: if isAuth();
+    }
+
     // Convocatorias collection
     match /convocatorias/{convocatoriaId} {
       // Authenticated users can read convocatorias

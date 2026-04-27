@@ -41,6 +41,14 @@ import 'package:boanerges1714/screens/admin/festividad/manage_festividad_screen.
 import 'package:boanerges1714/screens/admin/festividad/manage_menus_screen.dart';
 import 'package:boanerges1714/screens/admin/festividad/manage_inscripciones_screen.dart';
 import 'package:boanerges1714/screens/admin/festividad/informe_festividad_screen.dart';
+import 'package:boanerges1714/screens/admin/loteria/manage_loteria_screen.dart';
+import 'package:boanerges1714/screens/admin/loteria/manage_sabanas_screen.dart';
+import 'package:boanerges1714/screens/admin/loteria/manage_vendedores_screen.dart';
+import 'package:boanerges1714/screens/admin/loteria/manage_asignaciones_screen.dart';
+import 'package:boanerges1714/screens/admin/loteria/campana_dashboard_screen.dart';
+import 'package:boanerges1714/screens/private/loteria/mi_loteria_screen.dart';
+import 'package:boanerges1714/screens/private/loteria/asignacion_externa_screen.dart';
+import 'package:boanerges1714/screens/private/loteria/disponibilidad_loteria_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 
@@ -57,7 +65,7 @@ GoRouter createRouter(AuthService authService) {
       final isAdmin = authService.isAdmin;
       final path = state.matchedLocation;
 
-      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias', '/sugerencias', '/tunicas', '/tablon', '/banco-tunicas', '/festividad'];
+      final privateRoutes = ['/dashboard', '/profile', '/cuotas', '/documents', '/convocatorias', '/sugerencias', '/tunicas', '/tablon', '/banco-tunicas', '/festividad', '/loteria', '/loteria-disponibilidad'];
       if (privateRoutes.any((r) => path.startsWith(r)) && !isLoggedIn) {
         return '/login';
       }
@@ -127,6 +135,26 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(path: '/admin/festividad/informe', builder: (context, state) {
             final edicionId = state.uri.queryParameters['edicionId'] ?? '';
             return InformeFestividadScreen(edicionId: edicionId);
+          }),
+          GoRoute(path: '/admin/loteria', builder: (context, state) => const ManageLoteriaScreen()),
+          GoRoute(path: '/admin/loteria/dashboard', builder: (context, state) {
+            final campanaId = state.uri.queryParameters['campanaId'] ?? '';
+            return CampanaDashboardScreen(campanaId: campanaId);
+          }),
+          GoRoute(path: '/admin/loteria/sabanas', builder: (context, state) {
+            final campanaId = state.uri.queryParameters['campanaId'] ?? '';
+            return ManageSabanasScreen(campanaId: campanaId);
+          }),
+          GoRoute(path: '/admin/loteria/vendedores', builder: (context, state) => const ManageVendedoresLoteriaScreen()),
+          GoRoute(path: '/admin/loteria/asignaciones', builder: (context, state) {
+            final campanaId = state.uri.queryParameters['campanaId'] ?? '';
+            return ManageAsignacionesScreen(campanaId: campanaId);
+          }),
+          GoRoute(path: '/loteria', builder: (context, state) => const MiLoteriaScreen()),
+          GoRoute(path: '/loteria-disponibilidad', builder: (context, state) => const DisponibilidadLoteriaScreen()),
+          GoRoute(path: '/loteria/asignacion/:token', builder: (context, state) {
+            final token = state.pathParameters['token'] ?? '';
+            return AsignacionExternaScreen(token: token);
           }),
         ],
       ),

@@ -160,6 +160,7 @@ class AdminDashboardScreen extends StatelessWidget {
                       _AdminActionCard(icon: Icons.volunteer_activism, title: 'Banco T\u00fanicas', subtitle: 'Ofertas y demandas', onTap: () => context.go('/admin/banco-tunicas')),
                       _AdminActionCard(icon: Icons.folder_open, title: 'Documentos', subtitle: 'Docs y revistas', onTap: () => context.go('/admin/documentos')),
                       _AdminActionCard(icon: Icons.celebration, title: 'Festividad SJE', subtitle: 'Gestión 27 diciembre', onTap: () => context.go('/admin/festividad')),
+                      _AdminActionCard(icon: Icons.confirmation_number, title: 'Lotería Navidad', subtitle: 'Campañas y ventas', onTap: () => context.go('/admin/loteria')),
                     ],
                   ),
                 ],
