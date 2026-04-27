@@ -12,7 +12,7 @@ class MiLoteriaScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final fs = context.read<FirestoreService>();
     final authService = context.read<AuthService>();
-    final uid = authService.currentUser?.uid;
+    final uid = authService.userId;
 
     if (uid == null) {
       return const Center(child: Text('Inicia sesión para ver tu lotería.'));
@@ -27,7 +27,7 @@ class MiLoteriaScreen extends StatelessWidget {
             decoration: const BoxDecoration(
               gradient: LinearGradient(colors: [AppTheme.primaryDark, AppTheme.primaryColor]),
             ),
-            child: const Center(
+            child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: 1000),
                 child: Row(
