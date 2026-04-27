@@ -88,7 +88,7 @@ class _AsignacionExternaScreenState extends State<AsignacionExternaScreen> {
               decoration: const BoxDecoration(
                 gradient: LinearGradient(colors: [AppTheme.primaryDark, AppTheme.primaryColor]),
               ),
-              child: const Center(
+              child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: 800),
                   child: Row(
