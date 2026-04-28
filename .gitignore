@@ -53,3 +53,6 @@ lib/generated_plugin_registrant.dart
 google-services.json
 GoogleService-Info.plist
 firebase_app_id_file.json
+
+# Node dependencies
+node_modules/
