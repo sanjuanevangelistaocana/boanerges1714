@@ -25,25 +25,15 @@ const SHEET_NAME = "Relación Cofrades";
 // 19:Estatura 20:Talla 21:¿Cuota? 22:Cuota Metálico 23:Cuota Domiciliada
 // 24:IBAN 25:Titular IBAN 26:Raul 27:Check Data 28:GDPR Firmado
 // 29:Comentarios 30+: new columns appended by the app
-const EXISTING_SHEET_COLS = 30; // A through AD (columns already in user's Sheet)
+const TOTAL_SHEET_COLS = 37; // A through AK
 
-/**
- * Parse a number that may use Spanish thousand separator ("1.991" → 1991).
- */
-function parseSpanishInt(val) {
-  if (!val) return null;
-  const cleaned = String(val).replace(/\./g, "").replace(/,/g, ".");
-  const num = parseInt(cleaned, 10);
-  return isNaN(num) ? null : num;
-}
-
-/**
- * Parse a boolean from Sheet (handles TRUE/FALSE, Sí/No, SI/NO).
- */
-function parseSheetBool(val) {
-  if (!val) return false;
-  const v = String(val).trim().toUpperCase();
-  return v === "TRUE" || v === "SÍ" || v === "SI" || v === "1";
+function normalizeSearchText(value) {
+  return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ");
 }
 
 /**
@@ -58,13 +48,6 @@ function colLetter(index) {
   }
   return result;
 }
-
-// New columns appended by the app (starting at column AE = index 30)
-const NEW_COL_HEADERS = [
-  "Email Secundario", "Teléfono Secundario", "DNI",
-  "DNI Tutor", "Parentesco Tutor", "Cargo", "Tiene Túnica Propia",
-];
-const TOTAL_SHEET_COLS = EXISTING_SHEET_COLS + NEW_COL_HEADERS.length; // 37
 
 /**
  * Get authenticated Google Sheets client using service account.
@@ -148,171 +131,67 @@ exports.syncCofradeToSheet = functions
     });
 
 /**
+ * Maintain a minimal cofrade search index for app autocomplete.
+ * This avoids exposing sensitive cofrades fields such as DNI, IBAN, phones,
+ * cuota data, GDPR flags, comments, etc. to normal authenticated users.
+ */
+exports.syncCofradeSearchIndex = functions
+    .region("europe-west1")
+    .firestore.document("cofrades/{cofradeId}")
+    .onWrite(async (change, context) => {
+      const indexRef = db
+          .collection("cofrades_busqueda")
+          .doc(context.params.cofradeId);
+
+      if (!change.after.exists) {
+        await indexRef.delete().catch(() => {});
+        return null;
+      }
+
+      const data = change.after.data();
+      const nombre = data.nombre || "";
+      const apellidos = data.apellidos || "";
+      const numero = data.numero || null;
+      const estado = data.estado || "Activo";
+      const nombreCompleto = `${nombre} ${apellidos}`.trim();
+      const searchText = normalizeSearchText(
+          [
+            nombre,
+            apellidos,
+            nombreCompleto,
+            `${apellidos} ${nombre}`.trim(),
+            numero != null ? String(numero) : "",
+          ].join(" "),
+      );
+
+      await indexRef.set({
+        nombre,
+        apellidos,
+        nombre_completo: nombreCompleto,
+        nombre_busqueda: searchText,
+        numero,
+        estado,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return null;
+    });
+
+/**
  * Scheduled function to sync Google Sheets → Firestore.
- * Runs every 15 minutes to pick up manual edits in the Sheet.
+ * Disabled intentionally: Firestore is the source of truth for cofrades.
+ * The Sheet is kept as a mirror by syncCofradeToSheet, but manual edits in
+ * the Sheet must not overwrite data edited from the app or Firebase console.
  */
 exports.syncSheetToFirestore = functions
     .region("europe-west1")
     .pubsub.schedule("every 15 minutes")
     .timeZone("Europe/Madrid")
     .onRun(async () => {
-      const sheetId = SPREADSHEET_ID;
-      const sheets = await getSheetsClient();
-
-      const response = await sheets.spreadsheets.values.get({
-        spreadsheetId: sheetId,
-        range: `${SHEET_NAME}!A:AP`,
-      });
-
-      const rows = response.data.values;
-      if (!rows || rows.length <= 1) {
-        console.log("No data rows found in sheet.");
-        return null;
-      }
-
-      // Skip header row
-      const batch = db.batch();
-      let updateCount = 0;
-
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row[0] && !row[1]) continue; // Skip empty rows
-
-        // Match by numero (Nº column) to find Firestore doc
-        const numero = parseInt(row[0]) || null;
-        if (!numero) continue;
-
-        const sheetData = rowToFirestoreData(row, numero);
-
-        // Find cofrade by numero field
-        const snapshot = await db.collection("cofrades")
-            .where("numero", "==", numero).limit(1).get();
-
-        if (snapshot.empty) {
-          // Create new cofrade from Sheet data
-          sheetData.rol = "cofrade";
-          sheetData.notificaciones_activas = true;
-          const newRef = db.collection("cofrades").doc();
-          batch.set(newRef, sheetData);
-          updateCount++;
-          console.log(`Creating new cofrade #${numero} from Sheet.`);
-        } else {
-          const cofradeRef = snapshot.docs[0].ref;
-          const currentData = snapshot.docs[0].data();
-          const diff = hasChanges(currentData, sheetData);
-          if (diff.changed) {
-            // Only write the fields that actually changed (selective update)
-            diff.changedFields.fecha_actualizacion =
-                admin.firestore.FieldValue.serverTimestamp();
-            batch.update(cofradeRef, diff.changedFields);
-            updateCount++;
-            console.log(
-                `Updating cofrade #${numero}: ${Object.keys(diff.changedFields).join(", ")}`,
-            );
-          }
-        }
-      }
-
-      if (updateCount > 0) {
-        await batch.commit();
-        console.log(`Updated ${updateCount} cofrades from Google Sheet.`);
-      } else {
-        console.log("No changes detected in Google Sheet.");
-      }
-
+      console.log(
+          "Sheet → Firestore sync skipped: Firestore is the source of truth.",
+      );
       return null;
     });
-
-/**
- * Convert a Sheet row array to a Firestore data object.
- * Uses correct column indices matching the actual Google Sheet.
- */
-function rowToFirestoreData(row, numero) {
-  return {
-    numero: numero,
-    nombre: row[1] || "",
-    apellidos: row[2] || "",
-    tutelado_digital: row[3] || "",
-    fecha_nacimiento_str: row[4] || "",
-    edad: parseSpanishInt(row[5]),
-    genero: row[6] || "",
-    anio_alta: parseSpanishInt(row[7]),
-    anios_hermandad: parseSpanishInt(row[8]),
-    anio_mayordomia: parseSpanishInt(row[9]),
-    estado: row[10] || "Activo",
-    fecha_baja_str: row[11] || "",
-    causa_baja: row[12] || "",
-    domicilio: row[13] || "",
-    localidad: row[14] || "",
-    codigo_postal: row[15] || "",
-    telefono_fijo: row[16] || "",
-    telefono_movil: row[17] || "",
-    email: row[18] || "",
-    estatura: parseSpanishInt(row[19]),
-    talla: row[20] || "",
-    tiene_cuota: parseSheetBool(row[21]),
-    cuota_metalico: parseSheetBool(row[22]),
-    cuota_domiciliada: parseSheetBool(row[23]),
-    iban: row[24] || "",
-    titular_iban: row[25] || "",
-    // 26: Raul (skip), 27: Check Data (skip)
-    gdpr_firmado: parseSheetBool(row[28]),
-    comentarios: row[29] || "",
-    // New columns (AE-AK, indices 30-36)
-    email_secundario: row[30] || "",
-    telefono_secundario: row[31] || "",
-    dni: row[32] || "",
-    dni_tutor: row[33] || "",
-    parentesco_tutor: row[34] || "",
-    cargo: row[35] || "",
-    tiene_tunica_propia: parseSheetBool(row[36]),
-    fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
-  };
-}
-
-/**
- * Check if sheet data has changes compared to Firestore data.
- * Returns an object with {changed: boolean, changedFields: Object} containing
- * only the fields that actually differ, to avoid overwriting unchanged data.
- */
-function hasChanges(firestoreData, sheetData) {
-  const stringFields = [
-    "nombre", "apellidos", "email", "telefono_fijo", "telefono_movil",
-    "domicilio", "localidad", "codigo_postal", "estado", "genero",
-    "tutelado_digital", "talla", "iban", "titular_iban", "comentarios",
-    "email_secundario", "telefono_secundario", "dni", "dni_tutor",
-    "parentesco_tutor", "cargo", "causa_baja",
-  ];
-  const numericFields = [
-    "numero", "edad", "estatura", "anio_alta", "anios_hermandad",
-    "anio_mayordomia",
-  ];
-  const booleanFields = [
-    "tiene_cuota", "cuota_metalico", "cuota_domiciliada", "gdpr_firmado",
-    "tiene_tunica_propia",
-  ];
-
-  const changedFields = {};
-
-  for (const field of stringFields) {
-    const fsVal = firestoreData[field] || "";
-    const shVal = sheetData[field] || "";
-    if (fsVal !== shVal) changedFields[field] = shVal;
-  }
-  for (const field of numericFields) {
-    const fsVal = firestoreData[field] ?? null;
-    const shVal = sheetData[field] ?? null;
-    if (fsVal !== shVal && shVal !== null) changedFields[field] = shVal;
-  }
-  for (const field of booleanFields) {
-    const fsVal = firestoreData[field] ?? false;
-    const shVal = sheetData[field] ?? false;
-    if (fsVal !== shVal) changedFields[field] = shVal;
-  }
-
-  const changed = Object.keys(changedFields).length > 0;
-  return {changed, changedFields};
-}
 
 /**
  * Insert or update a row in Google Sheets.
@@ -683,110 +562,83 @@ exports.onNewContactMessage = functions
 exports.triggerSheetSync = functions
     .region("europe-west1")
     .https.onRequest(async (req, res) => {
+      res.status(409).json({
+        status: "disabled",
+        message: "Sheet → Firestore sync is disabled. Edit cofrades from the app or Firebase; Firestore mirrors changes to Sheets.",
+      });
+      return;
+
+    });
+
+/**
+ * Rebuild the minimal search index for existing cofrades.
+ * Usage: POST /rebuildCofradeSearchIndex with body { "secret": "boanerges2024" }
+ */
+exports.rebuildCofradeSearchIndex = functions
+    .region("europe-west1")
+    .https.onRequest(async (req, res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      if (req.method === "OPTIONS") {
+        res.set("Access-Control-Allow-Methods", "POST");
+        res.set("Access-Control-Allow-Headers", "Content-Type");
+        return res.status(204).send("");
+      }
+
       try {
-        const sheets = await getSheetsClient();
-        const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `${SHEET_NAME}!A:AP`,
-        });
-
-        const rows = response.data.values;
-        if (!rows || rows.length <= 1) {
-          res.json({status: "no_data", message: "No data rows found in sheet.", rowCount: rows ? rows.length : 0});
-          return;
+        const {secret} = req.body || {};
+        if (secret !== "boanerges2024") {
+          return res.status(403).json({status: "error", message: "Invalid secret."});
         }
 
-        // Try to add new column headers (non-blocking if sheet is protected)
-        const headerRow = rows[0];
-        if (headerRow.length < TOTAL_SHEET_COLS) {
-          try {
-            const gridCols = await ensureGridColumns(
-                sheets, SPREADSHEET_ID, TOTAL_SHEET_COLS,
-            );
-            if (gridCols >= TOTAL_SHEET_COLS) {
-              const numExistingNew = Math.max(
-                  0, headerRow.length - EXISTING_SHEET_COLS,
-              );
-              const missingHeaders = NEW_COL_HEADERS.slice(numExistingNew);
-              if (missingHeaders.length > 0) {
-                const startIdx = headerRow.length;
-                const endIdx = startIdx + missingHeaders.length - 1;
-                await sheets.spreadsheets.values.update({
-                  spreadsheetId: SPREADSHEET_ID,
-                  range: `${SHEET_NAME}!${colLetter(startIdx)}1:${colLetter(endIdx)}1`,
-                  valueInputOption: "RAW",
-                  requestBody: {values: [missingHeaders]},
-                });
-                console.log(
-                    `Added ${missingHeaders.length} new column headers.`,
-                );
-              }
-            } else {
-              console.warn(
-                  `Sheet has ${gridCols} cols, need ${TOTAL_SHEET_COLS}. ` +
-                  "Add columns manually or remove sheet protection.",
-              );
-            }
-          } catch (headerErr) {
-            console.warn(
-                "Could not add new headers (protected?):", headerErr.message,
-            );
+        const snapshot = await db.collection("cofrades").get();
+        let batch = db.batch();
+        let count = 0;
+        let pending = 0;
+
+        for (const doc of snapshot.docs) {
+          const data = doc.data();
+          const nombre = data.nombre || "";
+          const apellidos = data.apellidos || "";
+          const numero = data.numero || null;
+          const estado = data.estado || "Activo";
+          const nombreCompleto = `${nombre} ${apellidos}`.trim();
+          const searchText = normalizeSearchText(
+              [
+                nombre,
+                apellidos,
+                nombreCompleto,
+                `${apellidos} ${nombre}`.trim(),
+                numero != null ? String(numero) : "",
+              ].join(" "),
+          );
+
+          batch.set(db.collection("cofrades_busqueda").doc(doc.id), {
+            nombre,
+            apellidos,
+            nombre_completo: nombreCompleto,
+            nombre_busqueda: searchText,
+            numero,
+            estado,
+            updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          count++;
+          pending++;
+
+          if (pending === 450) {
+            await batch.commit();
+            batch = db.batch();
+            pending = 0;
           }
         }
 
-        const batch = db.batch();
-        let createCount = 0;
-        let updateCount = 0;
-        const details = [];
-
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row[0] && !row[1]) continue;
-
-          const numero = parseInt(row[0]) || null;
-          if (!numero) {
-            details.push(`Row ${i + 1}: skipped (no numero), col A = "${row[0]}"`);
-            continue;
-          }
-
-          const sheetData = rowToFirestoreData(row, numero);
-
-          const snapshot = await db.collection("cofrades")
-              .where("numero", "==", numero).limit(1).get();
-
-          if (snapshot.empty) {
-            sheetData.rol = "cofrade";
-            sheetData.notificaciones_activas = true;
-            const newRef = db.collection("cofrades").doc();
-            batch.set(newRef, sheetData);
-            createCount++;
-            details.push(`Row ${i + 1}: CREATE cofrade #${numero} - ${row[1]} ${row[2]}`);
-          } else {
-            const currentData = snapshot.docs[0].data();
-            if (hasChanges(currentData, sheetData)) {
-              batch.update(snapshot.docs[0].ref, sheetData);
-              updateCount++;
-              details.push(`Row ${i + 1}: UPDATE cofrade #${numero}`);
-            } else {
-              details.push(`Row ${i + 1}: NO CHANGES cofrade #${numero}`);
-            }
-          }
-        }
-
-        if (createCount > 0 || updateCount > 0) {
+        if (pending > 0) {
           await batch.commit();
         }
 
-        res.json({
-          status: "ok",
-          totalRows: rows.length - 1,
-          created: createCount,
-          updated: updateCount,
-          details: details,
-        });
-      } catch (err) {
-        console.error("triggerSheetSync error:", err);
-        res.status(500).json({status: "error", message: err.message, stack: err.stack});
+        return res.json({status: "success", indexed: count});
+      } catch (error) {
+        console.error("Error rebuilding cofrade search index:", error);
+        return res.status(500).json({status: "error", message: error.message});
       }
     });
 

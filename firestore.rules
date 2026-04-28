@@ -89,6 +89,13 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    // Minimal cofrade search index for autocomplete.
+    // Contains only non-sensitive display fields and is maintained by Cloud Functions.
+    match /cofrades_busqueda/{cofradeId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
     // Eventos collection
     match /eventos/{eventoId} {
       // Published events are readable by anyone; admins see all

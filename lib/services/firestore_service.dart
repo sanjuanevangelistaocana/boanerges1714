@@ -17,11 +17,8 @@ class FirestoreService {
 
   // --- Cofrades ---
   Stream<List<Cofrade>> getCofrades() {
-    return _db
-        .collection('cofrades')
-        .orderBy('apellidos')
-        .snapshots()
-        .map((snapshot) =>
+    return _db.collection('cofrades').orderBy('apellidos').snapshots().map(
+        (snapshot) =>
             snapshot.docs.map((doc) => Cofrade.fromFirestore(doc)).toList());
   }
 
@@ -106,7 +103,8 @@ class FirestoreService {
         snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList());
   }
 
-  Stream<List<Noticia>> getUltimasNoticias({int limit = 3, bool incluirSoloCofrades = false}) {
+  Stream<List<Noticia>> getUltimasNoticias(
+      {int limit = 3, bool incluirSoloCofrades = false}) {
     return _db
         .collection('noticias')
         .where('publicado', isEqualTo: true)
@@ -114,12 +112,13 @@ class FirestoreService {
         .limit(incluirSoloCofrades ? limit : limit + 10)
         .snapshots()
         .map((snapshot) {
-          var noticias = snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList();
-          if (!incluirSoloCofrades) {
-            noticias = noticias.where((n) => n.soloCofrades != true).toList();
-          }
-          return noticias.take(limit).toList();
-        });
+      var noticias =
+          snapshot.docs.map((doc) => Noticia.fromFirestore(doc)).toList();
+      if (!incluirSoloCofrades) {
+        noticias = noticias.where((n) => n.soloCofrades != true).toList();
+      }
+      return noticias.take(limit).toList();
+    });
   }
 
   Future<void> createNoticia(Noticia noticia) async {
@@ -200,11 +199,8 @@ class FirestoreService {
   }
 
   Stream<List<Cofrade>> getAllCofradesStream() {
-    return _db
-        .collection('cofrades')
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Cofrade.fromFirestore(doc)).toList());
+    return _db.collection('cofrades').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Cofrade.fromFirestore(doc)).toList());
   }
 
   // --- Noticias privadas (solo cofrades) ---
@@ -258,8 +254,9 @@ class FirestoreService {
         .orderBy('numero', descending: true)
         .limit(1)
         .get();
-    final nextNum =
-        lastNum.docs.isNotEmpty ? ((lastNum.docs.first.data()['numero'] ?? 0) + 1) : 1;
+    final nextNum = lastNum.docs.isNotEmpty
+        ? ((lastNum.docs.first.data()['numero'] ?? 0) + 1)
+        : 1;
 
     await _db.collection('cofrades').add({
       'numero': nextNum,
@@ -304,9 +301,8 @@ class FirestoreService {
     if (soloActivas) {
       query = query.where('activa', isEqualTo: true);
     }
-    return query.snapshots().map((snapshot) => snapshot.docs
-        .map((doc) => Convocatoria.fromFirestore(doc))
-        .toList());
+    return query.snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => Convocatoria.fromFirestore(doc)).toList());
   }
 
   Stream<List<Convocatoria>> getAllConvocatorias() {
@@ -331,7 +327,8 @@ class FirestoreService {
   }
 
   Future<void> createConvocatoria(Convocatoria convocatoria) async {
-    final docRef = await _db.collection('convocatorias').add(convocatoria.toFirestore());
+    final docRef =
+        await _db.collection('convocatorias').add(convocatoria.toFirestore());
     await crearNovedad(
       tipo: 'convocatoria',
       titulo: convocatoria.titulo,
@@ -341,8 +338,7 @@ class FirestoreService {
     );
   }
 
-  Future<void> updateConvocatoria(
-      String id, Map<String, dynamic> data) async {
+  Future<void> updateConvocatoria(String id, Map<String, dynamic> data) async {
     await _db.collection('convocatorias').doc(id).update(data);
   }
 
@@ -381,7 +377,8 @@ class FirestoreService {
   // --- Evangelio del Día ---
   Stream<Map<String, dynamic>?> getEvangelioDelDia() {
     final hoy = DateTime.now();
-    final fechaStr = '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
+    final fechaStr =
+        '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
     return _db
         .collection('evangelio_dia')
         .doc(fechaStr)
@@ -410,7 +407,8 @@ class FirestoreService {
 
   // --- Sugerencias / Peticiones ---
   Stream<List<Sugerencia>> getSugerencias({String? cofradeId}) {
-    Query query = _db.collection('sugerencias').orderBy('fecha', descending: true);
+    Query query =
+        _db.collection('sugerencias').orderBy('fecha', descending: true);
     if (cofradeId != null) {
       query = query.where('cofrade_id', isEqualTo: cofradeId);
     }
@@ -493,15 +491,16 @@ class FirestoreService {
 
   // --- Tablón de Anuncios ---
   Stream<List<Map<String, dynamic>>> getAnuncios({bool soloAprobados = false}) {
-    Query query = _db.collection('tablon_anuncios').orderBy('fecha', descending: true);
+    Query query =
+        _db.collection('tablon_anuncios').orderBy('fecha', descending: true);
     if (soloAprobados) {
       query = query.where('aprobado', isEqualTo: true);
     }
     return query.snapshots().map((snapshot) => snapshot.docs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      data['id'] = doc.id;
-      return data;
-    }).toList());
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          return data;
+        }).toList());
   }
 
   Future<void> crearAnuncio({
@@ -537,7 +536,10 @@ class FirestoreService {
   }
 
   Future<void> rechazarAnuncio(String id) async {
-    await _db.collection('tablon_anuncios').doc(id).update({'visible': false, 'aprobado': false});
+    await _db
+        .collection('tablon_anuncios')
+        .doc(id)
+        .update({'visible': false, 'aprobado': false});
   }
 
   Future<void> eliminarAnuncio(String id) async {
@@ -609,7 +611,9 @@ class FirestoreService {
   }
 
   Future<void> createProveedor(Proveedor proveedor) async {
-    final docRef = await _db.collection('proveedores_tunicas').add(proveedor.toFirestore());
+    final docRef = await _db
+        .collection('proveedores_tunicas')
+        .add(proveedor.toFirestore());
     await crearNovedad(
       tipo: 'proveedor',
       titulo: proveedor.nombre,
@@ -658,14 +662,22 @@ class FirestoreService {
         .map((doc) => doc.exists ? doc.data() : null);
   }
 
-  Future<void> updatePaginaEstatica(String slug, Map<String, dynamic> data) async {
-    await _db.collection('paginas_estaticas').doc(slug).set(data, SetOptions(merge: true));
+  Future<void> updatePaginaEstatica(
+      String slug, Map<String, dynamic> data) async {
+    await _db
+        .collection('paginas_estaticas')
+        .doc(slug)
+        .set(data, SetOptions(merge: true));
   }
 
   // --- Novedades read tracking ---
   Future<Set<String>> getNovedadesLeidas(String cofradeId) async {
-    final doc = await _db.collection('cofrades').doc(cofradeId)
-        .collection('preferencias').doc('novedades_leidas').get();
+    final doc = await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('preferencias')
+        .doc('novedades_leidas')
+        .get();
     if (!doc.exists) return {};
     final data = doc.data();
     final list = data?['ids'] as List<dynamic>? ?? [];
@@ -673,17 +685,24 @@ class FirestoreService {
   }
 
   Future<void> marcarNovedadLeida(String cofradeId, String novedadId) async {
-    await _db.collection('cofrades').doc(cofradeId)
-        .collection('preferencias').doc('novedades_leidas')
+    await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('preferencias')
+        .doc('novedades_leidas')
         .set({
       'ids': FieldValue.arrayUnion([novedadId]),
       'ultima_actualizacion': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
-  Future<void> marcarTodasNovedadesLeidas(String cofradeId, List<String> ids) async {
-    await _db.collection('cofrades').doc(cofradeId)
-        .collection('preferencias').doc('novedades_leidas')
+  Future<void> marcarTodasNovedadesLeidas(
+      String cofradeId, List<String> ids) async {
+    await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('preferencias')
+        .doc('novedades_leidas')
         .set({
       'ids': FieldValue.arrayUnion(ids),
       'ultima_actualizacion': FieldValue.serverTimestamp(),
@@ -744,7 +763,8 @@ class FirestoreService {
       tipo: 'oferta',
       titulo: 'Nueva oferta de túnica',
       descripcion: 'Oferta de $nombrePublicador: ${elementos.join(", ")}',
-      referenciaId: '${cofradeId}_oferta_${DateTime.now().millisecondsSinceEpoch}',
+      referenciaId:
+          '${cofradeId}_oferta_${DateTime.now().millisecondsSinceEpoch}',
       ruta: '/banco-tunicas',
     );
   }
@@ -774,20 +794,26 @@ class FirestoreService {
       tipo: 'demanda',
       titulo: 'Nueva demanda de túnica',
       descripcion: 'Demanda de $nombreDemandante: ${elementos.join(", ")}',
-      referenciaId: '${cofradeId}_demanda_${DateTime.now().millisecondsSinceEpoch}',
+      referenciaId:
+          '${cofradeId}_demanda_${DateTime.now().millisecondsSinceEpoch}',
       ruta: '/banco-tunicas',
     );
   }
 
-  Future<void> cambiarEstadoPublicacionBanco(String id, String nuevoEstado) async {
-    await _db.collection('banco_tunicas').doc(id).update({'estado': nuevoEstado});
+  Future<void> cambiarEstadoPublicacionBanco(
+      String id, String nuevoEstado) async {
+    await _db
+        .collection('banco_tunicas')
+        .doc(id)
+        .update({'estado': nuevoEstado});
   }
 
   Future<void> eliminarPublicacionBanco(String id) async {
     await _db.collection('banco_tunicas').doc(id).delete();
   }
 
-  Future<void> editarPublicacionBanco(String id, Map<String, dynamic> data) async {
+  Future<void> editarPublicacionBanco(
+      String id, Map<String, dynamic> data) async {
     await _db.collection('banco_tunicas').doc(id).update(data);
   }
 
@@ -899,7 +925,8 @@ class FirestoreService {
     return ref.id;
   }
 
-  Future<void> updateFestividadEdicion(String id, Map<String, dynamic> data) async {
+  Future<void> updateFestividadEdicion(
+      String id, Map<String, dynamic> data) async {
     data['updated_at'] = FieldValue.serverTimestamp();
     await _db.collection('festividad_sje').doc(id).update(data);
   }
@@ -919,7 +946,8 @@ class FirestoreService {
             }).toList());
   }
 
-  Future<String> createFestividadMenu(String edicionId, Map<String, dynamic> data) async {
+  Future<String> createFestividadMenu(
+      String edicionId, Map<String, dynamic> data) async {
     data['created_at'] = FieldValue.serverTimestamp();
     final ref = await _db
         .collection('festividad_sje')
@@ -929,7 +957,8 @@ class FirestoreService {
     return ref.id;
   }
 
-  Future<void> updateFestividadMenu(String edicionId, String menuId, Map<String, dynamic> data) async {
+  Future<void> updateFestividadMenu(
+      String edicionId, String menuId, Map<String, dynamic> data) async {
     await _db
         .collection('festividad_sje')
         .doc(edicionId)
@@ -947,7 +976,8 @@ class FirestoreService {
         .delete();
   }
 
-  Future<bool> isMenuUsedInInscripciones(String edicionId, String menuId) async {
+  Future<bool> isMenuUsedInInscripciones(
+      String edicionId, String menuId) async {
     final snap = await _db
         .collection('festividad_sje')
         .doc(edicionId)
@@ -965,7 +995,8 @@ class FirestoreService {
   }
 
   // --- Inscripciones ---
-  Stream<List<Map<String, dynamic>>> getFestividadInscripciones(String edicionId) {
+  Stream<List<Map<String, dynamic>>> getFestividadInscripciones(
+      String edicionId) {
     return _db
         .collection('festividad_sje')
         .doc(edicionId)
@@ -979,7 +1010,8 @@ class FirestoreService {
             }).toList());
   }
 
-  Future<Map<String, dynamic>?> getMiInscripcionFestividad(String edicionId, String cofradeId) async {
+  Future<Map<String, dynamic>?> getMiInscripcionFestividad(
+      String edicionId, String cofradeId) async {
     final snap = await _db
         .collection('festividad_sje')
         .doc(edicionId)
@@ -994,13 +1026,13 @@ class FirestoreService {
     return data;
   }
 
-  Future<bool> isCofradeInscritoFestividad(String edicionId, String cofradeId) async {
+  Future<bool> isCofradeInscritoFestividad(
+      String edicionId, String cofradeId) async {
     final allInsc = await _db
         .collection('festividad_sje')
         .doc(edicionId)
         .collection('inscripciones')
-        .where('estado', whereIn: ['pendiente', 'confirmada'])
-        .get();
+        .where('estado', whereIn: ['pendiente', 'confirmada']).get();
     for (final doc in allInsc.docs) {
       final asistentes = List<Map<String, dynamic>>.from(
           (doc.data()['asistentes'] as List<dynamic>?) ?? []);
@@ -1011,7 +1043,8 @@ class FirestoreService {
     return false;
   }
 
-  Future<String> createFestividadInscripcion(String edicionId, Map<String, dynamic> data) async {
+  Future<String> createFestividadInscripcion(
+      String edicionId, Map<String, dynamic> data) async {
     data['created_at'] = FieldValue.serverTimestamp();
     data['updated_at'] = FieldValue.serverTimestamp();
     final ref = await _db
@@ -1022,7 +1055,8 @@ class FirestoreService {
     return ref.id;
   }
 
-  Future<void> updateFestividadInscripcion(String edicionId, String inscId, Map<String, dynamic> data) async {
+  Future<void> updateFestividadInscripcion(
+      String edicionId, String inscId, Map<String, dynamic> data) async {
     data['updated_at'] = FieldValue.serverTimestamp();
     await _db
         .collection('festividad_sje')
@@ -1032,7 +1066,8 @@ class FirestoreService {
         .update(data);
   }
 
-  Future<void> deleteFestividadInscripcion(String edicionId, String inscId) async {
+  Future<void> deleteFestividadInscripcion(
+      String edicionId, String inscId) async {
     await _db
         .collection('festividad_sje')
         .doc(edicionId)
@@ -1093,7 +1128,8 @@ class FirestoreService {
         .collection('campanas_loteria')
         .orderBy('fecha_inicio', descending: true)
         .snapshots()
-        .map((s) => s.docs.map((d) => CampanaLoteria.fromFirestore(d)).toList());
+        .map(
+            (s) => s.docs.map((d) => CampanaLoteria.fromFirestore(d)).toList());
   }
 
   Stream<CampanaLoteria?> getCampanaActiva() {
@@ -1102,7 +1138,9 @@ class FirestoreService {
         .where('estado', isEqualTo: 'activa')
         .limit(1)
         .snapshots()
-        .map((s) => s.docs.isNotEmpty ? CampanaLoteria.fromFirestore(s.docs.first) : null);
+        .map((s) => s.docs.isNotEmpty
+            ? CampanaLoteria.fromFirestore(s.docs.first)
+            : null);
   }
 
   Future<CampanaLoteria?> getCampanaById(String id) async {
@@ -1112,11 +1150,13 @@ class FirestoreService {
   }
 
   Future<String> createCampanaLoteria(CampanaLoteria campana) async {
-    final docRef = await _db.collection('campanas_loteria').add(campana.toFirestore());
+    final docRef =
+        await _db.collection('campanas_loteria').add(campana.toFirestore());
     return docRef.id;
   }
 
-  Future<void> updateCampanaLoteria(String id, Map<String, dynamic> data) async {
+  Future<void> updateCampanaLoteria(
+      String id, Map<String, dynamic> data) async {
     await _db.collection('campanas_loteria').doc(id).update(data);
   }
 
@@ -1152,7 +1192,8 @@ class FirestoreService {
         .collection('vendedores_loteria')
         .orderBy('nombre')
         .snapshots()
-        .map((s) => s.docs.map((d) => VendedorLoteria.fromFirestore(d)).toList());
+        .map((s) =>
+            s.docs.map((d) => VendedorLoteria.fromFirestore(d)).toList());
   }
 
   Future<VendedorLoteria?> getVendedorById(String id) async {
@@ -1167,16 +1208,20 @@ class FirestoreService {
         .where('usuario_auth_id', isEqualTo: authUid)
         .limit(1)
         .get();
-    if (snap.docs.isNotEmpty) return VendedorLoteria.fromFirestore(snap.docs.first);
+    if (snap.docs.isNotEmpty) {
+      return VendedorLoteria.fromFirestore(snap.docs.first);
+    }
     return null;
   }
 
   Future<String> createVendedorLoteria(VendedorLoteria vendedor) async {
-    final docRef = await _db.collection('vendedores_loteria').add(vendedor.toFirestore());
+    final docRef =
+        await _db.collection('vendedores_loteria').add(vendedor.toFirestore());
     return docRef.id;
   }
 
-  Future<void> updateVendedorLoteria(String id, Map<String, dynamic> data) async {
+  Future<void> updateVendedorLoteria(
+      String id, Map<String, dynamic> data) async {
     await _db.collection('vendedores_loteria').doc(id).update(data);
   }
 
@@ -1190,7 +1235,8 @@ class FirestoreService {
         .collection('asignaciones_loteria')
         .where('campana_id', isEqualTo: campanaId)
         .snapshots()
-        .map((s) => s.docs.map((d) => AsignacionLoteria.fromFirestore(d)).toList());
+        .map((s) =>
+            s.docs.map((d) => AsignacionLoteria.fromFirestore(d)).toList());
   }
 
   Stream<List<AsignacionLoteria>> getAsignacionesVendedor(String vendedorId) {
@@ -1198,7 +1244,8 @@ class FirestoreService {
         .collection('asignaciones_loteria')
         .where('vendedor_id', isEqualTo: vendedorId)
         .snapshots()
-        .map((s) => s.docs.map((d) => AsignacionLoteria.fromFirestore(d)).toList());
+        .map((s) =>
+            s.docs.map((d) => AsignacionLoteria.fromFirestore(d)).toList());
   }
 
   Future<AsignacionLoteria?> getAsignacionByToken(String token) async {
@@ -1207,14 +1254,21 @@ class FirestoreService {
         .where('token_acceso', isEqualTo: token)
         .limit(1)
         .get();
-    if (snap.docs.isNotEmpty) return AsignacionLoteria.fromFirestore(snap.docs.first);
+    if (snap.docs.isNotEmpty) {
+      return AsignacionLoteria.fromFirestore(snap.docs.first);
+    }
     return null;
   }
 
   Future<String> createAsignacion(AsignacionLoteria asignacion) async {
-    final docRef = await _db.collection('asignaciones_loteria').add(asignacion.toFirestore());
+    final docRef = await _db
+        .collection('asignaciones_loteria')
+        .add(asignacion.toFirestore());
     // Update sabana estado to 'asignada'
-    await _db.collection('sabanas').doc(asignacion.sabanaId).update({'estado': 'asignada'});
+    await _db
+        .collection('sabanas')
+        .doc(asignacion.sabanaId)
+        .update({'estado': 'asignada'});
     return docRef.id;
   }
 
@@ -1223,7 +1277,8 @@ class FirestoreService {
     await _db.collection('asignaciones_loteria').doc(id).update(data);
   }
 
-  Future<void> actualizarVentasAsignacion(String id, int vendidos, int devueltos) async {
+  Future<void> actualizarVentasAsignacion(
+      String id, int vendidos, int devueltos) async {
     await _db.collection('asignaciones_loteria').doc(id).update({
       'decimos_vendidos': vendidos,
       'decimos_devueltos': devueltos,
@@ -1237,7 +1292,10 @@ class FirestoreService {
     if (doc.exists) {
       final sabanaId = doc.data()?['sabana_id'] as String?;
       if (sabanaId != null) {
-        await _db.collection('sabanas').doc(sabanaId).update({'estado': 'disponible'});
+        await _db
+            .collection('sabanas')
+            .doc(sabanaId)
+            .update({'estado': 'disponible'});
       }
     }
     await _db.collection('asignaciones_loteria').doc(id).delete();
@@ -1245,25 +1303,81 @@ class FirestoreService {
 
   // Search cofrades for autocomplete
   Future<List<Cofrade>> searchCofrades(String query) async {
-    final trimmed = query.trim().toLowerCase();
+    final trimmed = _normalizeSearchText(query);
     debugPrint('[Firestore] searchCofrades("$query")');
-    // Fetch all cofrades and filter client-side for case-insensitive matching
-    // (handles both 'Activo' and 'activo' estado values).
-    final snap = await _db
-        .collection('cofrades')
-        .orderBy('apellidos')
-        .get();
+
+    // Use the minimal search index instead of the full cofrades collection.
+    // Normal authenticated users cannot list cofrades because those documents
+    // contain sensitive fields. cofrades_busqueda only contains display data.
+    final snap =
+        await _db.collection('cofrades_busqueda').orderBy('apellidos').get();
     final all = snap.docs
         .map((d) => Cofrade.fromFirestore(d))
         .where((c) => c.isActivo)
         .toList();
-    debugPrint('[Firestore] searchCofrades: ${all.length} active cofrades found');
+    debugPrint(
+        '[Firestore] searchCofrades: ${all.length} active indexed cofrades found');
     if (trimmed.isEmpty) return all;
-    return all
-        .where((c) =>
-            c.nombre.toLowerCase().contains(trimmed) ||
-            c.apellidos.toLowerCase().contains(trimmed) ||
-            c.nombreCompleto.toLowerCase().contains(trimmed))
-        .toList();
+    return all.where((c) {
+      final searchable = _normalizeSearchText(
+        '${c.nombre} ${c.apellidos} ${c.apellidos} ${c.nombre} ${c.numero ?? ''}',
+      );
+      return searchable.contains(trimmed);
+    }).toList();
+  }
+
+  String _normalizeSearchText(String value) {
+    const replacements = {
+      'á': 'a',
+      'à': 'a',
+      'ä': 'a',
+      'â': 'a',
+      'Á': 'a',
+      'À': 'a',
+      'Ä': 'a',
+      'Â': 'a',
+      'é': 'e',
+      'è': 'e',
+      'ë': 'e',
+      'ê': 'e',
+      'É': 'e',
+      'È': 'e',
+      'Ë': 'e',
+      'Ê': 'e',
+      'í': 'i',
+      'ì': 'i',
+      'ï': 'i',
+      'î': 'i',
+      'Í': 'i',
+      'Ì': 'i',
+      'Ï': 'i',
+      'Î': 'i',
+      'ó': 'o',
+      'ò': 'o',
+      'ö': 'o',
+      'ô': 'o',
+      'Ó': 'o',
+      'Ò': 'o',
+      'Ö': 'o',
+      'Ô': 'o',
+      'ú': 'u',
+      'ù': 'u',
+      'ü': 'u',
+      'û': 'u',
+      'Ú': 'u',
+      'Ù': 'u',
+      'Ü': 'u',
+      'Û': 'u',
+      'ñ': 'n',
+      'Ñ': 'n',
+      'ç': 'c',
+      'Ç': 'c',
+    };
+    final buffer = StringBuffer();
+    for (final rune in value.runes) {
+      final char = String.fromCharCode(rune);
+      buffer.write(replacements[char] ?? char.toLowerCase());
+    }
+    return buffer.toString().trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 }
