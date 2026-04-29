@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
@@ -10,13 +9,16 @@ import 'package:boanerges1714/models/cofrade.dart';
 class InscripcionFestividadScreen extends StatefulWidget {
   final String edicionId;
   final String? inscripcionId;
-  const InscripcionFestividadScreen({super.key, required this.edicionId, this.inscripcionId});
+  const InscripcionFestividadScreen(
+      {super.key, required this.edicionId, this.inscripcionId});
 
   @override
-  State<InscripcionFestividadScreen> createState() => _InscripcionFestividadScreenState();
+  State<InscripcionFestividadScreen> createState() =>
+      _InscripcionFestividadScreenState();
 }
 
-class _InscripcionFestividadScreenState extends State<InscripcionFestividadScreen> {
+class _InscripcionFestividadScreenState
+    extends State<InscripcionFestividadScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = true;
   bool _saving = false;
@@ -25,6 +27,7 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
   List<_AsistenteData> _asistentes = [];
   bool _isEdit = false;
   String? _existingInscId;
+  Set<String> _previousAcompananteIds = {};
 
   @override
   void initState() {
@@ -44,23 +47,30 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
     if (widget.inscripcionId != null) {
       _isEdit = true;
       _existingInscId = widget.inscripcionId;
-      final allInsc = await fs.getFestividadInscripciones(widget.edicionId).first;
-      final existing = allInsc.where((i) => i['id'] == widget.inscripcionId).toList();
+      final allInsc =
+          await fs.getFestividadInscripciones(widget.edicionId).first;
+      final existing =
+          allInsc.where((i) => i['id'] == widget.inscripcionId).toList();
       if (existing.isNotEmpty) {
         final data = existing.first;
         final asistentes = List<Map<String, dynamic>>.from(
             (data['asistentes'] as List<dynamic>?) ?? []);
         _asistentes = asistentes.map((a) => _AsistenteData.fromMap(a)).toList();
+        _previousAcompananteIds = asistentes
+            .map((a) => (a['cofrade_id'] ?? '').toString())
+            .where((id) => id.isNotEmpty && id != data['cofrade_id'])
+            .toSet();
       }
     } else if (cofrade != null) {
-      final yaInscrito = await fs.isCofradeInscritoFestividad(widget.edicionId, cofrade.id);
-      if (yaInscrito && mounted) {
+      final existing = await fs.getInscripcionFestividadParaCofrade(
+          widget.edicionId, cofrade.id);
+      if (existing != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(
-              'Ya figuras inscrito/a en esta edición de la Festividad San Juan Evangelista dentro de otra inscripción. '
-              'Si necesitas modificarlo, contacta con la persona que realizó la inscripción o con la administración.')),
+          const SnackBar(
+              content: Text(
+                  'Ya figuras en una inscripción de esta edición. Puedes consultarla desde la pantalla de Festividad.')),
         );
-        context.pop(false);
+        context.pop(true);
         return;
       }
       _asistentes.add(_AsistenteData(
@@ -83,14 +93,21 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
 
   double _precioAsistente(_AsistenteData a) {
     if (_edicion == null) return 0;
-    final precioHermano = (_edicion!['precio_hermano'] as num?)?.toDouble() ?? 5.0;
-    final precioInvitado = (_edicion!['precio_invitado'] as num?)?.toDouble() ?? 27.0;
+    final precioHermano =
+        (_edicion!['precio_hermano'] as num?)?.toDouble() ?? 5.0;
+    final precioInvitado =
+        (_edicion!['precio_invitado'] as num?)?.toDouble() ?? 27.0;
 
     double base;
     switch (a.tipo) {
-      case 'hermano': base = precioHermano; break;
-      case 'protocolo': base = 0; break;
-      default: base = precioInvitado;
+      case 'hermano':
+        base = precioHermano;
+        break;
+      case 'protocolo':
+        base = 0;
+        break;
+      default:
+        base = precioInvitado;
     }
 
     double extra = 0;
@@ -120,8 +137,9 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
     }
     for (final a in _asistentes) {
       if (a.menuId == null || a.menuId!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Todos los asistentes deben tener un menú seleccionado.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Todos los asistentes deben tener un menú seleccionado.')));
         return;
       }
     }
@@ -139,7 +157,8 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
         'tipo': a.tipo,
         'cofrade_id': a.cofradeId ?? '',
         'menu_id': a.menuId ?? '',
-        'menu_nombre': menuNombre.isNotEmpty ? menuNombre.first['nombre'] ?? '' : '',
+        'menu_nombre':
+            menuNombre.isNotEmpty ? menuNombre.first['nombre'] ?? '' : '',
         'alergias': a.alergiasCtrl.text.trim(),
         'observaciones': a.observacionesCtrl.text.trim(),
         'telefono': a.telefonoCtrl.text.trim(),
@@ -158,20 +177,38 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
     };
 
     try {
+      String inscripcionId;
       if (_isEdit && _existingInscId != null) {
-        await fs.updateFestividadInscripcion(widget.edicionId, _existingInscId!, data);
+        await fs.updateFestividadInscripcion(
+            widget.edicionId, _existingInscId!, data);
+        inscripcionId = _existingInscId!;
       } else {
-        await fs.createFestividadInscripcion(widget.edicionId, data);
+        inscripcionId =
+            await fs.createFestividadInscripcion(widget.edicionId, data);
       }
+      await fs.notifyFestividadAcompanantes(
+        edicionId: widget.edicionId,
+        inscripcionId: inscripcionId,
+        edicionNombre:
+            (_edicion?['nombre'] ?? 'Festividad San Juan Evangelista')
+                .toString(),
+        asistentes: asistentesData,
+        previousCofradeIds: {
+          ..._previousAcompananteIds,
+          if (cofrade?.id != null) cofrade!.id,
+        },
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_isEdit ? 'Inscripción actualizada' : 'Inscripción creada correctamente')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_isEdit
+                ? 'Inscripción actualizada'
+                : 'Inscripción creada correctamente')));
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -196,12 +233,14 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
     }
     if (_edicion == null) {
       return Scaffold(
-        body: Center(child: Column(
+        body: Center(
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('No se encontró la edición del evento.'),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: () => context.pop(), child: const Text('Volver')),
+            ElevatedButton(
+                onPressed: () => context.pop(), child: const Text('Volver')),
           ],
         )),
       );
@@ -232,7 +271,10 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
                   Expanded(
                     child: Text(
                       _isEdit ? 'Editar inscripción' : 'Inscripción',
-                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -258,7 +300,9 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
                         menus: _menus,
                         edicion: _edicion!,
                         precio: _precioAsistente(a),
-                        onRemove: a.isCurrentUser ? null : () => _removeAsistente(idx),
+                        onRemove: a.isCurrentUser
+                            ? null
+                            : () => _removeAsistente(idx),
                         onChanged: () => setState(() {}),
                         fs: context.read<FirestoreService>(),
                         edicionId: widget.edicionId,
@@ -284,26 +328,37 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
                       color: AppTheme.primaryColor.withAlpha(10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: AppTheme.primaryColor.withAlpha(40)),
+                        side: BorderSide(
+                            color: AppTheme.primaryColor.withAlpha(40)),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Resumen', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            const Text('Resumen',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
                             const Divider(height: 24),
-                            _SummaryRow(label: 'Nº asistentes', value: '${_asistentes.length}'),
-                            _SummaryRow(label: 'Hermanos/as',
-                                value: '${_asistentes.where((a) => a.tipo == "hermano").length}'),
-                            _SummaryRow(label: 'Invitados/as',
-                                value: '${_asistentes.where((a) => a.tipo == "invitado").length}'),
+                            _SummaryRow(
+                                label: 'Nº asistentes',
+                                value: '${_asistentes.length}'),
+                            _SummaryRow(
+                                label: 'Hermanos/as',
+                                value:
+                                    '${_asistentes.where((a) => a.tipo == "hermano").length}'),
+                            _SummaryRow(
+                                label: 'Invitados/as',
+                                value:
+                                    '${_asistentes.where((a) => a.tipo == "invitado").length}'),
                             const Divider(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Total a pagar',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16)),
                                 Text('${_totalPagar.toStringAsFixed(2)} €',
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
@@ -326,8 +381,14 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
                           textStyle: const TextStyle(fontSize: 16),
                         ),
                         child: _saving
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Text(_isEdit ? 'Actualizar inscripción' : 'Confirmar inscripción'),
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : Text(_isEdit
+                                ? 'Actualizar inscripción'
+                                : 'Confirmar inscripción'),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -353,13 +414,20 @@ class _InscripcionFestividadScreenState extends State<InscripcionFestividadScree
               leading: const Icon(Icons.person, color: AppTheme.accentColor),
               title: const Text('Hermano/a'),
               subtitle: const Text('Cofrade registrado'),
-              onTap: () { Navigator.pop(ctx); _addAcompanante('hermano'); },
+              onTap: () {
+                Navigator.pop(ctx);
+                _addAcompanante('hermano');
+              },
             ),
             ListTile(
-              leading: const Icon(Icons.person_outline, color: AppTheme.primaryColor),
+              leading: const Icon(Icons.person_outline,
+                  color: AppTheme.primaryColor),
               title: const Text('Invitado/a no hermano/a'),
               subtitle: const Text('Persona externa'),
-              onTap: () { Navigator.pop(ctx); _addAcompanante('invitado'); },
+              onTap: () {
+                Navigator.pop(ctx);
+                _addAcompanante('invitado');
+              },
             ),
           ],
         ),
@@ -455,9 +523,11 @@ class _AsistenteCardState extends State<_AsistenteCard> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isHermano ? AppTheme.accentColor.withAlpha(60)
-              : isProtocolo ? Colors.purple.withAlpha(60)
-              : Colors.grey.shade200,
+          color: isHermano
+              ? AppTheme.accentColor.withAlpha(60)
+              : isProtocolo
+                  ? Colors.purple.withAlpha(60)
+                  : Colors.grey.shade200,
         ),
       ),
       child: Padding(
@@ -469,9 +539,16 @@ class _AsistenteCardState extends State<_AsistenteCard> {
             Row(
               children: [
                 Icon(
-                  isHermano ? Icons.person : isProtocolo ? Icons.stars : Icons.person_outline,
-                  color: isHermano ? AppTheme.accentColor
-                      : isProtocolo ? Colors.purple : AppTheme.primaryColor,
+                  isHermano
+                      ? Icons.person
+                      : isProtocolo
+                          ? Icons.stars
+                          : Icons.person_outline,
+                  color: isHermano
+                      ? AppTheme.accentColor
+                      : isProtocolo
+                          ? Colors.purple
+                          : AppTheme.primaryColor,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -481,14 +558,19 @@ class _AsistenteCardState extends State<_AsistenteCard> {
                         : a.nombre.isEmpty
                             ? 'Acompañante ${widget.index + 1}'
                             : '${a.nombre} ${a.apellidos}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
                 Text('${widget.precio.toStringAsFixed(2)} €',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: AppTheme.primaryColor)),
                 if (widget.onRemove != null)
                   IconButton(
-                    icon: Icon(Icons.close, color: Colors.red.shade400, size: 20),
+                    icon:
+                        Icon(Icons.close, color: Colors.red.shade400, size: 20),
                     onPressed: widget.onRemove,
                     tooltip: 'Eliminar',
                   ),
@@ -504,18 +586,28 @@ class _AsistenteCardState extends State<_AsistenteCard> {
                   Expanded(
                     child: TextFormField(
                       initialValue: a.nombre,
-                      decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Obligatorio' : null,
-                      onChanged: (v) { a.nombre = v; widget.onChanged(); },
+                      decoration: const InputDecoration(
+                          labelText: 'Nombre', border: OutlineInputBorder()),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Obligatorio' : null,
+                      onChanged: (v) {
+                        a.nombre = v;
+                        widget.onChanged();
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       initialValue: a.apellidos,
-                      decoration: const InputDecoration(labelText: 'Apellidos', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Obligatorio' : null,
-                      onChanged: (v) { a.apellidos = v; widget.onChanged(); },
+                      decoration: const InputDecoration(
+                          labelText: 'Apellidos', border: OutlineInputBorder()),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Obligatorio' : null,
+                      onChanged: (v) {
+                        a.apellidos = v;
+                        widget.onChanged();
+                      },
                     ),
                   ),
                 ],
@@ -523,7 +615,9 @@ class _AsistenteCardState extends State<_AsistenteCard> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: a.telefonoCtrl,
-                decoration: const InputDecoration(labelText: 'Teléfono (opcional)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                    labelText: 'Teléfono (opcional)',
+                    border: OutlineInputBorder()),
               ),
               const SizedBox(height: 12),
             ],
@@ -533,17 +627,26 @@ class _AsistenteCardState extends State<_AsistenteCard> {
                   Expanded(
                     child: TextFormField(
                       initialValue: a.nombre,
-                      decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Obligatorio' : null,
-                      onChanged: (v) { a.nombre = v; widget.onChanged(); },
+                      decoration: const InputDecoration(
+                          labelText: 'Nombre', border: OutlineInputBorder()),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Obligatorio' : null,
+                      onChanged: (v) {
+                        a.nombre = v;
+                        widget.onChanged();
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       initialValue: a.apellidos,
-                      decoration: const InputDecoration(labelText: 'Apellidos', border: OutlineInputBorder()),
-                      onChanged: (v) { a.apellidos = v; widget.onChanged(); },
+                      decoration: const InputDecoration(
+                          labelText: 'Apellidos', border: OutlineInputBorder()),
+                      onChanged: (v) {
+                        a.apellidos = v;
+                        widget.onChanged();
+                      },
                     ),
                   ),
                 ],
@@ -554,14 +657,18 @@ class _AsistenteCardState extends State<_AsistenteCard> {
                   Expanded(
                     child: TextFormField(
                       controller: a.cargoCtrl,
-                      decoration: const InputDecoration(labelText: 'Cargo/Representación (opcional)', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                          labelText: 'Cargo/Representación (opcional)',
+                          border: OutlineInputBorder()),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       controller: a.telefonoCtrl,
-                      decoration: const InputDecoration(labelText: 'Teléfono (opcional)', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                          labelText: 'Teléfono (opcional)',
+                          border: OutlineInputBorder()),
                     ),
                   ),
                 ],
@@ -570,14 +677,20 @@ class _AsistenteCardState extends State<_AsistenteCard> {
             ],
             // Menu selection
             DropdownButtonFormField<String>(
-              value: a.menuId != null && widget.menus.any((m) => m['id'] == a.menuId) ? a.menuId : null,
-              decoration: const InputDecoration(labelText: 'Menú *', border: OutlineInputBorder()),
-              validator: (v) => v == null || v.isEmpty ? 'Selecciona un menú' : null,
+              value: a.menuId != null &&
+                      widget.menus.any((m) => m['id'] == a.menuId)
+                  ? a.menuId
+                  : null,
+              decoration: const InputDecoration(
+                  labelText: 'Menú *', border: OutlineInputBorder()),
+              validator: (v) =>
+                  v == null || v.isEmpty ? 'Selecciona un menú' : null,
               items: widget.menus.map((m) {
                 final extra = (m['precio_extra'] as num?)?.toDouble() ?? 0;
                 return DropdownMenuItem<String>(
                   value: m['id'] as String,
-                  child: Text('${m['nombre']}${extra > 0 ? " (+${extra.toStringAsFixed(2)} €)" : ""}'),
+                  child: Text(
+                      '${m['nombre']}${extra > 0 ? " (+${extra.toStringAsFixed(2)} €)" : ""}'),
                 );
               }).toList(),
               onChanged: (v) {
@@ -592,7 +705,8 @@ class _AsistenteCardState extends State<_AsistenteCard> {
               decoration: const InputDecoration(
                 labelText: 'Alergias alimentarias',
                 border: OutlineInputBorder(),
-                helperText: 'Indica cualquier alergia o intolerancia alimentaria de forma clara y específica '
+                helperText:
+                    'Indica cualquier alergia o intolerancia alimentaria de forma clara y específica '
                     'para que el restaurante pueda tomar las precauciones adecuadas.',
                 helperMaxLines: 3,
               ),
@@ -622,7 +736,8 @@ class _AsistenteCardState extends State<_AsistenteCard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.check_circle, color: AppTheme.accentColor, size: 18),
+              const Icon(Icons.check_circle,
+                  color: AppTheme.accentColor, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text('${a.nombre} ${a.apellidos}',
@@ -659,11 +774,16 @@ class _AsistenteCardState extends State<_AsistenteCard> {
             suffixIcon: _searching
                 ? const Padding(
                     padding: EdgeInsets.all(12),
-                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                   )
                 : const Icon(Icons.search),
           ),
-          validator: (_) => a.cofradeId == null || a.cofradeId!.isEmpty ? 'Selecciona un hermano/a' : null,
+          validator: (_) => a.cofradeId == null || a.cofradeId!.isEmpty
+              ? 'Selecciona un hermano/a'
+              : null,
           onChanged: (v) async {
             if (v.trim().length < 2) {
               setState(() => _searchResults = []);
@@ -672,7 +792,11 @@ class _AsistenteCardState extends State<_AsistenteCard> {
             setState(() => _searching = true);
             try {
               final results = await widget.fs.searchCofrades(v);
-              if (mounted) setState(() { _searchResults = results; _searching = false; });
+              if (mounted)
+                setState(() {
+                  _searchResults = results;
+                  _searching = false;
+                });
             } catch (e) {
               if (mounted) setState(() => _searching = false);
             }
@@ -697,15 +821,23 @@ class _AsistenteCardState extends State<_AsistenteCard> {
                     radius: 16,
                     backgroundColor: AppTheme.accentColor.withAlpha(20),
                     child: Text(c.nombre.isNotEmpty ? c.nombre[0] : '?',
-                        style: const TextStyle(color: AppTheme.accentColor, fontSize: 14)),
+                        style: const TextStyle(
+                            color: AppTheme.accentColor, fontSize: 14)),
                   ),
-                  title: Text('${c.nombre} ${c.apellidos}', style: const TextStyle(fontSize: 14)),
-                  subtitle: c.numero != null ? Text('Nº ${c.numero}', style: const TextStyle(fontSize: 12)) : null,
+                  title: Text('${c.nombre} ${c.apellidos}',
+                      style: const TextStyle(fontSize: 14)),
+                  subtitle: c.numero != null
+                      ? Text('Nº ${c.numero}',
+                          style: const TextStyle(fontSize: 12))
+                      : null,
                   onTap: () async {
-                    final yaInscrito = await widget.fs.isCofradeInscritoFestividad(widget.edicionId, c.id);
+                    final yaInscrito = await widget.fs
+                        .isCofradeInscritoFestividad(widget.edicionId, c.id);
                     if (yaInscrito && mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Este hermano/a ya figura inscrito/a en esta edición.')),
+                        const SnackBar(
+                            content: Text(
+                                'Este hermano/a ya figura inscrito/a en esta edición.')),
                       );
                       return;
                     }

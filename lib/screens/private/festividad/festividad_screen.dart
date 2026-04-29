@@ -45,18 +45,21 @@ class FestividadScreen extends StatelessWidget {
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.celebration, size: 64, color: Colors.grey.shade300),
+                  Icon(Icons.celebration,
+                      size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
                   const Text(
                     'No hay ninguna edición de la Festividad activa en este momento.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 16, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Cuando la Junta publique la próxima edición, podrás inscribirte desde aquí.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -85,7 +88,10 @@ class FestividadScreen extends StatelessWidget {
             SizedBox(width: 12),
             Expanded(
               child: Text('Festividad San Juan Evangelista',
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -98,7 +104,8 @@ class _FestividadContent extends StatefulWidget {
   final Map<String, dynamic> edicion;
   final dynamic cofrade;
   final FirestoreService fs;
-  const _FestividadContent({required this.edicion, this.cofrade, required this.fs});
+  const _FestividadContent(
+      {required this.edicion, this.cofrade, required this.fs});
 
   @override
   State<_FestividadContent> createState() => _FestividadContentState();
@@ -120,9 +127,17 @@ class _FestividadContentState extends State<_FestividadContent> {
       return;
     }
     try {
-      final insc = await widget.fs.getMiInscripcionFestividad(
-          widget.edicion['id'], widget.cofrade.id);
-      if (mounted) setState(() { _miInscripcion = insc; _loadingInscripcion = false; });
+      final insc = await widget.fs
+          .getMiInscripcionFestividad(widget.edicion['id'], widget.cofrade.id);
+      final accessible = insc ??
+          await widget.fs.getInscripcionFestividadParaCofrade(
+              widget.edicion['id'], widget.cofrade.id);
+      if (mounted) {
+        setState(() {
+          _miInscripcion = accessible;
+          _loadingInscripcion = false;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _loadingInscripcion = false);
     }
@@ -159,12 +174,16 @@ class _FestividadContentState extends State<_FestividadContent> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.celebration, color: Colors.white70, size: 28),
+                      const Icon(Icons.celebration,
+                          color: Colors.white70, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           ed['nombre'] ?? 'Festividad San Juan Evangelista',
-                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -177,7 +196,8 @@ class _FestividadContentState extends State<_FestividadContent> {
                       if (fecha != null)
                         Text(
                           fmt.format(fecha),
-                          style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 14),
                         ),
                     ],
                   ),
@@ -205,20 +225,35 @@ class _FestividadContentState extends State<_FestividadContent> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Detalles del evento',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                           const Divider(height: 24),
-                          _InfoRow(icon: Icons.calendar_today, label: 'Fecha',
-                              value: fecha != null ? fmt.format(fecha) : 'Por confirmar'),
-                          _InfoRow(icon: Icons.access_time, label: 'Hora',
+                          _InfoRow(
+                              icon: Icons.calendar_today,
+                              label: 'Fecha',
+                              value: fecha != null
+                                  ? fmt.format(fecha)
+                                  : 'Por confirmar'),
+                          _InfoRow(
+                              icon: Icons.access_time,
+                              label: 'Hora',
                               value: ed['hora'] ?? 'Por confirmar'),
-                          _InfoRow(icon: Icons.location_on, label: 'Lugar',
+                          _InfoRow(
+                              icon: Icons.location_on,
+                              label: 'Lugar',
                               value: ed['lugar'] ?? 'Por confirmar'),
-                          if (ed['direccion'] != null && (ed['direccion'] as String).isNotEmpty)
-                            _InfoRow(icon: Icons.map, label: 'Dirección',
+                          if (ed['direccion'] != null &&
+                              (ed['direccion'] as String).isNotEmpty)
+                            _InfoRow(
+                                icon: Icons.map,
+                                label: 'Dirección',
                                 value: ed['direccion']),
-                          if (ed['descripcion'] != null && (ed['descripcion'] as String).isNotEmpty) ...[
+                          if (ed['descripcion'] != null &&
+                              (ed['descripcion'] as String).isNotEmpty) ...[
                             const SizedBox(height: 12),
-                            Text(ed['descripcion'], style: const TextStyle(color: AppTheme.textSecondary)),
+                            Text(ed['descripcion'],
+                                style: const TextStyle(
+                                    color: AppTheme.textSecondary)),
                           ],
                         ],
                       ),
@@ -238,20 +273,30 @@ class _FestividadContentState extends State<_FestividadContent> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Precios',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                           const Divider(height: 24),
                           Row(
                             children: [
-                              Expanded(child: _PriceChip(label: 'Hermano/a', price: precioHermano, color: AppTheme.accentColor)),
+                              Expanded(
+                                  child: _PriceChip(
+                                      label: 'Hermano/a',
+                                      price: precioHermano,
+                                      color: AppTheme.accentColor)),
                               const SizedBox(width: 12),
-                              Expanded(child: _PriceChip(label: 'Invitado/a', price: precioInvitado, color: AppTheme.primaryColor)),
+                              Expanded(
+                                  child: _PriceChip(
+                                      label: 'Invitado/a',
+                                      price: precioInvitado,
+                                      color: AppTheme.primaryColor)),
                             ],
                           ),
                           if (fechaLimite != null) ...[
                             const SizedBox(height: 16),
                             Row(
                               children: [
-                                Icon(Icons.timer, size: 18, color: Colors.orange.shade700),
+                                Icon(Icons.timer,
+                                    size: 18, color: Colors.orange.shade700),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Fecha límite inscripción: ${fmt.format(fechaLimite)}',
@@ -280,17 +325,21 @@ class _FestividadContentState extends State<_FestividadContent> {
                       fs: widget.fs,
                       onUpdated: _loadMiInscripcion,
                     )
-                  else if (isAbierto && fechaLimite != null && !fechaLimite.isBefore(DateTime.now()))
+                  else if (isAbierto &&
+                      fechaLimite != null &&
+                      !fechaLimite.isBefore(DateTime.now()))
                     Center(
                       child: ElevatedButton.icon(
                         onPressed: () async {
-                          final result = await context.push<bool>('/festividad/inscripcion?edicionId=${ed['id']}');
+                          final result = await context.push<bool>(
+                              '/festividad/inscripcion?edicionId=${ed['id']}');
                           if (result == true) _loadMiInscripcion();
                         },
                         icon: const Icon(Icons.how_to_reg),
                         label: const Text('Inscribirme'),
                         style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 16),
                           textStyle: const TextStyle(fontSize: 16),
                         ),
                       ),
@@ -392,7 +441,9 @@ class _MiInscripcionCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: estado == 'confirmada' ? AppTheme.accentColor : Colors.orange.shade300,
+          color: estado == 'confirmada'
+              ? AppTheme.accentColor
+              : Colors.orange.shade300,
           width: 1.5,
         ),
       ),
@@ -403,10 +454,13 @@ class _MiInscripcionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.confirmation_number, color: AppTheme.primaryColor),
+                const Icon(Icons.confirmation_number,
+                    color: AppTheme.primaryColor),
                 const SizedBox(width: 10),
                 const Expanded(
-                  child: Text('Mi inscripción', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: Text('Mi inscripción',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
                 _EstadoChip(estado: estado),
               ],
@@ -418,30 +472,38 @@ class _MiInscripcionCard extends StatelessWidget {
                 Icon(
                   estadoPago == 'pagado' ? Icons.check_circle : Icons.payment,
                   size: 18,
-                  color: estadoPago == 'pagado' ? AppTheme.accentColor
-                      : estadoPago == 'exento' ? Colors.blue
-                      : Colors.orange.shade700,
+                  color: estadoPago == 'pagado'
+                      ? AppTheme.accentColor
+                      : estadoPago == 'exento'
+                          ? Colors.blue
+                          : Colors.orange.shade700,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Pago: ${_paymentLabel(estadoPago)}',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: estadoPago == 'pagado' ? AppTheme.accentColor
-                        : estadoPago == 'exento' ? Colors.blue
-                        : Colors.orange.shade700,
+                    color: estadoPago == 'pagado'
+                        ? AppTheme.accentColor
+                        : estadoPago == 'exento'
+                            ? Colors.blue
+                            : Colors.orange.shade700,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   '${totalPagar.toStringAsFixed(2)} €',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                  style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor),
                 ),
               ],
             ),
             const SizedBox(height: 16),
             // Asistentes
-            const Text('Asistentes:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            const Text('Asistentes:',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
             ...asistentes.asMap().entries.map((entry) {
               final a = entry.value;
@@ -451,10 +513,17 @@ class _MiInscripcionCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      tipo == 'hermano' ? Icons.person : tipo == 'protocolo' ? Icons.stars : Icons.person_outline,
+                      tipo == 'hermano'
+                          ? Icons.person
+                          : tipo == 'protocolo'
+                              ? Icons.stars
+                              : Icons.person_outline,
                       size: 18,
-                      color: tipo == 'hermano' ? AppTheme.accentColor
-                          : tipo == 'protocolo' ? Colors.purple : AppTheme.primaryColor,
+                      color: tipo == 'hermano'
+                          ? AppTheme.accentColor
+                          : tipo == 'protocolo'
+                              ? Colors.purple
+                              : AppTheme.primaryColor,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -465,12 +534,14 @@ class _MiInscripcionCard extends StatelessWidget {
                     ),
                     Text(
                       _tipoLabel(tipo),
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '${(a['precio_aplicado'] as num? ?? 0).toStringAsFixed(2)} €',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   ],
                 ),
@@ -481,10 +552,14 @@ class _MiInscripcionCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${asistentes.length} asistente${asistentes.length != 1 ? 's' : ''}',
+                Text(
+                    '${asistentes.length} asistente${asistentes.length != 1 ? 's' : ''}',
                     style: const TextStyle(color: AppTheme.textSecondary)),
                 Text('Total: ${totalPagar.toStringAsFixed(2)} €',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.primaryColor)),
               ],
             ),
             if (isAbierto && estado != 'cancelada') ...[
@@ -504,9 +579,12 @@ class _MiInscripcionCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: () => _confirmarCancelacion(context),
-                    icon: Icon(Icons.cancel, size: 18, color: Colors.red.shade600),
-                    label: Text('Cancelar', style: TextStyle(color: Colors.red.shade600)),
-                    style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.red.shade300)),
+                    icon: Icon(Icons.cancel,
+                        size: 18, color: Colors.red.shade600),
+                    label: Text('Cancelar',
+                        style: TextStyle(color: Colors.red.shade600)),
+                    style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.red.shade300)),
                   ),
                 ],
               ),
@@ -527,18 +605,25 @@ class _MiInscripcionCard extends StatelessWidget {
 
   String _tipoLabel(String tipo) {
     switch (tipo) {
-      case 'hermano': return 'Hermano/a';
-      case 'invitado': return 'Invitado/a';
-      case 'protocolo': return 'Protocolo';
-      default: return tipo;
+      case 'hermano':
+        return 'Hermano/a';
+      case 'invitado':
+        return 'Invitado/a';
+      case 'protocolo':
+        return 'Protocolo';
+      default:
+        return tipo;
     }
   }
 
   String _paymentLabel(String status) {
     switch (status) {
-      case 'pagado': return 'Pagado';
-      case 'exento': return 'Exento';
-      default: return 'Pendiente de pago';
+      case 'pagado':
+        return 'Pagado';
+      case 'exento':
+        return 'Exento';
+      default:
+        return 'Pendiente de pago';
     }
   }
 
@@ -547,9 +632,12 @@ class _MiInscripcionCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancelar inscripción'),
-        content: const Text('¿Estás seguro de que quieres cancelar tu inscripción? Esta acción no se puede deshacer.'),
+        content: const Text(
+            '¿Estás seguro de que quieres cancelar tu inscripción? Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No, mantener')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('No, mantener')),
           ElevatedButton(
             onPressed: () async {
               await fs.updateFestividadInscripcion(
@@ -575,14 +663,37 @@ class _EstadoChip extends StatelessWidget {
     Color color;
     String label;
     switch (estado) {
-      case 'abierto': color = AppTheme.accentColor; label = 'Abierto'; break;
-      case 'cerrado': color = Colors.orange; label = 'Cerrado'; break;
-      case 'finalizado': color = Colors.grey; label = 'Finalizado'; break;
-      case 'borrador': color = Colors.blue; label = 'Borrador'; break;
-      case 'pendiente': color = Colors.orange; label = 'Pendiente'; break;
-      case 'confirmada': color = AppTheme.accentColor; label = 'Confirmada'; break;
-      case 'cancelada': color = Colors.red; label = 'Cancelada'; break;
-      default: color = Colors.grey; label = estado;
+      case 'abierto':
+        color = AppTheme.accentColor;
+        label = 'Abierto';
+        break;
+      case 'cerrado':
+        color = Colors.orange;
+        label = 'Cerrado';
+        break;
+      case 'finalizado':
+        color = Colors.grey;
+        label = 'Finalizado';
+        break;
+      case 'borrador':
+        color = Colors.blue;
+        label = 'Borrador';
+        break;
+      case 'pendiente':
+        color = Colors.orange;
+        label = 'Pendiente';
+        break;
+      case 'confirmada':
+        color = AppTheme.accentColor;
+        label = 'Confirmada';
+        break;
+      case 'cancelada':
+        color = Colors.red;
+        label = 'Cancelada';
+        break;
+      default:
+        color = Colors.grey;
+        label = estado;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -591,7 +702,9 @@ class _EstadoChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withAlpha(80)),
       ),
-      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w600, color: color)),
     );
   }
 }
@@ -600,7 +713,8 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _InfoRow(
+      {required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -610,8 +724,14 @@ class _InfoRow extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: AppTheme.textSecondary),
           const SizedBox(width: 10),
-          SizedBox(width: 80, child: Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13))),
-          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
+          SizedBox(
+              width: 80,
+              child: Text(label,
+                  style: const TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 13))),
+          Expanded(
+              child: Text(value,
+                  style: const TextStyle(fontWeight: FontWeight.w500))),
         ],
       ),
     );
@@ -622,7 +742,8 @@ class _PriceChip extends StatelessWidget {
   final String label;
   final double price;
   final Color color;
-  const _PriceChip({required this.label, required this.price, required this.color});
+  const _PriceChip(
+      {required this.label, required this.price, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -635,9 +756,13 @@ class _PriceChip extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w500)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13, color: color, fontWeight: FontWeight.w500)),
           const SizedBox(height: 4),
-          Text('${price.toStringAsFixed(2)} €', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+          Text('${price.toStringAsFixed(2)} €',
+              style: TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
