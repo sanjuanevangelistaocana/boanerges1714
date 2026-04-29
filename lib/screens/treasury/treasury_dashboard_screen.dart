@@ -67,14 +67,27 @@ class TreasuryDashboardScreen extends StatelessWidget {
                     color: AppTheme.primaryColor,
                   ),
                   _SummaryCard(
-                    title: 'Facturas borrador',
-                    value: '${summary.draftInvoicesCount}',
+                    title: 'Facturas',
+                    value: '${summary.totalInvoicesCount}',
                     icon: Icons.description,
                     color: Colors.blue.shade700,
                   ),
                   _SummaryCard(
-                    title: 'Facturas validadas',
-                    value: '${summary.validatedInvoicesCount}',
+                    title: 'Importe total',
+                    value:
+                        '${summary.totalInvoicesAmount.toStringAsFixed(2)} €',
+                    icon: Icons.summarize,
+                    color: AppTheme.primaryColor,
+                  ),
+                  _SummaryCard(
+                    title: 'Facturas borrador',
+                    value: '${summary.draftInvoicesCount}',
+                    icon: Icons.edit_document,
+                    color: Colors.blue.shade700,
+                  ),
+                  _SummaryCard(
+                    title: 'Facturas aprobadas',
+                    value: '${summary.approvedInvoicesCount}',
                     icon: Icons.verified,
                     color: AppTheme.accentColor,
                   ),
@@ -91,10 +104,30 @@ class TreasuryDashboardScreen extends StatelessWidget {
                     color: AppTheme.accentColor,
                   ),
                   _SummaryCard(
+                    title: 'Aprobado',
+                    value: '${summary.approvedAmount.toStringAsFixed(2)} €',
+                    icon: Icons.fact_check,
+                    color: AppTheme.accentColor,
+                  ),
+                  _SummaryCard(
                     title: 'Devuelto / impagado',
                     value: '${summary.returnedAmount.toStringAsFixed(2)} €',
                     icon: Icons.error_outline,
                     color: Colors.red.shade700,
+                  ),
+                  _SummaryCard(
+                    title: 'Domiciliado',
+                    value:
+                        '${summary.bankInvoicesCount} · ${summary.bankAmount.toStringAsFixed(2)} €',
+                    icon: Icons.account_balance,
+                    color: Colors.blue.shade700,
+                  ),
+                  _SummaryCard(
+                    title: 'Efectivo',
+                    value:
+                        '${summary.cashInvoicesCount} · ${summary.cashAmount.toStringAsFixed(2)} €',
+                    icon: Icons.payments,
+                    color: Colors.amber.shade800,
                   ),
                   _SummaryCard(
                     title: 'Resultado anual',

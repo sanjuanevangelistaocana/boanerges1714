@@ -1,0 +1,59 @@
+function generardocs() {
+  var sheetId = '1dhmhsNHPZUcZ7CBbKOjE5Ysxf-a5yVAuueLJYedPfp4';
+  var sheet = SpreadsheetApp.openById(sheetId).getSheetByName('Facturas PDF');
+  var templateId = '1dDJobgzrhCm5SAtn8p-j-ezifZtkS5BUrgmmyujMNaQ';
+  var folderId = '1K3uFXe9q25bA6B0XqcIqo91UfFQ5zoVP';
+  var folder = DriveApp.getFolderById(folderId);
+
+  var lastRow = sheet.getLastRow();
+  var dataRange = sheet.getRange('A2:Y' + lastRow); // Assuming data starts from row 2. Si excede el tiempo cambiar el rango.
+
+  var data = dataRange.getValues();
+
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var facturaName = row[24]; // Use the 'Factura' column for the document name
+    var newDocName = facturaName; // Customize the document name here
+
+    var newDoc = DriveApp.getFileById(templateId).makeCopy(newDocName, folder);
+    var body = DocumentApp.openById(newDoc.getId()).getBody();
+
+    // Replace placeholders in the document with data from the sheet
+    var placeholders = ['{{Titular}}', '{{IBAN}}', '{{Cofrade 1}}', '{{NCofrade 1}}',
+      '{{Cofrade 2}}', '{{NCofrade 2}}', '{{Cofrade 3}}', '{{NCofrade 3}}',
+      '{{Cofrade 4}}', '{{NCofrade 4}}', '{{Cofrade 5}}', '{{NCofrade 5}}',
+      '{{Cofrade 6}}', '{{NCofrade 6}}', '{{Cofrade 7}}', '{{NCofrade 7}}',
+      '{{Cofrade 8}}', '{{NCofrade 8}}', '{{Cofrade 9}}', '{{NCofrade 9}}',
+      '{{Cofrade 10}}', '{{NCofrade 10}}', '{{Importe}}', '{{Año}}', '{{Factura}}'
+    ];
+
+    var dataValues = [
+      row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7],
+      row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15],
+      row[16], row[17], row[18], row[19], row[20], row[21], row[22], row[23], row[24]
+    ];
+
+    for (var j = 0; j < placeholders.length; j++) {
+      body.replaceText(placeholders[j], dataValues[j]);
+    }
+  }
+}
+
+
+function convertToPDFandDeleteDocs() {
+  var folderId = "1K3uFXe9q25bA6B0XqcIqo91UfFQ5zoVP";
+  var folder = DriveApp.getFolderById(folderId);
+  var files = folder.getFiles();
+
+  while (files.hasNext()) {
+    var file = files.next();
+    if (file.getMimeType() === "application/vnd.google-apps.document") {
+      var pdf = DriveApp.getFileById(file.getId()).getAs("application/pdf");
+      pdf.setName(file.getName() + ".pdf");
+      folder.createFile(pdf);
+      DriveApp.getFileById(file.getId()).setTrashed(true);
+    }
+  }
+}
+
+

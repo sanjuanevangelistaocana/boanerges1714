@@ -95,6 +95,7 @@ class TreasuryInvoice {
   final String holderName;
   final String ibanMasked;
   final String ibanHash;
+  final String concept;
   final List<String> cofradeIds;
   final List<String> cofradeAuthUids;
   final String paymentMethod;
@@ -114,6 +115,7 @@ class TreasuryInvoice {
     this.holderName = '',
     this.ibanMasked = '',
     this.ibanHash = '',
+    this.concept = '',
     this.cofradeIds = const [],
     this.cofradeAuthUids = const [],
     this.paymentMethod = 'bank_remittance',
@@ -136,6 +138,7 @@ class TreasuryInvoice {
       holderName: data['holderName'] ?? '',
       ibanMasked: data['ibanMasked'] ?? '',
       ibanHash: data['ibanHash'] ?? '',
+      concept: data['concept'] ?? '',
       cofradeIds: (data['cofradeIds'] as List<dynamic>? ?? [])
           .map((e) => '$e')
           .toList(),
@@ -161,6 +164,7 @@ class TreasuryInvoice {
       'holderName': holderName,
       'ibanMasked': ibanMasked,
       'ibanHash': ibanHash,
+      'concept': concept,
       'cofradeIds': cofradeIds,
       'cofradeAuthUids': cofradeAuthUids,
       'paymentMethod': paymentMethod,
@@ -180,6 +184,7 @@ class TreasuryInvoiceLine {
   final String invoiceId;
   final String cofradeId;
   final String cofradeName;
+  final int? cofradeNumber;
   final String? authUid;
   final String concept;
   final double amount;
@@ -193,6 +198,7 @@ class TreasuryInvoiceLine {
     required this.invoiceId,
     required this.cofradeId,
     required this.cofradeName,
+    this.cofradeNumber,
     this.authUid,
     required this.concept,
     required this.amount,
@@ -209,6 +215,7 @@ class TreasuryInvoiceLine {
       invoiceId: data['invoiceId'] ?? '',
       cofradeId: data['cofradeId'] ?? '',
       cofradeName: data['cofradeName'] ?? '',
+      cofradeNumber: (data['cofradeNumber'] as num?)?.toInt(),
       authUid: data['authUid'],
       concept: data['concept'] ?? '',
       amount: (data['amount'] as num?)?.toDouble() ?? 0,
@@ -224,6 +231,7 @@ class TreasuryInvoiceLine {
       'invoiceId': invoiceId,
       'cofradeId': cofradeId,
       'cofradeName': cofradeName,
+      'cofradeNumber': cofradeNumber,
       'authUid': authUid,
       'concept': concept,
       'amount': amount,

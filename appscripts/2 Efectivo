@@ -1,0 +1,57 @@
+function efectivo() {
+  var origen = SpreadsheetApp.openById('19Gvx55QwSEgxJVmmeHU8qQODCIKTDYurh180-tjbmTU');
+  var destino = SpreadsheetApp.openById('1dhmhsNHPZUcZ7CBbKOjE5Ysxf-a5yVAuueLJYedPfp4');
+
+  var hojaOrigen = origen.getSheetByName('Relación Cofrades');
+  var hojaDestino = destino.getSheetByName('Efectivo');
+
+  if (hojaDestino !== null && hojaOrigen !== null) {
+    var datosOrigen = hojaOrigen.getDataRange().getValues();
+    var headersOrigen = datosOrigen.shift(); // Extraer la primera fila (encabezados)
+    
+    console.log("Encabezados de la hoja de origen:", headersOrigen); // Verificar los encabezados
+
+    var referenciaIndex = headersOrigen.indexOf('Nombre') !== -1 && headersOrigen.indexOf('Apellidos') !== -1
+      ? [headersOrigen.indexOf('Nombre'), headersOrigen.indexOf('Apellidos')]
+      : [-1, -1];
+    
+    console.log("Índice de Nombre y Apellidos:", referenciaIndex); // Verificar los índices de Nombre y Apellidos
+
+    var domicilioIndex = headersOrigen.indexOf('Domicilio');
+    var localidadIndex = headersOrigen.indexOf('Localidad');
+    var codigoPostalIndex = headersOrigen.indexOf('Código Postal');
+    var emailIndex = headersOrigen.indexOf('Email');
+    var numeroIndex = headersOrigen.indexOf('Nº');
+
+    console.log("Índices de otras columnas:", domicilioIndex, localidadIndex, codigoPostalIndex, emailIndex); // Verificar otros índices de columnas
+
+    if (referenciaIndex[0] !== -1 && referenciaIndex[1] !== -1 && domicilioIndex !== -1 && localidadIndex !== -1 &&
+        codigoPostalIndex !== -1 && emailIndex !== -1 && numeroIndex !== -1) {
+
+      var datosFiltrados = [];
+      for (var i = 0; i < datosOrigen.length; i++) {
+        if (datosOrigen[i][7] != 2023 && datosOrigen[i][10] === 'Activo' && datosOrigen[i][22] === true) {
+          var referencia = datosOrigen[i][referenciaIndex[0]] + ' ' + datosOrigen[i][referenciaIndex[1]];
+          var fila = [datosOrigen[i][numeroIndex],referencia, datosOrigen[i][domicilioIndex], datosOrigen[i][localidadIndex],
+                      datosOrigen[i][codigoPostalIndex], datosOrigen[i][emailIndex]]; // Añadir IBAN a la fila
+          datosFiltrados.push(fila);
+        }
+      }
+
+      console.log("Datos filtrados:", datosFiltrados); // Verificar los datos filtrados
+
+      if (datosFiltrados.length > 0) {
+        hojaDestino.clear();
+        var headersDestino = ['Nº','Cofrade Referencia', 'Domicilio', 'Localidad', 'Código Postal', 'Email']; // Cambiar 'Referencia' por 'Cofrade Referencia'
+        hojaDestino.getRange(1, 1, 1, headersDestino.length).setValues([headersDestino]);
+        hojaDestino.getRange(2, 1, datosFiltrados.length, datosFiltrados[0].length).setValues(datosFiltrados);
+      } else {
+        console.log("No se encontraron datos filtrados para copiar.");
+      }
+    } else {
+      console.log("No se encontraron todas las columnas requeridas en la hoja de origen.");
+    }
+  } else {
+    console.log("Hoja de origen o destino no encontrada");
+  }
+}

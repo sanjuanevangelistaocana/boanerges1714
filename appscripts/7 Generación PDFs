@@ -1,0 +1,15 @@
+function convertToPDFandDeleteDocs() {
+  var folderId = "1K3uFXe9q25bA6B0XqcIqo91UfFQ5zoVP";
+  var folder = DriveApp.getFolderById(folderId);
+  var files = folder.getFiles();
+
+  while (files.hasNext()) {
+    var file = files.next();
+    if (file.getMimeType() === "application/vnd.google-apps.document") {
+      var pdf = DriveApp.getFileById(file.getId()).getAs("application/pdf");
+      pdf.setName(file.getName() + ".pdf");
+      folder.createFile(pdf);
+      DriveApp.getFileById(file.getId()).setTrashed(true);
+    }
+  }
+}

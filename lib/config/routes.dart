@@ -50,7 +50,9 @@ import 'package:boanerges1714/screens/private/loteria/mi_loteria_screen.dart';
 import 'package:boanerges1714/screens/private/loteria/asignacion_externa_screen.dart';
 import 'package:boanerges1714/screens/private/loteria/disponibilidad_loteria_screen.dart';
 import 'package:boanerges1714/screens/treasury/treasury_home_screen.dart';
+import 'package:boanerges1714/screens/treasury/billing_and_collections_screen.dart';
 import 'package:boanerges1714/screens/treasury/treasury_module_screens.dart';
+import 'package:boanerges1714/screens/treasury/treasury_invoice_detail_screen.dart';
 import 'package:boanerges1714/screens/treasury/treasury_settings_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
@@ -291,6 +293,12 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/treasury/settings',
               builder: (context, state) => const TreasurySettingsScreen()),
+          GoRoute(
+            path: '/treasury/invoices/:invoiceId',
+            builder: (context, state) => TreasuryInvoiceDetailScreen(
+              invoiceId: state.pathParameters['invoiceId'] ?? '',
+            ),
+          ),
         ],
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),

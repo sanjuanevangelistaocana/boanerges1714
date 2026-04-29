@@ -1,0 +1,112 @@
+function facturas() {
+  var libro = SpreadsheetApp.openById('1dhmhsNHPZUcZ7CBbKOjE5Ysxf-a5yVAuueLJYedPfp4');
+  var hojaOrigen = libro.getSheetByName("Remesa Tesorería");
+  var hojaDestino = libro.getSheetByName("Facturas PDF");
+
+  // Borra todo el contenido de la hoja destino
+  hojaDestino.clear();
+
+  var cabeceras = [
+    ["Titular", "IBAN"]
+  ];
+
+  // Agregar las cabeceras de los cofrades y sus números
+  for (var k = 1; k <= 10; k++) {
+    cabeceras[0].push("Cofrade " + k);
+    cabeceras[0].push("NCofrade " + k);
+  }
+
+  cabeceras[0] = cabeceras[0].concat(["Importe", "Año", "Factura"]);
+  // Escribir las cabeceras en la hoja de destino
+  hojaDestino.getRange(1, 1, 1, cabeceras[0].length).setValues(cabeceras);
+
+  var datosOrigen = hojaOrigen.getDataRange().getValues();
+
+  var titulares = [];
+  var ibans = [];
+  var cofrades = [];
+  var importes = [];
+  var años = [];
+  var contadorFactura = 1; // Inicializar el contador de facturas
+
+  for (var i = 1; i < datosOrigen.length; i++) {
+    var titular = datosOrigen[i][0];
+    var iban = datosOrigen[i][1];
+    var concepto = datosOrigen[i][2];
+    var importe = datosOrigen[i][3];
+
+    var matches = concepto.match(/\((\d+)\)/g);
+    var numerosCofrades = matches ? matches.map(function(match) { return parseInt(match.replace(/\(|\)/g, ''), 10); }) : [];
+
+    var nombresCofrades = concepto.split(",").map(function(name) { return name.trim(); });
+
+    if (nombresCofrades.length > 0 && nombresCofrades[0].startsWith("Cuotas -")) {
+      nombresCofrades[0] = nombresCofrades[0].replace("Cuotas -", "").trim();
+    }
+
+    titulares.push(titular);
+    
+    // Enmascarar IBAN
+    var maskedIban = iban.replace(/^(\w{4})(.*)(\w{4})$/, '$1XXXXXXXXXXXXXXXX$3');
+    ibans.push([maskedIban]);
+
+    importes.push(importe);
+
+    for (var j = 0; j < 10; j++) {
+    if (nombresCofrades[j]) {
+        if (!cofrades[j]) {
+            cofrades[j] = [];
+        }
+        if (j !== 0) {
+            var lastSpaceIndex = nombresCofrades[j].lastIndexOf(' ');
+            var cofradeName = nombresCofrades[j].substr(0, lastSpaceIndex);
+            cofrades[j].push(cofradeName || "");
+        } else {
+            var cofrade1 = nombresCofrades[j].split('- ')[1]; // Obtener texto después de '-'
+            cofrade1 = cofrade1.substr(0, cofrade1.lastIndexOf(' ')); // Eliminar texto después del último espacio
+            cofrades[j].push(cofrade1 || "");
+        }
+        cofrades[j].push(numerosCofrades[j] || "");
+    } else {
+        if (!cofrades[j]) {
+            cofrades[j] = ["", ""];
+        } else {
+            cofrades[j].push("");
+            cofrades[j].push("");
+        }
+    }
+}
+
+    // Números de factura con formato SJ-AÑO-NNN
+    hojaDestino.getRange(i + 1, cabeceras[0].length).setValue("SJ-" + new Date().getFullYear() + "-" + pad(contadorFactura, 3));
+    contadorFactura++;
+
+    años.push(new Date().getFullYear()); // Añadir el año correspondiente
+  }
+
+  hojaDestino.getRange(2, 1, titulares.length, 1).setValues(titulares.map(function (item) { return [item]; }));
+  hojaDestino.getRange(2, 2, ibans.length, 1).setValues(ibans.map(function (item) { return item; }));
+
+  for (var k = 0; k < 10; k++) {
+    hojaDestino.getRange(2, 3 + k * 2, cofrades[k].length / 2, 2).setValues(arrayToMatrix(cofrades[k], 2)); // Escribir en columnas paralelas
+  }
+
+  hojaDestino.getRange(2, cabeceras[0].length - 2, importes.length, 1).setValues(importes.map(function (item) { return [item]; }));
+  hojaDestino.getRange(2, cabeceras[0].length - 1, años.length, 1).setValues(años.map(function (item) { return [item]; }));
+}
+
+// Función para convertir un array en una matriz de tamaño definido
+function arrayToMatrix(arr, size) {
+  var matrix = [];
+  while (arr.length > 0) {
+    matrix.push(arr.splice(0, size));
+  }
+  return matrix;
+}
+
+// Función para agregar ceros a la izquierda de un número
+function pad(num, size) {
+  var s = num + "";
+  while (s.length < size) s = "0" + s;
+  return s;
+}

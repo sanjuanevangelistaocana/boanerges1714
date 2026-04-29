@@ -27,7 +27,8 @@ class AccountingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return const TreasuryPlaceholderScreen(
       title: 'Contabilidad',
-      subtitle: 'Base preparada para balance anual, presupuesto y centros de coste.',
+      subtitle:
+          'Base preparada para balance anual, presupuesto y centros de coste.',
       icon: Icons.bar_chart,
       items: [
         'Balance anual',

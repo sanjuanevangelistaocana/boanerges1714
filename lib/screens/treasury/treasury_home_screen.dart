@@ -80,25 +80,25 @@ class TreasuryHomeScreen extends StatelessWidget {
                     crossAxisSpacing: 12,
                     childAspectRatio: 1.45,
                     children: [
-                      _TreasuryModuleCard(
+                      const _TreasuryModuleCard(
                         icon: Icons.receipt_long,
                         title: 'Facturación y cobros',
                         subtitle: 'Facturas, validación, remesas e impagos',
                         route: '/treasury/billing',
                       ),
-                      _TreasuryModuleCard(
+                      const _TreasuryModuleCard(
                         icon: Icons.person_search,
                         title: 'Seguimiento individual',
                         subtitle: 'Histórico, estado de cuenta y movimientos',
                         route: '/treasury/tracking',
                       ),
-                      _TreasuryModuleCard(
+                      const _TreasuryModuleCard(
                         icon: Icons.bar_chart,
                         title: 'Contabilidad',
                         subtitle: 'Balance, presupuesto y centros de coste',
                         route: '/treasury/accounting',
                       ),
-                      _TreasuryModuleCard(
+                      const _TreasuryModuleCard(
                         icon: Icons.admin_panel_settings,
                         title: 'Soporte y control',
                         subtitle: 'Documentación, auditoría y notificaciones',

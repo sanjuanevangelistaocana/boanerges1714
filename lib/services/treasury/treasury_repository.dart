@@ -128,9 +128,12 @@ class TreasuryRepository {
   }
 
   Stream<List<TreasuryInvoiceLine>> getInvoiceLines(String invoiceId) {
-    return _invoiceLines.where('invoiceId', isEqualTo: invoiceId).snapshots().map(
-        (s) => s.docs.map((d) => TreasuryInvoiceLine.fromFirestore(d)).toList()
-          ..sort((a, b) => a.cofradeName.compareTo(b.cofradeName)));
+    return _invoiceLines
+        .where('invoiceId', isEqualTo: invoiceId)
+        .snapshots()
+        .map((s) =>
+            s.docs.map((d) => TreasuryInvoiceLine.fromFirestore(d)).toList()
+              ..sort((a, b) => a.cofradeName.compareTo(b.cofradeName)));
   }
 
   Stream<List<TreasuryPayment>> getPaymentsByYear(int year) {
@@ -196,13 +199,11 @@ class TreasuryRepository {
     final paidAmount = payments
         .where((p) => p.status == 'paid')
         .fold<double>(0, (total, p) => total + p.amount);
-    final returnedAmount = returnsSnap.docs
-        .where((d) =>
-            (d.data()['returnedAt'] as Timestamp?)?.toDate().year == year)
-        .fold<double>(
-            0,
-            (total, d) =>
-                total + ((d.data()['amount'] as num?)?.toDouble() ?? 0));
+    final returnedAmount = returnsSnap.docs.where((d) {
+      final returnedAt = (d.data()['returnedAt'] as Timestamp?)?.toDate();
+      return returnedAt?.year == year;
+    }).fold<double>(0,
+        (total, d) => total + ((d.data()['amount'] as num?)?.toDouble() ?? 0));
     final incomeAmount = movements
         .where((m) => m.type == 'income')
         .fold<double>(0, (total, m) => total + m.amount);
@@ -251,8 +252,7 @@ class TreasuryRepository {
 
     final existingSnap = await _invoices
         .where('year', isEqualTo: year)
-        .where('status', whereIn: ['draft', 'approved'])
-        .get();
+        .where('status', whereIn: ['draft', 'approved']).get();
     if (existingSnap.docs.isNotEmpty && !forceRegenerate) {
       throw Exception(
           'Ya existen facturas activas para $year. Cancélalas o regenera con control de versión.');
@@ -279,6 +279,12 @@ class TreasuryRepository {
 
     for (final cofrade in cofrades) {
       if (cofrade.cuotaMetalico) {
+        if (cofrade.anioAlta == 2023) {
+          skipped++;
+          warnings.add(
+              '${cofrade.nombreCompleto}: efectivo excluido por año de alta 2023 según el pipeline histórico.');
+          continue;
+        }
         cashCofrades.add(cofrade);
         continue;
       }
@@ -289,7 +295,8 @@ class TreasuryRepository {
         continue;
       }
       if (cofrade.cuotaDomiciliada) {
-        warnings.add('${cofrade.nombreCompleto}: domiciliado sin IBAN; se genera como efectivo.');
+        warnings.add(
+            '${cofrade.nombreCompleto}: domiciliado sin IBAN; se genera como efectivo para no almacenar IBAN incompleto en factura.');
         cashCofrades.add(cofrade);
       } else {
         skipped++;
@@ -297,7 +304,31 @@ class TreasuryRepository {
       }
     }
 
-    final batch = _db.batch();
+    var batch = _db.batch();
+    var pendingOps = 0;
+    Future<void> commitIfNeeded({bool force = false}) async {
+      if (pendingOps == 0) return;
+      if (force || pendingOps >= 430) {
+        await batch.commit();
+        batch = _db.batch();
+        pendingOps = 0;
+      }
+    }
+
+    Future<void> batchSet(DocumentReference<Map<String, dynamic>> ref,
+        Map<String, dynamic> data) async {
+      batch.set(ref, data);
+      pendingOps++;
+      await commitIfNeeded();
+    }
+
+    Future<void> batchUpdate(DocumentReference<Map<String, dynamic>> ref,
+        Map<String, dynamic> data) async {
+      batch.update(ref, data);
+      pendingOps++;
+      await commitIfNeeded();
+    }
+
     var sequence = 1;
     var invoicesCreated = 0;
     var linesCreated = 0;
@@ -306,7 +337,7 @@ class TreasuryRepository {
 
     if (forceRegenerate) {
       for (final doc in existingSnap.docs) {
-        batch.update(doc.reference, {
+        await batchUpdate(doc.reference, {
           'status': 'cancelled',
           'updatedAt': FieldValue.serverTimestamp(),
           'cancelledAt': FieldValue.serverTimestamp(),
@@ -325,9 +356,14 @@ class TreasuryRepository {
       final invoiceRef = _invoices.doc();
       final invoiceNumber = _invoiceNumber(year, sequence++);
       final totalAmount = group.length * settings.annualFeeAmount;
+      if (paymentMethod == 'bank_remittance' && group.length > 10) {
+        warnings.add(
+            '$invoiceNumber: agrupa ${group.length} cofrades; el pipeline antiguo de PDFs solo contemplaba 10 columnas, pero Firestore guarda todas las líneas.');
+      }
       final holderName = paymentMethod == 'bank_remittance'
           ? _holderNameForGroup(group)
           : group.first.nombreCompleto;
+      final concept = _invoiceConcept(year, group);
       final invoice = TreasuryInvoice(
         id: '',
         year: year,
@@ -343,20 +379,22 @@ class TreasuryRepository {
             .where((uid) => uid.isNotEmpty)
             .toSet()
             .toList(),
+        concept: concept,
         paymentMethod: paymentMethod,
         totalAmount: totalAmount,
         version: version,
       );
-      batch.set(invoiceRef, invoice.toFirestore());
+      await batchSet(invoiceRef, invoice.toFirestore());
       for (final cofrade in group) {
         final lineRef = _invoiceLines.doc();
-        batch.set(
+        await batchSet(
           lineRef,
           TreasuryInvoiceLine(
             id: '',
             invoiceId: invoiceRef.id,
             cofradeId: cofrade.id,
             cofradeName: cofrade.nombreCompleto,
+            cofradeNumber: cofrade.numero,
             authUid: cofrade.authUid,
             concept: 'Cuota anual $year',
             amount: settings.annualFeeAmount,
@@ -387,11 +425,12 @@ class TreasuryRepository {
       await createInvoice(group: [cofrade], paymentMethod: 'cash');
     }
 
-    await batch.commit();
+    await commitIfNeeded(force: true);
     await createAuditLog(
       entityType: 'treasury_invoices',
       entityId: '$year-v$version',
-      action: forceRegenerate ? 'regenerate_annual_fees' : 'generate_annual_fees',
+      action:
+          forceRegenerate ? 'regenerate_annual_fees' : 'generate_annual_fees',
       newValue: {
         'year': year,
         'version': version,
@@ -477,6 +516,14 @@ class TreasuryRepository {
         .map((c) => c.titularIban?.trim() ?? '')
         .firstWhere((name) => name.isNotEmpty, orElse: () => '');
     return titular.isNotEmpty ? titular : group.first.nombreCompleto;
+  }
+
+  String _invoiceConcept(int year, List<Cofrade> group) {
+    final cofrades = group.map((c) {
+      final number = c.numero != null ? ' (${c.numero})' : '';
+      return '${c.nombreCompleto}$number';
+    }).join(', ');
+    return 'Cuotas $year - $cofrades';
   }
 
   String _normalizeIban(String iban) =>

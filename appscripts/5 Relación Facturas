@@ -1,0 +1,38 @@
+function relacionfacturas() {
+  var libro = SpreadsheetApp.openById('1dhmhsNHPZUcZ7CBbKOjE5Ysxf-a5yVAuueLJYedPfp4');
+  var domiciliacionesSheet = libro.getSheetByName('Domiciliaciones');
+  var facturasSheet = libro.getSheetByName('Facturas PDF');
+  var relacionSheet = libro.getSheetByName('Relación Hermanos Facturas');
+  
+  var domiciliacionesData = domiciliacionesSheet.getRange('A2:H').getValues(); // Ajusta el rango según tu estructura de datos
+  var facturasData = facturasSheet.getRange('A2:Y').getValues(); // Ajusta el rango según tu estructura de datos
+  
+  var relacionData = [];
+  
+  // Borrar los datos existentes en la hoja "Relación Hermanos Facturas"
+  relacionSheet.clear(); // Borra todos los datos y formatos en la hoja
+  
+  // Agregar cabeceras a la hoja "Relación Hermanos Facturas"
+  relacionSheet.getRange(1, 1, 1, 3).setValues([['Cofrade Referencia', 'Email', 'Factura']]);
+  
+  // Recorrer los datos de Domiciliaciones y buscar coincidencias en Facturas PDF
+  for (var i = 0; i < domiciliacionesData.length; i++) {
+    var cofradeReferencia = domiciliacionesData[i][1];
+    var email = domiciliacionesData[i][5];
+    var titularIBAN = domiciliacionesData[i][6];
+    var factura = '';
+    
+    for (var j = 0; j < facturasData.length; j++) {
+      var titularFactura = facturasData[j][0];
+      if (titularFactura === titularIBAN || titularFactura === email) {
+        factura = facturasData[j][24]; // Ajusta el índice según la columna de "Factura" en "Facturas PDF"
+        break;
+      }
+    }
+    
+    relacionData.push([cofradeReferencia, email, factura]);
+  }
+  
+  // Pegar los datos en la hoja "Relación Hermanos Facturas"
+  relacionSheet.getRange(2, 1, relacionData.length, relacionData[0].length).setValues(relacionData);
+}

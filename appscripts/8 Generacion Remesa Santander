@@ -1,0 +1,113 @@
+function remesa() {
+  var libro = SpreadsheetApp.openById('1dhmhsNHPZUcZ7CBbKOjE5Ysxf-a5yVAuueLJYedPfp4');
+  var hojaOrigen = libro.getSheetByName("Domiciliaciones");
+  var hojaDestino = libro.getSheetByName("Remesa Santander");
+  var hojaFacturasPDF = libro.getSheetByName("Facturas PDF");
+
+  // Verificar si la hoja de destino existe, si no, crearla
+  if (!hojaDestino) {
+    hojaDestino = libro.insertSheet("Remesa Santander");
+  } else {
+    // Borrar contenido existente en la hoja de destino
+    hojaDestino.clear();
+  }
+
+  var datosOrigen = hojaOrigen.getDataRange().getValues();
+
+  var datosDestino = [];
+
+  var ibanes = {}; // Objeto para almacenar datos según IBAN
+
+  // Recorrer datos de la hoja origen
+  for (var i = 1; i < datosOrigen.length; i++) {
+    var cofradeReferencia = datosOrigen[i][1]; // Columna "Cofrade Referencia"
+    var iban = datosOrigen[i][7]; // Columna "IBAN"
+    var numCofrade = datosOrigen[i][0]; // Columna "Número"
+
+    if (!ibanes[iban]) {
+      ibanes[iban] = {
+        titular: datosOrigen[i][6], // Columna "Titular IBAN"
+        cofrades: {},
+      };
+    }
+
+    ibanes[iban].cofrades[cofradeReferencia] = numCofrade;
+  }
+
+  // Fecha de ejecución del script
+  var fechaEjecucion = new Date();
+
+  // Procesar los datos por IBAN en la tabla de destino
+  for (var iban in ibanes) {
+    var numCofrades = Object.keys(ibanes[iban].cofrades).length;
+    var importe = numCofrades * 22;
+
+    // Fecha de un día anterior a la ejecución del script
+    var fechaAnterior = new Date(fechaEjecucion.getTime() - 24 * 60 * 60 * 1000);
+    var fechaAnteriorFormat = Utilities.formatDate(fechaAnterior, 'GMT', 'dd/MM/yyyy');
+
+    // Fecha de dos días posteriores a la ejecución del script
+    var fechaPosterior = new Date(fechaEjecucion.getTime() + 2 * 24 * 60 * 60 * 1000);
+    var fechaPosteriorFormat = Utilities.formatDate(fechaPosterior, 'GMT', 'dd/MM/yyyy');
+
+    // Construir el concepto con Nº de cada cofrade
+    var todosCofrades = Object.keys(ibanes[iban].cofrades).map(function(cofradeRef) {
+      var numCofrade = ibanes[iban].cofrades[cofradeRef];
+      return cofradeRef + " (" + numCofrade + ")";
+    }).join(", ");
+
+    // Unir el concepto con todos los cofrades
+    var conceptoCompleto = "Cuotas " + new Date().getFullYear() + " - " + todosCofrades;
+
+    // Buscar en la pestaña "Facturas PDF"
+    var filaFacturasPDF = buscarFilaPorValor(hojaFacturasPDF, ibanes[iban].titular, 0);
+    var valorFacturasPDF = (filaFacturasPDF !== -1) ? obtenerNumeroFactura(hojaFacturasPDF.getRange(filaFacturasPDF, 25).getValue()) : "";
+    var valorColumnaY = (filaFacturasPDF !== -1) ? hojaFacturasPDF.getRange(filaFacturasPDF, 25).getValue() : "";
+
+    // Columna K y L
+    var valorNumericoColumnaL = (filaFacturasPDF !== -1) ? valorFacturasPDF.replace(/\D/g, "") : "";
+
+    datosDestino.push([
+      "DOMICILIACIONES", // Columna A
+      "CORE", // Columna B
+      "G45483997", // Columna C
+      "CSE", // Columna D
+      "COFRADÍA SAN JUAN EVANGELISTA", // Columna E
+      "G45483997", // Columna F
+      "CSE", // Columna G
+      fechaAnteriorFormat, // Columna H
+      "COFRADÍA SAN JUAN EVANGELISTA", // Columna I
+      "ES0700492524552194017371", // Columna J
+      valorColumnaY, // Columna K
+      valorNumericoColumnaL, // Columna L
+      "RCUR", // Columna M
+      importe, // Columna N
+      fechaPosteriorFormat, // Columna O
+      "", // Columna P (vacía)
+      ibanes[iban].titular, // Columna Q
+      iban, // Columna R
+      conceptoCompleto, // Columna S
+      "", // Columna T (vacía)
+    ]);
+  }
+
+  // Escribir datos en la hoja de destino sin incluir cabeceras
+  hojaDestino.getRange(1, 1, datosDestino.length, datosDestino[0].length).setValues(datosDestino);
+}
+
+// Función para buscar una fila por valor en una hoja
+function buscarFilaPorValor(hoja, valor, columna) {
+  var datos = hoja.getRange(1, 1, hoja.getLastRow(), hoja.getLastColumn()).getValues();
+  for (var i = 0; i < datos.length; i++) {
+    if (datos[i][columna] === valor) {
+      return i + 1; // Devolver el número de fila (1-indexed)
+    }
+  }
+  return -1; // Devolver -1 si no se encuentra el valor
+}
+
+// Función para obtener el número de factura de un formato específico
+function obtenerNumeroFactura(cadena) {
+  var match = cadena.match(/SJ-\d+-([\d-]+)/);
+  return match ? match[1] : "";
+}
