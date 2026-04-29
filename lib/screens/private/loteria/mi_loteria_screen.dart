@@ -13,6 +13,7 @@ class MiLoteriaScreen extends StatelessWidget {
     final fs = context.read<FirestoreService>();
     final authService = context.read<AuthService>();
     final uid = authService.userId;
+    final cofradeId = authService.cofrade?.id;
 
     if (uid == null) {
       return const Center(child: Text('Inicia sesión para ver tu lotería.'));
@@ -25,17 +26,22 @@ class MiLoteriaScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
             decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [AppTheme.primaryDark, AppTheme.primaryColor]),
+              gradient: LinearGradient(
+                  colors: [AppTheme.primaryDark, AppTheme.primaryColor]),
             ),
             child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: 1000),
                 child: Row(
                   children: [
-                    Icon(Icons.confirmation_number, color: Colors.white, size: 28),
+                    Icon(Icons.confirmation_number,
+                        color: Colors.white, size: 28),
                     SizedBox(width: 12),
                     Text('Mi Lotería de Navidad',
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -47,7 +53,7 @@ class MiLoteriaScreen extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1000),
                 child: FutureBuilder<VendedorLoteria?>(
-                  future: fs.getVendedorByAuthUid(uid),
+                  future: _findVendedor(fs, uid, cofradeId),
                   builder: (context, vendSnap) {
                     if (vendSnap.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -64,14 +70,20 @@ class MiLoteriaScreen extends StatelessWidget {
                           padding: EdgeInsets.all(40),
                           child: Column(
                             children: [
-                              Icon(Icons.info_outline, size: 48, color: AppTheme.textSecondary),
+                              Icon(Icons.info_outline,
+                                  size: 48, color: AppTheme.textSecondary),
                               SizedBox(height: 12),
                               Text('No tienes asignaciones de lotería',
-                                  style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      color: AppTheme.textSecondary)),
                               SizedBox(height: 4),
-                              Text('Si vendes lotería para la cofradía, pide al administrador que te asigne sábanas.',
+                              Text(
+                                  'Si vendes lotería para la cofradía, pide al administrador que te asigne sábanas.',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textSecondary)),
                             ],
                           ),
                         ),
@@ -86,14 +98,29 @@ class MiLoteriaScreen extends StatelessWidget {
                           return const Card(
                             child: Padding(
                               padding: EdgeInsets.all(40),
-                              child: Center(child: Text('No tienes sábanas asignadas actualmente.')),
+                              child: Center(
+                                  child: Text(
+                                      'No tienes sábanas asignadas actualmente.')),
                             ),
                           );
                         }
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: asignaciones.map((a) => _AsignacionCard(asignacion: a, fs: fs)).toList(),
+                        return StreamBuilder<List<DecimoLoteria>>(
+                          stream: fs.getDecimosVendedor(vendedor.id),
+                          builder: (context, decSnap) {
+                            final decimos = decSnap.data ?? [];
+                            if (decimos.isNotEmpty) {
+                              return _DecimosAsignadosPanel(
+                                  decimos: decimos, fs: fs);
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: asignaciones
+                                  .map((a) =>
+                                      _AsignacionCard(asignacion: a, fs: fs))
+                                  .toList(),
+                            );
+                          },
                         );
                       },
                     );
@@ -103,6 +130,186 @@ class MiLoteriaScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<VendedorLoteria?> _findVendedor(
+      FirestoreService fs, String uid, String? cofradeId) async {
+    final byUid = await fs.getVendedorByAuthUid(uid);
+    if (byUid != null) return byUid;
+    if (cofradeId == null) return null;
+    return fs.getVendedorByCofradeId(cofradeId);
+  }
+}
+
+class _DecimosAsignadosPanel extends StatelessWidget {
+  final List<DecimoLoteria> decimos;
+  final FirestoreService fs;
+  const _DecimosAsignadosPanel({required this.decimos, required this.fs});
+
+  @override
+  Widget build(BuildContext context) {
+    final vendidos = decimos
+        .where((d) => d.estado == 'vendido' || d.estado == 'cobrado')
+        .length;
+    final pendientes = decimos.where((d) => d.estado == 'asignado').length;
+    final devueltosPendientes =
+        decimos.where((d) => d.estado == 'devuelto_pendiente_revision').length;
+    final totalImporte =
+        decimos.fold<double>(0, (sum, d) => sum + d.precioVenta);
+    final vendidoImporte = decimos
+        .where((d) => d.estado == 'vendido' || d.estado == 'cobrado')
+        .fold<double>(0, (sum, d) => sum + d.precioVenta);
+    final pendienteImporte = decimos
+        .where((d) => d.estado == 'asignado')
+        .fold<double>(0, (sum, d) => sum + d.precioVenta);
+    final bySabana = <String, List<DecimoLoteria>>{};
+    for (final d in decimos) {
+      bySabana.putIfAbsent(d.sabanaId, () => []).add(d);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          elevation: 0,
+          color: AppTheme.primaryColor.withAlpha(8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: AppTheme.primaryColor.withAlpha(35)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Wrap(
+              spacing: 18,
+              runSpacing: 12,
+              children: [
+                _StatChip(
+                    label: 'Asignados',
+                    value: '${decimos.length}',
+                    color: AppTheme.primaryColor),
+                _StatChip(
+                    label: 'Vendidos',
+                    value: '$vendidos',
+                    color: AppTheme.accentColor),
+                _StatChip(
+                    label: 'Pendientes',
+                    value: '$pendientes',
+                    color: Colors.orange.shade700),
+                _StatChip(
+                    label: 'Devueltos revisión',
+                    value: '$devueltosPendientes',
+                    color: Colors.red.shade600),
+                _StatChip(
+                    label: 'Importe vendido',
+                    value: '${vendidoImporte.toStringAsFixed(2)}€',
+                    color: AppTheme.accentColor),
+                _StatChip(
+                    label: 'Importe pendiente',
+                    value: '${pendienteImporte.toStringAsFixed(2)}€',
+                    color: Colors.orange.shade700),
+                _StatChip(
+                    label: 'Total asignado',
+                    value: '${totalImporte.toStringAsFixed(2)}€',
+                    color: AppTheme.primaryColor),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ...bySabana.entries.map((entry) {
+          final items = entry.value;
+          final first = items.first;
+          return Card(
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.shade200),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nº ${first.numeroLoteria} · Serie ${first.serie}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: items
+                        .map((d) => _DecimoChip(decimo: d, fs: fs))
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _DecimoChip extends StatefulWidget {
+  final DecimoLoteria decimo;
+  final FirestoreService fs;
+  const _DecimoChip({required this.decimo, required this.fs});
+
+  @override
+  State<_DecimoChip> createState() => _DecimoChipState();
+}
+
+class _DecimoChipState extends State<_DecimoChip> {
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final estado = widget.decimo.estado;
+    final vendido = estado == 'vendido' || estado == 'cobrado';
+    final devuelto = estado == 'devuelto_pendiente_revision' ||
+        estado == 'devuelto_confirmado';
+    final color = vendido
+        ? AppTheme.accentColor
+        : devuelto
+            ? Colors.red.shade600
+            : Colors.orange.shade700;
+    return PopupMenuButton<String>(
+      enabled: !_saving && estado != 'devuelto_confirmado',
+      tooltip: 'Actualizar décimo ${widget.decimo.numeroDecimo}',
+      onSelected: (value) async {
+        setState(() => _saving = true);
+        try {
+          await widget.fs.updateDecimoEstado(widget.decimo.id, value);
+        } finally {
+          if (mounted) setState(() => _saving = false);
+        }
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'vendido', child: Text('Marcar vendido')),
+        PopupMenuItem(value: 'asignado', child: Text('Marcar pendiente')),
+        PopupMenuItem(
+            value: 'devuelto_pendiente_revision',
+            child: Text('Marcar devuelto')),
+      ],
+      child: Chip(
+        avatar: Icon(
+          vendido
+              ? Icons.check
+              : devuelto
+                  ? Icons.assignment_return
+                  : Icons.radio_button_unchecked,
+          size: 16,
+          color: color,
+        ),
+        label: Text('${widget.decimo.numeroDecimo}'),
+        backgroundColor: color.withAlpha(20),
+        side: BorderSide(color: color.withAlpha(80)),
       ),
     );
   }
@@ -126,17 +333,21 @@ class _AsignacionCardState extends State<_AsignacionCard> {
   @override
   void initState() {
     super.initState();
-    _vendidosCtrl = TextEditingController(text: '${widget.asignacion.decimosVendidos}');
-    _devueltosCtrl = TextEditingController(text: '${widget.asignacion.decimosDevueltos}');
+    _vendidosCtrl =
+        TextEditingController(text: '${widget.asignacion.decimosVendidos}');
+    _devueltosCtrl =
+        TextEditingController(text: '${widget.asignacion.decimosDevueltos}');
   }
 
   @override
   void didUpdateWidget(covariant _AsignacionCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.asignacion.decimosVendidos != widget.asignacion.decimosVendidos) {
+    if (oldWidget.asignacion.decimosVendidos !=
+        widget.asignacion.decimosVendidos) {
       _vendidosCtrl.text = '${widget.asignacion.decimosVendidos}';
     }
-    if (oldWidget.asignacion.decimosDevueltos != widget.asignacion.decimosDevueltos) {
+    if (oldWidget.asignacion.decimosDevueltos !=
+        widget.asignacion.decimosDevueltos) {
       _devueltosCtrl.text = '${widget.asignacion.decimosDevueltos}';
     }
   }
@@ -154,7 +365,8 @@ class _AsignacionCardState extends State<_AsignacionCard> {
     final vendidos = int.tryParse(_vendidosCtrl.text) ?? 0;
     final devueltos = int.tryParse(_devueltosCtrl.text) ?? 0;
     final disponibles = a.decimosAsignados - vendidos - devueltos;
-    final pctVenta = a.decimosAsignados > 0 ? (vendidos / a.decimosAsignados * 100) : 0.0;
+    final pctVenta =
+        a.decimosAsignados > 0 ? (vendidos / a.decimosAsignados * 100) : 0.0;
 
     return Card(
       elevation: 1,
@@ -173,7 +385,8 @@ class _AsignacionCardState extends State<_AsignacionCard> {
                     color: AppTheme.primaryColor.withAlpha(15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.confirmation_number, color: AppTheme.primaryColor, size: 28),
+                  child: const Icon(Icons.confirmation_number,
+                      color: AppTheme.primaryColor, size: 28),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -181,14 +394,17 @@ class _AsignacionCardState extends State<_AsignacionCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${a.decimosAsignados} décimos asignados',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 18)),
                       FutureBuilder<CampanaLoteria?>(
                         future: widget.fs.getCampanaById(a.campanaId),
                         builder: (context, snap) {
                           final campana = snap.data;
                           if (campana == null) return const SizedBox.shrink();
-                          return Text('Nº ${campana.numeroLoteria} · ${campana.nombre}',
-                              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary));
+                          return Text(
+                              'Nº ${campana.numeroLoteria} · ${campana.nombre}',
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppTheme.textSecondary));
                         },
                       ),
                     ],
@@ -204,14 +420,18 @@ class _AsignacionCardState extends State<_AsignacionCard> {
               children: [
                 Text('$vendidos/${a.decimosAsignados} vendidos'),
                 Text('${pctVenta.toStringAsFixed(0)}%',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accentColor, fontSize: 18)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.accentColor,
+                        fontSize: 18)),
               ],
             ),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
-                value: a.decimosAsignados > 0 ? vendidos / a.decimosAsignados : 0,
+                value:
+                    a.decimosAsignados > 0 ? vendidos / a.decimosAsignados : 0,
                 backgroundColor: Colors.grey.shade200,
                 color: AppTheme.accentColor,
                 minHeight: 10,
@@ -223,10 +443,23 @@ class _AsignacionCardState extends State<_AsignacionCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _StatChip(label: 'Asignados', value: '${a.decimosAsignados}', color: AppTheme.primaryColor),
-                _StatChip(label: 'Vendidos', value: '$vendidos', color: AppTheme.accentColor),
-                _StatChip(label: 'Devueltos', value: '$devueltos', color: Colors.red.shade600),
-                _StatChip(label: 'Disponibles', value: '$disponibles', color: disponibles >= 0 ? Colors.orange.shade700 : Colors.red),
+                _StatChip(
+                    label: 'Asignados',
+                    value: '${a.decimosAsignados}',
+                    color: AppTheme.primaryColor),
+                _StatChip(
+                    label: 'Vendidos',
+                    value: '$vendidos',
+                    color: AppTheme.accentColor),
+                _StatChip(
+                    label: 'Devueltos',
+                    value: '$devueltos',
+                    color: Colors.red.shade600),
+                _StatChip(
+                    label: 'Disponibles',
+                    value: '$disponibles',
+                    color:
+                        disponibles >= 0 ? Colors.orange.shade700 : Colors.red),
               ],
             ),
             const SizedBox(height: 20),
@@ -234,7 +467,8 @@ class _AsignacionCardState extends State<_AsignacionCard> {
             const SizedBox(height: 12),
 
             // Input fields
-            const Text('Actualizar ventas', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Actualizar ventas',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -265,7 +499,8 @@ class _AsignacionCardState extends State<_AsignacionCard> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+              Text(_error!,
+                  style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
             ],
             const SizedBox(height: 16),
             SizedBox(
@@ -273,7 +508,11 @@ class _AsignacionCardState extends State<_AsignacionCard> {
               child: ElevatedButton.icon(
                 onPressed: _saving ? null : _guardar,
                 icon: _saving
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.save),
                 label: const Text('Guardar'),
               ),
@@ -294,7 +533,8 @@ class _AsignacionCardState extends State<_AsignacionCard> {
       return;
     }
     if (vendidos + devueltos > asignados) {
-      setState(() => _error = 'Vendidos + devueltos ($vendidos + $devueltos = ${vendidos + devueltos}) no puede superar los asignados ($asignados).');
+      setState(() => _error =
+          'Vendidos + devueltos ($vendidos + $devueltos = ${vendidos + devueltos}) no puede superar los asignados ($asignados).');
       return;
     }
 
@@ -304,10 +544,13 @@ class _AsignacionCardState extends State<_AsignacionCard> {
     });
 
     try {
-      await widget.fs.actualizarVentasAsignacion(widget.asignacion.id, vendidos, devueltos);
+      await widget.fs.actualizarVentasAsignacion(
+          widget.asignacion.id, vendidos, devueltos);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ventas actualizadas correctamente'), backgroundColor: AppTheme.accentColor),
+          const SnackBar(
+              content: Text('Ventas actualizadas correctamente'),
+              backgroundColor: AppTheme.accentColor),
         );
       }
     } catch (e) {
@@ -322,14 +565,19 @@ class _StatChip extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _StatChip({required this.label, required this.value, required this.color});
+  const _StatChip(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: color)),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+        Text(value,
+            style: TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 20, color: color)),
+        Text(label,
+            style:
+                const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
       ],
     );
   }

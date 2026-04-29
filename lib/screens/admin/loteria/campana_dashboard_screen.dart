@@ -25,7 +25,8 @@ class CampanaDashboardScreen extends StatelessWidget {
                 return FutureBuilder<CampanaLoteria?>(
                   future: fs.getCampanaById(campanaId),
                   builder: (context, campSnap) {
-                    if (campSnap.connectionState == ConnectionState.waiting && !campSnap.hasData) {
+                    if (campSnap.connectionState == ConnectionState.waiting &&
+                        !campSnap.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
@@ -34,28 +35,39 @@ class CampanaDashboardScreen extends StatelessWidget {
                     final asignaciones = asigSnap.data ?? [];
                     final vendedores = vendSnap.data ?? [];
                     final vendMap = {for (final v in vendedores) v.id: v};
-                    final sabMap = {for (final s in sabanas) s.id: s};
-
                     final totalSabanas = sabanas.length;
-                    final totalDecimos = sabanas.fold<int>(0, (s, sb) => s + sb.totalDecimos);
-                    final sabanasDisponibles = sabanas.where((s) => s.estado == 'disponible').length;
-                    final sabanasAsignadas = sabanas.where((s) => s.estado == 'asignada').length;
+                    final totalDecimos =
+                        sabanas.fold<int>(0, (s, sb) => s + sb.totalDecimos);
+                    final sabanasDisponibles =
+                        sabanas.where((s) => s.estado == 'disponible').length;
+                    final sabanasAsignadas =
+                        sabanas.where((s) => s.estado == 'asignada').length;
 
-                    final totalAsignados = asignaciones.fold<int>(0, (s, a) => s + a.decimosAsignados);
-                    final totalVendidos = asignaciones.fold<int>(0, (s, a) => s + a.decimosVendidos);
-                    final totalDevueltos = asignaciones.fold<int>(0, (s, a) => s + a.decimosDevueltos);
-                    final totalDisponibles = totalAsignados - totalVendidos - totalDevueltos;
+                    final totalAsignados = asignaciones.fold<int>(
+                        0, (s, a) => s + a.decimosAsignados);
+                    final totalVendidos = asignaciones.fold<int>(
+                        0, (s, a) => s + a.decimosVendidos);
+                    final totalDevueltos = asignaciones.fold<int>(
+                        0, (s, a) => s + a.decimosDevueltos);
+                    final totalDisponibles =
+                        totalAsignados - totalVendidos - totalDevueltos;
 
                     final precioVenta = campana?.precioVenta ?? 0;
                     final precioBase = campana?.precioDecimoBase ?? 0;
                     final ingresosEsperados = totalAsignados * precioVenta;
                     final ingresosReales = totalVendidos * precioVenta;
-                    final costeTotal = sabanas.fold<double>(0, (s, sb) => s + sb.precioCompra);
+                    final costeTotal =
+                        sabanas.fold<double>(0, (s, sb) => s + sb.precioCompra);
                     final beneficioEsperado = ingresosEsperados - costeTotal;
-                    final beneficioReal = ingresosReales - costeTotal + (totalDevueltos * precioBase);
+                    final beneficioReal = ingresosReales -
+                        costeTotal +
+                        (totalDevueltos * precioBase);
 
-                    final pendientesPago = sabanas.where((s) => !s.pagadaAdministracion).length;
-                    final pctVentaGlobal = totalAsignados > 0 ? (totalVendidos / totalAsignados * 100) : 0.0;
+                    final pendientesPago =
+                        sabanas.where((s) => !s.pagadaAdministracion).length;
+                    final pctVentaGlobal = totalAsignados > 0
+                        ? (totalVendidos / totalAsignados * 100)
+                        : 0.0;
 
                     // Vendor table data
                     final vendedorStats = <String, _VendStats>{};
@@ -68,7 +80,9 @@ class CampanaDashboardScreen extends StatelessWidget {
                           vendidos: existing.vendidos + a.decimosVendidos,
                           devueltos: existing.devueltos + a.decimosDevueltos,
                           lastUpdate: a.ultimaActualizacion != null &&
-                                  (existing.lastUpdate == null || a.ultimaActualizacion!.isAfter(existing.lastUpdate!))
+                                  (existing.lastUpdate == null ||
+                                      a.ultimaActualizacion!
+                                          .isAfter(existing.lastUpdate!))
                               ? a.ultimaActualizacion
                               : existing.lastUpdate,
                         );
@@ -87,24 +101,33 @@ class CampanaDashboardScreen extends StatelessWidget {
                         children: [
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 28, horizontal: 24),
                             decoration: const BoxDecoration(
-                              gradient: LinearGradient(colors: [AppTheme.primaryDark, AppTheme.primaryColor]),
+                              gradient: LinearGradient(colors: [
+                                AppTheme.primaryDark,
+                                AppTheme.primaryColor
+                              ]),
                             ),
                             child: Center(
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 1000),
+                                constraints:
+                                    const BoxConstraints(maxWidth: 1000),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       children: [
-                                        const Icon(Icons.dashboard, color: Colors.white, size: 28),
+                                        const Icon(Icons.dashboard,
+                                            color: Colors.white, size: 28),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
                                             'Dashboard · ${campana?.nombre ?? ""}',
-                                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ],
@@ -113,7 +136,9 @@ class CampanaDashboardScreen extends StatelessWidget {
                                       const SizedBox(height: 8),
                                       Text(
                                         'Nº ${campana.numeroLoteria} · ${campana.precioVenta.toStringAsFixed(2)}€/décimo · ${campana.administracionNombre}',
-                                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                        style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 13),
                                       ),
                                     ],
                                   ],
@@ -125,7 +150,8 @@ class CampanaDashboardScreen extends StatelessWidget {
                             padding: const EdgeInsets.all(24),
                             child: Center(
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 1000),
+                                constraints:
+                                    const BoxConstraints(maxWidth: 1000),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -134,22 +160,61 @@ class CampanaDashboardScreen extends StatelessWidget {
                                     const SizedBox(height: 12),
                                     LayoutBuilder(
                                       builder: (context, constraints) {
-                                        final isWide = constraints.maxWidth > 600;
+                                        final isWide =
+                                            constraints.maxWidth > 600;
                                         final cards = [
-                                          _KpiCard(title: 'Sábanas', value: '$totalSabanas', subtitle: '$sabanasDisponibles disponibles · $sabanasAsignadas asignadas', icon: Icons.receipt_long, color: AppTheme.primaryColor),
-                                          _KpiCard(title: 'Décimos Totales', value: '$totalDecimos', subtitle: '$totalAsignados asignados · ${totalDecimos - totalAsignados} sin asignar', icon: Icons.confirmation_number, color: AppTheme.accentColor),
-                                          _KpiCard(title: 'Vendidos', value: '$totalVendidos', subtitle: '${pctVentaGlobal.toStringAsFixed(1)}% de asignados', icon: Icons.trending_up, color: Colors.green.shade700),
-                                          _KpiCard(title: 'Disponibles', value: '$totalDisponibles', subtitle: '$totalDevueltos devueltos', icon: Icons.inventory, color: Colors.orange.shade700),
+                                          _KpiCard(
+                                              title: 'Sábanas',
+                                              value: '$totalSabanas',
+                                              subtitle:
+                                                  '$sabanasDisponibles disponibles · $sabanasAsignadas asignadas',
+                                              icon: Icons.receipt_long,
+                                              color: AppTheme.primaryColor),
+                                          _KpiCard(
+                                              title: 'Décimos Totales',
+                                              value: '$totalDecimos',
+                                              subtitle:
+                                                  '$totalAsignados asignados · ${totalDecimos - totalAsignados} sin asignar',
+                                              icon: Icons.confirmation_number,
+                                              color: AppTheme.accentColor),
+                                          _KpiCard(
+                                              title: 'Vendidos',
+                                              value: '$totalVendidos',
+                                              subtitle:
+                                                  '${pctVentaGlobal.toStringAsFixed(1)}% de asignados',
+                                              icon: Icons.trending_up,
+                                              color: Colors.green.shade700),
+                                          _KpiCard(
+                                              title: 'Disponibles',
+                                              value: '$totalDisponibles',
+                                              subtitle:
+                                                  '$totalDevueltos devueltos',
+                                              icon: Icons.inventory,
+                                              color: Colors.orange.shade700),
                                         ];
                                         if (isWide) {
                                           return Row(
-                                            children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: c))).toList(),
+                                            children: cards
+                                                .map((c) => Expanded(
+                                                    child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 4),
+                                                        child: c)))
+                                                .toList(),
                                           );
                                         }
                                         return Wrap(
                                           spacing: 8,
                                           runSpacing: 8,
-                                          children: cards.map((c) => SizedBox(width: (constraints.maxWidth - 8) / 2, child: c)).toList(),
+                                          children: cards
+                                              .map((c) => SizedBox(
+                                                  width: (constraints.maxWidth -
+                                                          8) /
+                                                      2,
+                                                  child: c))
+                                              .toList(),
                                         );
                                       },
                                     ),
@@ -160,22 +225,215 @@ class CampanaDashboardScreen extends StatelessWidget {
                                     const SizedBox(height: 12),
                                     LayoutBuilder(
                                       builder: (context, constraints) {
-                                        final isWide = constraints.maxWidth > 600;
+                                        final isWide =
+                                            constraints.maxWidth > 600;
                                         final cards = [
-                                          _KpiCard(title: 'Coste Total', value: '${costeTotal.toStringAsFixed(0)}€', subtitle: '$pendientesPago sábanas sin pagar', icon: Icons.shopping_cart, color: Colors.red.shade700),
-                                          _KpiCard(title: 'Ingresos Esperados', value: '${ingresosEsperados.toStringAsFixed(0)}€', subtitle: 'Si se venden todos los asignados', icon: Icons.euro, color: AppTheme.primaryColor),
-                                          _KpiCard(title: 'Ingresos Reales', value: '${ingresosReales.toStringAsFixed(0)}€', subtitle: '$totalVendidos décimos vendidos', icon: Icons.paid, color: AppTheme.accentColor),
-                                          _KpiCard(title: 'Beneficio', value: '${beneficioReal.toStringAsFixed(0)}€', subtitle: 'Esperado: ${beneficioEsperado.toStringAsFixed(0)}€', icon: Icons.trending_up, color: beneficioReal >= 0 ? Colors.green.shade700 : Colors.red.shade700),
+                                          _KpiCard(
+                                              title: 'Coste Total',
+                                              value:
+                                                  '${costeTotal.toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  '$pendientesPago sábanas sin pagar',
+                                              icon: Icons.shopping_cart,
+                                              color: Colors.red.shade700),
+                                          _KpiCard(
+                                              title: 'Ingresos Esperados',
+                                              value:
+                                                  '${ingresosEsperados.toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  'Si se venden todos los asignados',
+                                              icon: Icons.euro,
+                                              color: AppTheme.primaryColor),
+                                          _KpiCard(
+                                              title: 'Ingresos Reales',
+                                              value:
+                                                  '${ingresosReales.toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  '$totalVendidos décimos vendidos',
+                                              icon: Icons.paid,
+                                              color: AppTheme.accentColor),
+                                          _KpiCard(
+                                              title: 'Beneficio',
+                                              value:
+                                                  '${beneficioReal.toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  'Esperado: ${beneficioEsperado.toStringAsFixed(0)}€',
+                                              icon: Icons.trending_up,
+                                              color: beneficioReal >= 0
+                                                  ? Colors.green.shade700
+                                                  : Colors.red.shade700),
                                         ];
                                         if (isWide) {
                                           return Row(
-                                            children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: c))).toList(),
+                                            children: cards
+                                                .map((c) => Expanded(
+                                                    child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 4),
+                                                        child: c)))
+                                                .toList(),
                                           );
                                         }
                                         return Wrap(
                                           spacing: 8,
                                           runSpacing: 8,
-                                          children: cards.map((c) => SizedBox(width: (constraints.maxWidth - 8) / 2, child: c)).toList(),
+                                          children: cards
+                                              .map((c) => SizedBox(
+                                                  width: (constraints.maxWidth -
+                                                          8) /
+                                                      2,
+                                                  child: c))
+                                              .toList(),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 24),
+
+                                    _SectionTitle(
+                                        title: 'Trazabilidad de pagos'),
+                                    const SizedBox(height: 12),
+                                    StreamBuilder<Map<String, dynamic>>(
+                                      stream:
+                                          fs.getLoteriaCampanaStats(campanaId),
+                                      builder: (context, paySnap) {
+                                        final p = paySnap.data ?? const {};
+                                        final cards = [
+                                          _KpiCard(
+                                              title: 'Total vendido',
+                                              value:
+                                                  '${((p['importe_vendido'] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  '${p['vendidos'] ?? 0} décimos',
+                                              icon: Icons.sell,
+                                              color: AppTheme.accentColor),
+                                          _KpiCard(
+                                              title: 'Cobrado vendedores',
+                                              value:
+                                                  '${((p['importe_cobrado'] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  'Pendiente: ${((p['importe_pendiente_cobrar'] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}€',
+                                              icon: Icons.payments,
+                                              color: Colors.green.shade700),
+                                          _KpiCard(
+                                              title: 'A Cofradía',
+                                              value:
+                                                  '${((p['entregado_cofradia'] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  'Pendiente: ${((p['pendiente_entregar_cofradia'] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}€',
+                                              icon: Icons.savings,
+                                              color: Colors.purple.shade700),
+                                          _KpiCard(
+                                              title: 'A Administración',
+                                              value:
+                                                  '${((p['entregado_administracion'] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}€',
+                                              subtitle:
+                                                  'Pendiente: ${((p['pendiente_entregar_administracion'] as num?)?.toDouble() ?? 0).toStringAsFixed(0)}€',
+                                              icon: Icons.account_balance,
+                                              color: Colors.blue.shade700),
+                                        ];
+                                        return LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            final isWide =
+                                                constraints.maxWidth > 600;
+                                            if (isWide) {
+                                              return Row(
+                                                children: cards
+                                                    .map((c) => Expanded(
+                                                        child: Padding(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                                    horizontal:
+                                                                        4),
+                                                            child: c)))
+                                                    .toList(),
+                                              );
+                                            }
+                                            return Wrap(
+                                              spacing: 8,
+                                              runSpacing: 8,
+                                              children: cards
+                                                  .map((c) => SizedBox(
+                                                      width: (constraints
+                                                                  .maxWidth -
+                                                              8) /
+                                                          2,
+                                                      child: c))
+                                                  .toList(),
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    StreamBuilder<List<DecimoLoteria>>(
+                                      stream: fs.getDecimosCampana(campanaId),
+                                      builder: (context, decSnap) {
+                                        final holders =
+                                            <String, _HolderStats>{};
+                                        for (final d in decSnap.data ??
+                                            <DecimoLoteria>[]) {
+                                          if (!d.paidToBrotherhood ||
+                                              (d.brotherhoodHolderId ?? '')
+                                                  .isEmpty) continue;
+                                          final key = d.brotherhoodHolderId!;
+                                          final current = holders[key] ??
+                                              _HolderStats(
+                                                  name:
+                                                      d.brotherhoodHolderName ??
+                                                          'Sin nombre');
+                                          holders[key] = _HolderStats(
+                                            name: current.name,
+                                            amount:
+                                                current.amount + d.precioVenta,
+                                            count: current.count + 1,
+                                          );
+                                        }
+                                        if (holders.isEmpty)
+                                          return const SizedBox.shrink();
+                                        return Card(
+                                          elevation: 0,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              side: BorderSide(
+                                                  color: Colors.grey.shade200)),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(16),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const Text(
+                                                    'Dinero en manos de cofrades',
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold)),
+                                                const SizedBox(height: 8),
+                                                ...holders.values.map((h) =>
+                                                    ListTile(
+                                                      dense: true,
+                                                      contentPadding:
+                                                          EdgeInsets.zero,
+                                                      leading: const Icon(
+                                                          Icons.account_circle,
+                                                          color: AppTheme
+                                                              .primaryColor),
+                                                      title: Text(h.name),
+                                                      subtitle: Text(
+                                                          '${h.count} décimos'),
+                                                      trailing: Text(
+                                                          '${h.amount.toStringAsFixed(2)}€',
+                                                          style: const TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                    )),
+                                              ],
+                                            ),
+                                          ),
                                         );
                                       },
                                     ),
@@ -186,24 +444,46 @@ class CampanaDashboardScreen extends StatelessWidget {
                                     const SizedBox(height: 12),
                                     Card(
                                       elevation: 0,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          side: BorderSide(
+                                              color: Colors.grey.shade200)),
                                       child: Padding(
                                         padding: const EdgeInsets.all(20),
                                         child: Column(
                                           children: [
                                             Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
-                                                Text('$totalVendidos/$totalAsignados décimos vendidos', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                                Text('${pctVentaGlobal.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accentColor, fontSize: 18)),
+                                                Text(
+                                                    '$totalVendidos/$totalAsignados décimos vendidos',
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600)),
+                                                Text(
+                                                    '${pctVentaGlobal.toStringAsFixed(1)}%',
+                                                    style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: AppTheme
+                                                            .accentColor,
+                                                        fontSize: 18)),
                                               ],
                                             ),
                                             const SizedBox(height: 12),
                                             ClipRRect(
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                               child: LinearProgressIndicator(
-                                                value: totalAsignados > 0 ? totalVendidos / totalAsignados : 0,
-                                                backgroundColor: Colors.grey.shade200,
+                                                value: totalAsignados > 0
+                                                    ? totalVendidos /
+                                                        totalAsignados
+                                                    : 0,
+                                                backgroundColor:
+                                                    Colors.grey.shade200,
                                                 color: AppTheme.accentColor,
                                                 minHeight: 12,
                                               ),
@@ -219,49 +499,171 @@ class CampanaDashboardScreen extends StatelessWidget {
                                     const SizedBox(height: 12),
                                     Card(
                                       elevation: 0,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          side: BorderSide(
+                                              color: Colors.grey.shade200)),
                                       child: vendedorStats.isEmpty
                                           ? const Padding(
                                               padding: EdgeInsets.all(20),
-                                              child: Text('No hay vendedores con asignaciones.'),
+                                              child: Text(
+                                                  'No hay vendedores con asignaciones.'),
                                             )
                                           : SingleChildScrollView(
                                               scrollDirection: Axis.horizontal,
                                               child: DataTable(
                                                 columnSpacing: 20,
                                                 columns: const [
-                                                  DataColumn(label: Text('Vendedor', style: TextStyle(fontWeight: FontWeight.bold))),
-                                                  DataColumn(label: Text('Tipo', style: TextStyle(fontWeight: FontWeight.bold))),
-                                                  DataColumn(label: Text('Asignados', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                                                  DataColumn(label: Text('Vendidos', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                                                  DataColumn(label: Text('Devueltos', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                                                  DataColumn(label: Text('Disponibles', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                                                  DataColumn(label: Text('% Venta', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                                                  DataColumn(label: Text('Última Act.', style: TextStyle(fontWeight: FontWeight.bold))),
+                                                  DataColumn(
+                                                      label: Text('Vendedor',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold))),
+                                                  DataColumn(
+                                                      label: Text('Tipo',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold))),
+                                                  DataColumn(
+                                                      label: Text('Asignados',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                      numeric: true),
+                                                  DataColumn(
+                                                      label: Text('Vendidos',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                      numeric: true),
+                                                  DataColumn(
+                                                      label: Text('Devueltos',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                      numeric: true),
+                                                  DataColumn(
+                                                      label: Text('Disponibles',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                      numeric: true),
+                                                  DataColumn(
+                                                      label: Text('% Venta',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                      numeric: true),
+                                                  DataColumn(
+                                                      label: Text('Última Act.',
+                                                          style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold))),
                                                 ],
-                                                rows: vendedorStats.entries.map((entry) {
-                                                  final vend = vendMap[entry.key];
+                                                rows: vendedorStats.entries
+                                                    .map((entry) {
+                                                  final vend =
+                                                      vendMap[entry.key];
                                                   final stats = entry.value;
-                                                  final disponibles = stats.asignados - stats.vendidos - stats.devueltos;
-                                                  final pct = stats.asignados > 0 ? (stats.vendidos / stats.asignados * 100) : 0.0;
-                                                  final fmt = DateFormat('dd/MM HH:mm');
+                                                  final disponibles =
+                                                      stats.asignados -
+                                                          stats.vendidos -
+                                                          stats.devueltos;
+                                                  final pct =
+                                                      stats.asignados > 0
+                                                          ? (stats.vendidos /
+                                                              stats.asignados *
+                                                              100)
+                                                          : 0.0;
+                                                  final fmt =
+                                                      DateFormat('dd/MM HH:mm');
 
                                                   return DataRow(cells: [
-                                                    DataCell(Text(vend?.nombre ?? '?')),
+                                                    DataCell(Text(
+                                                        vend?.nombre ?? '?')),
                                                     DataCell(Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: (vend?.isCofrade == true ? AppTheme.accentColor : Colors.orange).withAlpha(20),
-                                                        borderRadius: BorderRadius.circular(4),
+                                                        color: (vend?.isCofrade ==
+                                                                    true
+                                                                ? AppTheme
+                                                                    .accentColor
+                                                                : Colors.orange)
+                                                            .withAlpha(20),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(4),
                                                       ),
-                                                      child: Text(vend?.isCofrade == true ? 'Cofrade' : 'Externo', style: const TextStyle(fontSize: 11)),
+                                                      child: Text(
+                                                          vend?.isCofrade ==
+                                                                  true
+                                                              ? 'Cofrade'
+                                                              : 'Externo',
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize:
+                                                                      11)),
                                                     )),
-                                                    DataCell(Text('${stats.asignados}')),
-                                                    DataCell(Text('${stats.vendidos}', style: TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold))),
-                                                    DataCell(Text('${stats.devueltos}', style: TextStyle(color: stats.devueltos > 0 ? Colors.red.shade600 : null))),
-                                                    DataCell(Text('$disponibles', style: TextStyle(color: disponibles > 0 ? Colors.orange.shade700 : null))),
-                                                    DataCell(Text('${pct.toStringAsFixed(0)}%', style: TextStyle(fontWeight: FontWeight.bold, color: pct >= 80 ? AppTheme.accentColor : pct >= 50 ? Colors.orange.shade700 : Colors.red.shade600))),
-                                                    DataCell(Text(stats.lastUpdate != null ? fmt.format(stats.lastUpdate!) : 'Sin datos', style: const TextStyle(fontSize: 12))),
+                                                    DataCell(Text(
+                                                        '${stats.asignados}')),
+                                                    DataCell(Text(
+                                                        '${stats.vendidos}',
+                                                        style: TextStyle(
+                                                            color: AppTheme
+                                                                .accentColor,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .bold))),
+                                                    DataCell(Text(
+                                                        '${stats.devueltos}',
+                                                        style: TextStyle(
+                                                            color:
+                                                                stats.devueltos >
+                                                                        0
+                                                                    ? Colors.red
+                                                                        .shade600
+                                                                    : null))),
+                                                    DataCell(Text(
+                                                        '$disponibles',
+                                                        style: TextStyle(
+                                                            color: disponibles >
+                                                                    0
+                                                                ? Colors.orange
+                                                                    .shade700
+                                                                : null))),
+                                                    DataCell(Text(
+                                                        '${pct.toStringAsFixed(0)}%',
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: pct >= 80
+                                                                ? AppTheme
+                                                                    .accentColor
+                                                                : pct >= 50
+                                                                    ? Colors
+                                                                        .orange
+                                                                        .shade700
+                                                                    : Colors.red
+                                                                        .shade600))),
+                                                    DataCell(Text(
+                                                        stats.lastUpdate != null
+                                                            ? fmt.format(stats
+                                                                .lastUpdate!)
+                                                            : 'Sin datos',
+                                                        style: const TextStyle(
+                                                            fontSize: 12))),
                                                   ]);
                                                 }).toList(),
                                               ),
@@ -270,7 +672,8 @@ class CampanaDashboardScreen extends StatelessWidget {
                                     const SizedBox(height: 24),
 
                                     // Alertas
-                                    _buildAlertas(vendedorStats, vendMap, asignaciones),
+                                    _buildAlertas(
+                                        vendedorStats, vendMap, asignaciones),
                                   ],
                                 ),
                               ),
@@ -289,19 +692,25 @@ class CampanaDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAlertas(Map<String, _VendStats> vendedorStats, Map<String, VendedorLoteria> vendMap, List<AsignacionLoteria> asignaciones) {
+  Widget _buildAlertas(
+      Map<String, _VendStats> vendedorStats,
+      Map<String, VendedorLoteria> vendMap,
+      List<AsignacionLoteria> asignaciones) {
     final alertas = <Widget>[];
 
     // Sin actualizar (> 7 días)
     final now = DateTime.now();
     for (final entry in vendedorStats.entries) {
       final stats = entry.value;
-      if (stats.lastUpdate != null && now.difference(stats.lastUpdate!).inDays > 7 && stats.asignados > stats.vendidos + stats.devueltos) {
+      if (stats.lastUpdate != null &&
+          now.difference(stats.lastUpdate!).inDays > 7 &&
+          stats.asignados > stats.vendidos + stats.devueltos) {
         final vend = vendMap[entry.key];
         alertas.add(_AlertTile(
           icon: Icons.warning_amber,
           color: Colors.orange.shade700,
-          text: '${vend?.nombre ?? "?"} no actualiza desde hace ${now.difference(stats.lastUpdate!).inDays} días',
+          text:
+              '${vend?.nombre ?? "?"} no actualiza desde hace ${now.difference(stats.lastUpdate!).inDays} días',
         ));
       }
     }
@@ -313,7 +722,8 @@ class CampanaDashboardScreen extends StatelessWidget {
         alertas.add(_AlertTile(
           icon: Icons.error_outline,
           color: Colors.red.shade700,
-          text: 'Inconsistencia: ${vend?.nombre ?? "?"} tiene vendidos+devueltos > asignados',
+          text:
+              'Inconsistencia: ${vend?.nombre ?? "?"} tiene vendidos+devueltos > asignados',
         ));
       }
     }
@@ -322,14 +732,17 @@ class CampanaDashboardScreen extends StatelessWidget {
       return Card(
         elevation: 0,
         color: AppTheme.accentColor.withAlpha(10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AppTheme.accentColor.withAlpha(40))),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: AppTheme.accentColor.withAlpha(40))),
         child: const Padding(
           padding: EdgeInsets.all(20),
           child: Row(
             children: [
               Icon(Icons.check_circle_outline, color: AppTheme.accentColor),
               SizedBox(width: 12),
-              Text('Sin alertas. Todo funciona correctamente.', style: TextStyle(color: AppTheme.accentColor)),
+              Text('Sin alertas. Todo funciona correctamente.',
+                  style: TextStyle(color: AppTheme.accentColor)),
             ],
           ),
         ),
@@ -352,7 +765,11 @@ class _VendStats {
   final int vendidos;
   final int devueltos;
   final DateTime? lastUpdate;
-  _VendStats({required this.asignados, required this.vendidos, required this.devueltos, this.lastUpdate});
+  _VendStats(
+      {required this.asignados,
+      required this.vendidos,
+      required this.devueltos,
+      this.lastUpdate});
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -363,7 +780,12 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(width: 4, height: 24, decoration: BoxDecoration(color: AppTheme.primaryColor, borderRadius: BorderRadius.circular(2))),
+        Container(
+            width: 4,
+            height: 24,
+            decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
+                borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 10),
         Text(title, style: Theme.of(context).textTheme.headlineSmall),
       ],
@@ -377,13 +799,20 @@ class _KpiCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final Color color;
-  const _KpiCard({required this.title, required this.value, required this.subtitle, required this.icon, required this.color});
+  const _KpiCard(
+      {required this.title,
+      required this.value,
+      required this.subtitle,
+      required this.icon,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -393,17 +822,26 @@ class _KpiCard extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: color.withAlpha(20), borderRadius: BorderRadius.circular(6)),
+                  decoration: BoxDecoration(
+                      color: color.withAlpha(20),
+                      borderRadius: BorderRadius.circular(6)),
                   child: Icon(icon, size: 18, color: color),
                 ),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+                Expanded(
+                    child: Text(title,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary))),
               ],
             ),
             const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.bold, color: color)),
             const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            Text(subtitle,
+                style: const TextStyle(
+                    fontSize: 11, color: AppTheme.textSecondary)),
           ],
         ),
       ),
@@ -415,7 +853,8 @@ class _AlertTile extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String text;
-  const _AlertTile({required this.icon, required this.color, required this.text});
+  const _AlertTile(
+      {required this.icon, required this.color, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -423,17 +862,33 @@ class _AlertTile extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       color: color.withAlpha(10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: color.withAlpha(40))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: color.withAlpha(40))),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
             Icon(icon, color: color, size: 20),
             const SizedBox(width: 12),
-            Expanded(child: Text(text, style: TextStyle(color: color, fontSize: 13))),
+            Expanded(
+                child:
+                    Text(text, style: TextStyle(color: color, fontSize: 13))),
           ],
         ),
       ),
     );
   }
+}
+
+class _HolderStats {
+  final String name;
+  final double amount;
+  final int count;
+
+  const _HolderStats({
+    required this.name,
+    this.amount = 0,
+    this.count = 0,
+  });
 }
