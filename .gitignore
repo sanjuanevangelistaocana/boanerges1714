@@ -32,7 +32,6 @@ migrate_working_dir/
 pubspec.lock
 
 # Web related
-lib/generated_plugin_registrant.dart
 
 # Android related
 **/android/**/gradle-wrapper.jar
@@ -50,6 +49,7 @@ lib/generated_plugin_registrant.dart
 .env.*
 
 # Firebase
+.firebase/
 google-services.json
 GoogleService-Info.plist
 firebase_app_id_file.json

@@ -14,6 +14,35 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Treasury role documents are intentionally separated from cofrade records
+    // so Firestore rules can authorize by auth uid without broad cofrade scans.
+    function treasuryRole() {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/treasury_roles/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/treasury_roles/$(request.auth.uid)).data.role
+        : '';
+    }
+
+    function canViewTreasury() {
+      return isAdmin() || treasuryRole() in ['tesorero', 'junta'];
+    }
+
+    function canManageTreasury() {
+      return isAdmin() || treasuryRole() == 'tesorero';
+    }
+
+    function canEditTreasurySettings() {
+      return canManageTreasury();
+    }
+
+    function canApproveInvoices() {
+      return canManageTreasury();
+    }
+
+    function canGenerateRemittance() {
+      return canManageTreasury();
+    }
+
     // Helper: check if user owns this cofrade document
     // Matches by auth_uid field (set during registration)
     function isOwner(cofradeId) {
@@ -202,6 +231,88 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /treasury_roles/{roleUid} {
+      allow read: if isAuth() && (request.auth.uid == roleUid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /treasury_settings/{settingId} {
+      allow read: if canViewTreasury();
+      allow create, update, delete: if canEditTreasurySettings();
+    }
+
+    match /treasury_invoices/{invoiceId} {
+      allow read: if canViewTreasury() ||
+        (isAuth() &&
+         resource.data.cofradeAuthUids is list &&
+         request.auth.uid in resource.data.cofradeAuthUids);
+      allow create, update, delete: if canManageTreasury();
+    }
+
+    match /treasury_invoice_lines/{lineId} {
+      allow read: if canViewTreasury() ||
+        (isAuth() &&
+         resource.data.authUid is string &&
+         resource.data.authUid == request.auth.uid);
+      allow create, update, delete: if canManageTreasury();
+    }
+
+    match /treasury_bank_validations/{validationId} {
+      allow read: if canViewTreasury() ||
+        (isAuth() &&
+         resource.data.authUid is string &&
+         resource.data.authUid == request.auth.uid);
+      allow create, update: if canManageTreasury() ||
+        (isAuth() &&
+         resource.data.authUid is string &&
+         resource.data.authUid == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'newIbanMasked', 'changedAt', 'validatedAt', 'updatedBy']));
+      allow delete: if canManageTreasury();
+    }
+
+    match /treasury_remittances/{remittanceId} {
+      allow read: if canViewTreasury();
+      allow create, update, delete: if canGenerateRemittance();
+    }
+
+    match /treasury_payments/{paymentId} {
+      allow read: if canViewTreasury() ||
+        (isAuth() &&
+         resource.data.authUid is string &&
+         resource.data.authUid == request.auth.uid);
+      allow create, update, delete: if canManageTreasury();
+    }
+
+    match /treasury_returns/{returnId} {
+      allow read: if canViewTreasury() ||
+        (isAuth() &&
+         resource.data.authUid is string &&
+         resource.data.authUid == request.auth.uid);
+      allow create, update, delete: if canManageTreasury();
+    }
+
+    match /treasury_accounting_movements/{movementId} {
+      allow read: if canViewTreasury();
+      allow create, update, delete: if canManageTreasury();
+    }
+
+    match /treasury_categories/{categoryId} {
+      allow read: if canViewTreasury();
+      allow create, update, delete: if canManageTreasury();
+    }
+
+    match /treasury_cost_centers/{costCenterId} {
+      allow read: if canViewTreasury();
+      allow create, update, delete: if canManageTreasury();
+    }
+
+    match /treasury_audit_logs/{logId} {
+      allow read: if canViewTreasury();
+      allow create: if canManageTreasury();
+      allow update, delete: if false;
+    }
+
     // Festividad San Juan Evangelista
     match /festividad_sje/{edicionId} {
       allow read: if isAuth();
@@ -239,6 +350,22 @@ service cloud.firestore {
     match /sabanas/{sabanaId} {
       allow read: if isAuth();
       allow create, update, delete: if isAdmin();
+    }
+
+    // Lotería de Navidad - Décimos/fracciones identificables
+    match /decimos_loteria/{decimoId} {
+      allow read: if isAuth();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isAuth() &&
+         resource.data.vendedor_id is string &&
+         get(/databases/$(database)/documents/vendedores_loteria/$(resource.data.vendedor_id)).data.cofrade_id is string &&
+         get(/databases/$(database)/documents/cofrades/$(get(/databases/$(database)/documents/vendedores_loteria/$(resource.data.vendedor_id)).data.cofrade_id)).data.auth_uid == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['estado', 'fecha_venta', 'returnedBySeller', 'returnedAt',
+                     'returnConfirmedByAdmin', 'returnConfirmedAt']) &&
+         request.resource.data.estado in ['asignado', 'vendido',
+                                          'devuelto_pendiente_revision']);
     }
 
     // Lotería de Navidad - Vendedores

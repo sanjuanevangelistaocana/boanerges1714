@@ -36,6 +36,13 @@ function normalizeSearchText(value) {
       .replace(/\s+/g, " ");
 }
 
+function normalizeDni(value) {
+  return String(value || "")
+      .toUpperCase()
+      .replace(/[\s\-_.]/g, "")
+      .trim();
+}
+
 /**
  * Convert a column index to a letter (0=A, 25=Z, 26=AA, etc.).
  */
@@ -174,6 +181,66 @@ exports.syncCofradeSearchIndex = functions
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
       return null;
+    });
+
+/**
+ * Keep a normalized DNI field on cofrade documents.
+ * This is used by DNI login while preserving the original display value.
+ */
+exports.syncCofradeDniNormalizado = functions
+    .region("europe-west1")
+    .firestore.document("cofrades/{cofradeId}")
+    .onWrite(async (change) => {
+      if (!change.after.exists) return null;
+      const data = change.after.data();
+      const normalized = normalizeDni(data.dni);
+      if ((data.dni_normalizado || "") === normalized) return null;
+      await change.after.ref.update({dni_normalizado: normalized});
+      return null;
+    });
+
+/**
+ * Resolve a cofrade email from a DNI/NIE for login.
+ * Firestore rules do not allow unauthenticated users to query cofrades, so
+ * this callable performs the lookup server-side and returns only the email.
+ */
+exports.lookupEmailByDni = functions
+    .region("europe-west1")
+    .https.onCall(async (data) => {
+      const dni = normalizeDni(data && data.dni);
+      if (!dni) {
+        throw new functions.https.HttpsError(
+            "invalid-argument", "Introduce un DNI/NIE.",
+        );
+      }
+
+      let snapshot = await db.collection("cofrades")
+          .where("dni_normalizado", "==", dni)
+          .limit(1)
+          .get();
+
+      if (snapshot.empty) {
+        // Migration fallback for existing documents before dni_normalizado exists.
+        const all = await db.collection("cofrades").select("dni", "email").get();
+        const match = all.docs.find((doc) => normalizeDni(doc.data().dni) === dni);
+        snapshot = match ? {empty: false, docs: [match]} : {empty: true, docs: []};
+      }
+
+      if (snapshot.empty) {
+        throw new functions.https.HttpsError(
+            "not-found", "No se encontró ningún cofrade con ese DNI/NIE.",
+        );
+      }
+
+      const cofrade = snapshot.docs[0].data();
+      if (!cofrade.email) {
+        throw new functions.https.HttpsError(
+            "failed-precondition",
+            "El cofrade existe, pero no tiene email asociado. Contacta con la Junta.",
+        );
+      }
+
+      return {email: cofrade.email};
     });
 
 /**
@@ -638,6 +705,150 @@ exports.rebuildCofradeSearchIndex = functions
         return res.json({status: "success", indexed: count});
       } catch (error) {
         console.error("Error rebuilding cofrade search index:", error);
+        return res.status(500).json({status: "error", message: error.message});
+      }
+    });
+
+/**
+ * Rebuild identifiable lottery fractions for existing sheets/assignments.
+ * Usage: POST /rebuildDecimosLoteria with body { "secret": "boanerges2024" }
+ */
+exports.rebuildDecimosLoteria = functions
+    .region("europe-west1")
+    .https.onRequest(async (req, res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      if (req.method === "OPTIONS") {
+        res.set("Access-Control-Allow-Methods", "POST");
+        res.set("Access-Control-Allow-Headers", "Content-Type");
+        return res.status(204).send("");
+      }
+
+      try {
+        const {secret} = req.body || {};
+        if (secret !== "boanerges2024") {
+          return res.status(403).json({status: "error", message: "Invalid secret."});
+        }
+
+        let batch = db.batch();
+        let pending = 0;
+        let created = 0;
+        let assigned = 0;
+        let missingSerie = 0;
+
+        async function commitIfNeeded(force = false) {
+          if (pending > 0 && (force || pending >= 450)) {
+            await batch.commit();
+            batch = db.batch();
+            pending = 0;
+          }
+        }
+
+        const sabanasSnap = await db.collection("sabanas").get();
+        for (const sabanaDoc of sabanasSnap.docs) {
+          const sabana = sabanaDoc.data();
+          const existing = await db
+              .collection("decimos_loteria")
+              .where("sabana_id", "==", sabanaDoc.id)
+              .limit(1)
+              .get();
+          if (!existing.empty) continue;
+
+          const totalDecimos = Number(sabana.total_decimos || 10);
+          const rawSerie = String(sabana.serie || "").trim();
+          const serie = rawSerie || "PENDIENTE";
+          if (!rawSerie) {
+            missingSerie++;
+            batch.update(sabanaDoc.ref, {serie});
+            pending++;
+          }
+
+          for (let i = 1; i <= totalDecimos; i++) {
+            const decimoRef = db.collection("decimos_loteria").doc();
+            batch.set(decimoRef, {
+              campana_id: sabana.campana_id || "",
+              sabana_id: sabanaDoc.id,
+              numero_loteria: Number(sabana.numero_loteria || 0),
+              serie,
+              numero_decimo: i,
+              precio_venta: Number(sabana.precio_venta_unidad || 0),
+              estado: "disponible",
+              vendedor_id: null,
+              cofrade_id: null,
+              fecha_asignacion: null,
+              fecha_venta: null,
+            });
+            pending++;
+            created++;
+            await commitIfNeeded();
+          }
+        }
+        await commitIfNeeded(true);
+
+        const asignacionesSnap = await db.collection("asignaciones_loteria").get();
+        for (const asignacionDoc of asignacionesSnap.docs) {
+          const asignacion = asignacionDoc.data();
+          if (!asignacion.sabana_id || !asignacion.vendedor_id) continue;
+
+          const alreadyAssigned = await db
+              .collection("decimos_loteria")
+              .where("sabana_id", "==", asignacion.sabana_id)
+              .where("vendedor_id", "==", asignacion.vendedor_id)
+              .limit(1)
+              .get();
+          if (!alreadyAssigned.empty) continue;
+
+          const vendedorDoc = await db
+              .collection("vendedores_loteria")
+              .doc(asignacion.vendedor_id)
+              .get();
+          const vendedor = vendedorDoc.exists ? vendedorDoc.data() : {};
+          const totalAsignados = Number(asignacion.decimos_asignados || 0);
+          const vendidos = Number(asignacion.decimos_vendidos || 0);
+          const devueltos = Number(asignacion.decimos_devueltos || 0);
+          if (totalAsignados <= 0) continue;
+
+          const decimosSnap = await db
+              .collection("decimos_loteria")
+              .where("sabana_id", "==", asignacion.sabana_id)
+              .where("estado", "==", "disponible")
+              .get();
+          const decimos = decimosSnap.docs
+              .sort((a, b) => Number(a.data().numero_decimo || 0) - Number(b.data().numero_decimo || 0))
+              .slice(0, totalAsignados);
+
+          for (let i = 0; i < decimos.length; i++) {
+            let estado = "asignado";
+            if (i < vendidos) {
+              estado = "vendido";
+            } else if (i < vendidos + devueltos) {
+              estado = "devuelto";
+            }
+            batch.update(decimos[i].ref, {
+              estado,
+              vendedor_id: asignacion.vendedor_id,
+              cofrade_id: vendedor.cofrade_id || null,
+              fecha_asignacion: asignacion.fecha_asignacion ||
+                  asignacion.fecha_entrega ||
+                  admin.firestore.FieldValue.serverTimestamp(),
+              fecha_venta: estado === "vendido" ?
+                (asignacion.fecha_venta || admin.firestore.FieldValue.serverTimestamp()) :
+                null,
+            });
+            pending++;
+            assigned++;
+            await commitIfNeeded();
+          }
+        }
+        await commitIfNeeded(true);
+
+        return res.json({
+          status: "success",
+          decimosCreated: created,
+          decimosAssigned: assigned,
+          sabanasWithoutSerie: missingSerie,
+        });
+      } catch (error) {
+        console.error("Error rebuilding lottery fractions:", error);
         return res.status(500).json({status: "error", message: error.message});
       }
     });

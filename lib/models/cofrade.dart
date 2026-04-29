@@ -152,7 +152,8 @@ class Cofrade {
       emailSecundario: data['email_secundario'] as String?,
       telefonoSecundario: data['telefono_secundario'] as String?,
       dni: data['dni'] as String?,
-      fechaNacimientoTutor: (data['fecha_nacimiento_tutor'] as Timestamp?)?.toDate(),
+      fechaNacimientoTutor:
+          (data['fecha_nacimiento_tutor'] as Timestamp?)?.toDate(),
       dniTutor: data['dni_tutor'] as String?,
       parentescoTutor: data['parentesco_tutor'] as String?,
       cargo: data['cargo'] as String?,
@@ -166,9 +167,8 @@ class Cofrade {
       'nombre': nombre,
       'apellidos': apellidos,
       'tutelado_digital': tuteladoDigital,
-      'fecha_nacimiento': fechaNacimiento != null
-          ? Timestamp.fromDate(fechaNacimiento!)
-          : null,
+      'fecha_nacimiento':
+          fechaNacimiento != null ? Timestamp.fromDate(fechaNacimiento!) : null,
       'edad': edad,
       'genero': genero,
       'anio_alta': anioAlta,
@@ -202,9 +202,8 @@ class Cofrade {
       'fecha_registro_app': fechaRegistroApp != null
           ? Timestamp.fromDate(fechaRegistroApp!)
           : null,
-      'ultimo_acceso': ultimoAcceso != null
-          ? Timestamp.fromDate(ultimoAcceso!)
-          : null,
+      'ultimo_acceso':
+          ultimoAcceso != null ? Timestamp.fromDate(ultimoAcceso!) : null,
       'gdpr_firmado_digital': gdprFirmadoDigital,
       'fecha_gdpr_digital': fechaGdprDigital != null
           ? Timestamp.fromDate(fechaGdprDigital!)
@@ -311,7 +310,8 @@ class Cofrade {
       gdprFirmadoDigital: gdprFirmadoDigital ?? this.gdprFirmadoDigital,
       fechaGdprDigital: fechaGdprDigital ?? this.fechaGdprDigital,
       fcmToken: fcmToken ?? this.fcmToken,
-      notificacionesActivas: notificacionesActivas ?? this.notificacionesActivas,
+      notificacionesActivas:
+          notificacionesActivas ?? this.notificacionesActivas,
       emailSecundario: emailSecundario ?? this.emailSecundario,
       telefonoSecundario: telefonoSecundario ?? this.telefonoSecundario,
       dni: dni ?? this.dni,
@@ -327,5 +327,6 @@ class Cofrade {
   bool get isAdmin => rol == 'admin';
   bool get isActivo => estado == 'Activo' || estado == 'activo';
   bool get isBaja => estado == 'Baja' || estado == 'baja';
-  bool get isJunta => rol == 'junta' || rol == 'admin';
+  bool get isTesorero => rol == 'tesorero';
+  bool get isJunta => rol == 'junta' || rol == 'admin' || rol == 'tesorero';
 }
