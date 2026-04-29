@@ -31,6 +31,9 @@ class FirestoreService {
   }
 
   Future<void> updateCofrade(String id, Map<String, dynamic> data) async {
+    if (data.containsKey('dni')) {
+      data['dni_normalizado'] = _normalizeDni(data['dni']?.toString() ?? '');
+    }
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
     // Skip null values to avoid accidentally deleting fields that were not
     // part of this edit.  Only include non-null entries so Firestore update()
@@ -271,6 +274,7 @@ class FirestoreService {
           ? Timestamp.fromDate(solicitud.fechaNacimiento!)
           : null,
       'dni': solicitud.dni ?? '',
+      'dni_normalizado': _normalizeDni(solicitud.dni ?? ''),
       'estado': 'Activo',
       'anio_alta': DateTime.now().year,
       'genero': '',
@@ -1026,6 +1030,30 @@ class FirestoreService {
     return data;
   }
 
+  Future<Map<String, dynamic>?> getInscripcionFestividadParaCofrade(
+      String edicionId, String cofradeId) async {
+    final titular = await getMiInscripcionFestividad(edicionId, cofradeId);
+    if (titular != null) return titular;
+
+    final allInsc = await _db
+        .collection('festividad_sje')
+        .doc(edicionId)
+        .collection('inscripciones')
+        .where('estado', whereIn: ['pendiente', 'confirmada']).get();
+    for (final doc in allInsc.docs) {
+      final asistentes = List<Map<String, dynamic>>.from(
+          (doc.data()['asistentes'] as List<dynamic>?) ?? []);
+      if (asistentes.any((a) => a['cofrade_id'] == cofradeId)) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        data['access_role'] =
+            data['cofrade_id'] == cofradeId ? 'titular' : 'acompanante';
+        return data;
+      }
+    }
+    return null;
+  }
+
   Future<bool> isCofradeInscritoFestividad(
       String edicionId, String cofradeId) async {
     final allInsc = await _db
@@ -1041,6 +1069,31 @@ class FirestoreService {
       }
     }
     return false;
+  }
+
+  Future<void> notifyFestividadAcompanantes({
+    required String edicionId,
+    required String inscripcionId,
+    required String edicionNombre,
+    required Iterable<Map<String, dynamic>> asistentes,
+    Set<String> previousCofradeIds = const {},
+  }) async {
+    final targetIds = asistentes
+        .map((a) => (a['cofrade_id'] ?? '').toString())
+        .where((id) => id.isNotEmpty && !previousCofradeIds.contains(id))
+        .toSet();
+    for (final cofradeId in targetIds) {
+      await crearNovedad(
+        tipo: 'festividad',
+        titulo: 'Te han añadido a una inscripción',
+        descripcion:
+            'Figuras como acompañante en la inscripción de $edicionNombre.',
+        referenciaId: 'festividad_acompanante_${inscripcionId}_$cofradeId',
+        ruta: '/festividad',
+        visiblePara: 'cofrade',
+        cofradeId: cofradeId,
+      );
+    }
   }
 
   Future<String> createFestividadInscripcion(
@@ -1099,6 +1152,8 @@ class FirestoreService {
     required String descripcion,
     required String referenciaId,
     String? ruta,
+    String visiblePara = 'todos',
+    String? cofradeId,
   }) async {
     // Prevent duplicate novedades for the same resource
     final existing = await _db
@@ -1116,7 +1171,8 @@ class FirestoreService {
       'referencia_id': referenciaId,
       'ruta': ruta ?? '',
       'fecha_creacion': FieldValue.serverTimestamp(),
-      'visible_para': 'todos',
+      'visible_para': visiblePara,
+      'cofrade_id': cofradeId,
     });
   }
 
@@ -1174,7 +1230,39 @@ class FirestoreService {
   }
 
   Future<String> createSabana(Sabana sabana) async {
+    if (sabana.serie.trim().isEmpty) {
+      throw Exception('La serie es obligatoria.');
+    }
+    final existing = await _db
+        .collection('decimos_loteria')
+        .where('campana_id', isEqualTo: sabana.campanaId)
+        .where('numero_loteria', isEqualTo: sabana.numeroLoteria)
+        .where('serie', isEqualTo: sabana.serie.trim())
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) {
+      throw Exception(
+          'Ya existe una sábana con ese número y serie en esta campaña.');
+    }
+
     final docRef = await _db.collection('sabanas').add(sabana.toFirestore());
+    final batch = _db.batch();
+    for (var i = 1; i <= sabana.totalDecimos; i++) {
+      final decimoRef = _db.collection('decimos_loteria').doc();
+      batch.set(
+        decimoRef,
+        DecimoLoteria(
+          id: '',
+          campanaId: sabana.campanaId,
+          sabanaId: docRef.id,
+          numeroLoteria: sabana.numeroLoteria,
+          serie: sabana.serie.trim(),
+          numeroDecimo: i,
+          precioVenta: sabana.precioVentaUnidad,
+        ).toFirestore(),
+      );
+    }
+    await batch.commit();
     return docRef.id;
   }
 
@@ -1206,6 +1294,18 @@ class FirestoreService {
     final snap = await _db
         .collection('vendedores_loteria')
         .where('usuario_auth_id', isEqualTo: authUid)
+        .limit(1)
+        .get();
+    if (snap.docs.isNotEmpty) {
+      return VendedorLoteria.fromFirestore(snap.docs.first);
+    }
+    return null;
+  }
+
+  Future<VendedorLoteria?> getVendedorByCofradeId(String cofradeId) async {
+    final snap = await _db
+        .collection('vendedores_loteria')
+        .where('cofrade_id', isEqualTo: cofradeId)
         .limit(1)
         .get();
     if (snap.docs.isNotEmpty) {
@@ -1261,14 +1361,47 @@ class FirestoreService {
   }
 
   Future<String> createAsignacion(AsignacionLoteria asignacion) async {
+    final vendedor = await getVendedorById(asignacion.vendedorId);
+    final decimosSnap = await _db
+        .collection('decimos_loteria')
+        .where('sabana_id', isEqualTo: asignacion.sabanaId)
+        .where('estado', isEqualTo: 'disponible')
+        .limit(asignacion.decimosAsignados)
+        .get();
+    if (decimosSnap.docs.length < asignacion.decimosAsignados) {
+      throw Exception('No hay suficientes décimos disponibles en esta sábana.');
+    }
+
     final docRef = await _db
         .collection('asignaciones_loteria')
         .add(asignacion.toFirestore());
-    // Update sabana estado to 'asignada'
+    final batch = _db.batch();
+    for (final doc in decimosSnap.docs) {
+      batch.update(doc.reference, {
+        'estado': 'asignado',
+        'vendedor_id': asignacion.vendedorId,
+        'cofrade_id': vendedor?.cofradeId,
+        'fecha_asignacion': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+
     await _db
         .collection('sabanas')
         .doc(asignacion.sabanaId)
         .update({'estado': 'asignada'});
+    if (vendedor?.cofradeId != null && vendedor!.cofradeId!.isNotEmpty) {
+      await crearNovedad(
+        tipo: 'loteria',
+        titulo: 'Lotería asignada',
+        descripcion:
+            'Se te ha asignado lotería para vender. Accede al módulo de Lotería para gestionar tus ventas.',
+        referenciaId: 'loteria_asignacion_${docRef.id}',
+        ruta: '/loteria',
+        visiblePara: 'cofrade',
+        cofradeId: vendedor.cofradeId,
+      );
+    }
     return docRef.id;
   }
 
@@ -1284,6 +1417,198 @@ class FirestoreService {
       'decimos_devueltos': devueltos,
       'ultima_actualizacion': FieldValue.serverTimestamp(),
     });
+  }
+
+  Stream<List<DecimoLoteria>> getDecimosVendedor(String vendedorId) {
+    return _db
+        .collection('decimos_loteria')
+        .where('vendedor_id', isEqualTo: vendedorId)
+        .snapshots()
+        .map((s) => s.docs.map((d) => DecimoLoteria.fromFirestore(d)).toList()
+          ..sort((a, b) {
+            final byNumero = a.numeroLoteria.compareTo(b.numeroLoteria);
+            if (byNumero != 0) return byNumero;
+            final bySerie = a.serie.compareTo(b.serie);
+            if (bySerie != 0) return bySerie;
+            return a.numeroDecimo.compareTo(b.numeroDecimo);
+          }));
+  }
+
+  Stream<bool> hasLoteriaAsignadaForCofrade(String cofradeId) {
+    return _db
+        .collection('decimos_loteria')
+        .where('cofrade_id', isEqualTo: cofradeId)
+        .where('estado', whereIn: [
+          'asignado',
+          'vendido',
+          'cobrado',
+          'devuelto_pendiente_revision',
+        ])
+        .limit(1)
+        .snapshots()
+        .map((s) => s.docs.isNotEmpty);
+  }
+
+  Stream<List<DecimoLoteria>> getDecimosCampana(String campanaId) {
+    return _db
+        .collection('decimos_loteria')
+        .where('campana_id', isEqualTo: campanaId)
+        .snapshots()
+        .map((s) => s.docs.map((d) => DecimoLoteria.fromFirestore(d)).toList());
+  }
+
+  Stream<Map<String, dynamic>> getLoteriaCampanaStats(String campanaId) {
+    return getDecimosCampana(campanaId).map((decimos) {
+      final pendientes = decimos
+          .where((d) =>
+              d.estado == 'asignado' ||
+              d.estado == 'vendido' ||
+              d.estado == 'cobrado')
+          .toList();
+      final vendedoresConPendientes = pendientes
+          .where((d) => d.vendedorId != null && d.vendedorId!.isNotEmpty)
+          .map((d) => d.vendedorId!)
+          .toSet()
+          .length;
+      final vendidos = decimos
+          .where((d) => d.estado == 'vendido' || d.estado == 'cobrado')
+          .length;
+      final disponibles = decimos.where((d) => d.estado == 'disponible').length;
+      final importeVendido = decimos
+          .where((d) => d.estado == 'vendido' || d.estado == 'cobrado')
+          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+      final importeCobrado = decimos
+          .where((d) => d.estado == 'cobrado')
+          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+      final entregadoCofradia = decimos
+          .where((d) => d.paidToBrotherhood)
+          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+      final entregadoAdministracion = decimos
+          .where((d) => d.paidToAdministration)
+          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+      return {
+        'vendedores_pendientes': vendedoresConPendientes,
+        'disponibles': disponibles,
+        'vendidos': vendidos,
+        'importe_vendido': importeVendido,
+        'importe_cobrado': importeCobrado,
+        'importe_pendiente_cobrar': importeVendido - importeCobrado,
+        'entregado_cofradia': entregadoCofradia,
+        'pendiente_entregar_cofradia': importeVendido - entregadoCofradia,
+        'entregado_administracion': entregadoAdministracion,
+        'pendiente_entregar_administracion':
+            importeVendido - entregadoAdministracion,
+      };
+    });
+  }
+
+  Future<void> updateDecimoEstado(String decimoId, String estado,
+      {String? actorId}) async {
+    final decimoDoc =
+        await _db.collection('decimos_loteria').doc(decimoId).get();
+    if (!decimoDoc.exists) return;
+    final current = DecimoLoteria.fromFirestore(decimoDoc);
+    final data = <String, dynamic>{'estado': estado};
+    if (estado == 'vendido' || estado == 'cobrado') {
+      data['fecha_venta'] = FieldValue.serverTimestamp();
+    } else if (estado == 'devuelto_pendiente_revision') {
+      data['returnedBySeller'] = actorId;
+      data['returnedAt'] = FieldValue.serverTimestamp();
+      data['returnConfirmedByAdmin'] = false;
+      data['returnConfirmedAt'] = null;
+    } else {
+      data['fecha_venta'] = null;
+    }
+    await decimoDoc.reference.update(data);
+
+    if (current.vendedorId != null && current.vendedorId!.isNotEmpty) {
+      final decimos = await _db
+          .collection('decimos_loteria')
+          .where('sabana_id', isEqualTo: current.sabanaId)
+          .where('vendedor_id', isEqualTo: current.vendedorId)
+          .get();
+      final vendidos = decimos.docs
+          .where((d) =>
+              (d.id == decimoId ? estado : d.data()['estado']) == 'vendido')
+          .length;
+      final devueltos = decimos.docs.where((d) {
+        final value = d.id == decimoId ? estado : d.data()['estado'];
+        return value == 'devuelto' ||
+            value == 'devuelto_pendiente_revision' ||
+            value == 'devuelto_confirmado';
+      }).length;
+      final asigSnap = await _db
+          .collection('asignaciones_loteria')
+          .where('sabana_id', isEqualTo: current.sabanaId)
+          .where('vendedor_id', isEqualTo: current.vendedorId)
+          .limit(1)
+          .get();
+      if (asigSnap.docs.isNotEmpty) {
+        await asigSnap.docs.first.reference.update({
+          'decimos_vendidos': vendidos,
+          'decimos_devueltos': devueltos,
+          'ultima_actualizacion': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+  }
+
+  Future<void> updateDecimoPayment({
+    required String decimoId,
+    bool? paidToBrotherhood,
+    String? brotherhoodHolderId,
+    String? brotherhoodHolderName,
+    bool? paidToAdministration,
+    String? notes,
+    String? markedBy,
+  }) async {
+    final data = <String, dynamic>{};
+    if (paidToBrotherhood != null) {
+      if (paidToBrotherhood && (brotherhoodHolderId ?? '').isEmpty) {
+        throw Exception(
+            'Selecciona el cofrade que custodia el dinero antes de marcarlo como entregado a la Cofradía.');
+      }
+      data['paidToBrotherhood'] = paidToBrotherhood;
+      data['paidToBrotherhoodAt'] =
+          paidToBrotherhood ? FieldValue.serverTimestamp() : null;
+      data['paidToBrotherhoodMarkedBy'] = paidToBrotherhood ? markedBy : null;
+      data['brotherhoodHolderId'] =
+          paidToBrotherhood ? brotherhoodHolderId : null;
+      data['brotherhoodHolderName'] =
+          paidToBrotherhood ? brotherhoodHolderName : null;
+      data['brotherhoodHolderAssignedAt'] =
+          paidToBrotherhood ? FieldValue.serverTimestamp() : null;
+      data['brotherhoodHolderAssignedBy'] = paidToBrotherhood ? markedBy : null;
+    }
+    if (paidToAdministration != null) {
+      data['paidToAdministration'] = paidToAdministration;
+      data['paidToAdministrationAt'] =
+          paidToAdministration ? FieldValue.serverTimestamp() : null;
+      data['paidToAdministrationMarkedBy'] =
+          paidToAdministration ? markedBy : null;
+    }
+    if (notes != null) data['paymentNotes'] = notes;
+    await _db.collection('decimos_loteria').doc(decimoId).update(data);
+  }
+
+  Future<void> confirmDecimoReturn({
+    required String decimoId,
+    required bool makeAvailable,
+    String? notes,
+    String? adminId,
+  }) async {
+    final data = <String, dynamic>{
+      'estado': makeAvailable ? 'disponible' : 'devuelto_confirmado',
+      'returnConfirmedByAdmin': true,
+      'returnConfirmedAt': FieldValue.serverTimestamp(),
+      'returnConfirmedBy': adminId,
+      'returnNotes': notes ?? '',
+    };
+    if (makeAvailable) {
+      data['vendedor_id'] = null;
+      data['cofrade_id'] = null;
+    }
+    await _db.collection('decimos_loteria').doc(decimoId).update(data);
   }
 
   Future<void> deleteAsignacion(String id) async {
@@ -1379,5 +1704,9 @@ class FirestoreService {
       buffer.write(replacements[char] ?? char.toLowerCase());
     }
     return buffer.toString().trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _normalizeDni(String value) {
+    return value.toUpperCase().replaceAll(RegExp(r'[\s\-_.]'), '').trim();
   }
 }

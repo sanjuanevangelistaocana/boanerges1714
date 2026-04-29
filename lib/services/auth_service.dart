@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/models/cofrade.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions =
+      FirebaseFunctions.instanceFor(region: 'europe-west1');
 
   User? _user;
   List<Cofrade> _cofrades = [];
@@ -18,6 +21,13 @@ class AuthService extends ChangeNotifier {
   bool get hasMultipleCofrades => _cofrades.length > 1;
   bool get isLoggedIn => _user != null;
   bool get isAdmin => _selectedCofrade?.isAdmin ?? false;
+  bool get isTreasurer => _selectedCofrade?.rol == 'tesorero';
+  bool get isBoardMember => _selectedCofrade?.isJunta ?? false;
+  bool get canViewTreasury => isAdmin || isTreasurer || isBoardMember;
+  bool get canManageTreasury => isAdmin || isTreasurer;
+  bool get canApproveInvoices => isAdmin || isTreasurer;
+  bool get canGenerateRemittance => isAdmin || isTreasurer;
+  bool get canEditTreasurySettings => isAdmin || isTreasurer;
   bool get isLoading => _isLoading;
   String? get userId => _user?.uid;
 
@@ -114,30 +124,41 @@ class AuthService extends ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      final cleanDni = dni.trim().toUpperCase();
-      final snapshot = await _firestore
-          .collection('cofrades')
-          .where('dni', isEqualTo: cleanDni)
-          .limit(1)
-          .get();
-
-      if (snapshot.docs.isEmpty) {
-        return 'No se encontr\u00f3 ning\u00fan cofrade con ese DNI.';
-      }
-
-      final cofradeData = snapshot.docs.first.data();
-      final cofradeEmail = cofradeData['email'] as String?;
-      if (cofradeEmail == null || cofradeEmail.isEmpty) {
-        return 'El cofrade con ese DNI no tiene email asociado. Contacta con la Junta.';
+      final cleanDni = _normalizeDni(dni);
+      debugPrint('[Auth] signInWithDni: lookup DNI=$cleanDni');
+      final callable = _functions.httpsCallable('lookupEmailByDni');
+      final result = await callable.call<Map<String, dynamic>>({
+        'dni': cleanDni,
+      });
+      final cofradeEmail = result.data['email'] as String?;
+      if (cofradeEmail == null || cofradeEmail.trim().isEmpty) {
+        debugPrint('[Auth] signInWithDni: DNI found without email');
+        return 'El cofrade con ese DNI/NIE no tiene email asociado. Contacta con la Junta.';
       }
 
       await _auth.signInWithEmailAndPassword(
-        email: cofradeEmail,
+        email: cofradeEmail.trim(),
         password: password,
       );
       return null;
     } on FirebaseAuthException catch (e) {
+      debugPrint('[Auth] signInWithDni auth error: ${e.code} - ${e.message}');
       return _getErrorMessage(e.code);
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('[Auth] signInWithDni lookup error: ${e.code} - ${e.message}');
+      switch (e.code) {
+        case 'not-found':
+          return 'No se encontró ningún cofrade con ese DNI/NIE.';
+        case 'failed-precondition':
+          return e.message ??
+              'El cofrade existe, pero no tiene email asociado. Contacta con la Junta.';
+        case 'invalid-argument':
+          return 'Introduce un DNI/NIE válido.';
+        case 'permission-denied':
+          return 'No se pudo consultar el DNI/NIE por permisos. Contacta con la Junta.';
+        default:
+          return 'No se pudo consultar el DNI/NIE. Inténtalo de nuevo.';
+      }
     } catch (e) {
       debugPrint('DNI login error: $e');
       return 'Error al iniciar sesi\u00f3n. Int\u00e9ntalo de nuevo.';
@@ -145,6 +166,10 @@ class AuthService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  String _normalizeDni(String value) {
+    return value.toUpperCase().replaceAll(RegExp(r'[\s\-_.]'), '').trim();
   }
 
   Future<String?> register({

@@ -11,10 +11,25 @@ class StorageService {
     required Uint8List bytes,
     required String fileName,
     String? contentType,
+    int maxSizeBytes = 20 * 1024 * 1024,
+    Set<String>? allowedExtensions,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception('Debes iniciar sesi\u00f3n para subir archivos.');
+    }
+    if (bytes.isEmpty) {
+      throw Exception('El archivo está vacío o no se pudo leer.');
+    }
+    if (bytes.length > maxSizeBytes) {
+      final maxMb = (maxSizeBytes / (1024 * 1024)).toStringAsFixed(0);
+      throw Exception(
+          'El archivo supera el tamaño máximo permitido ($maxMb MB).');
+    }
+
+    final ext = _extension(fileName);
+    if (allowedExtensions != null && !allowedExtensions.contains(ext)) {
+      throw Exception('Tipo de archivo no permitido: .$ext');
     }
 
     // Force token refresh before any upload attempt
@@ -22,7 +37,7 @@ class StorageService {
     await Future.delayed(const Duration(milliseconds: 300));
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final safeName = '${timestamp}_$fileName';
+    final safeName = '${timestamp}_${_sanitizeFileName(fileName)}';
     final ref = _storage.ref().child(path).child(safeName);
     final ct = contentType ?? _inferContentType(fileName);
     final metadata = SettableMetadata(
@@ -41,11 +56,15 @@ class StorageService {
         debugPrint('[Storage] uploadFile: OK → $url');
         return {
           'nombre': fileName,
+          'storage_path': ref.fullPath,
           'url': url,
           'tipo': ct,
+          'tamano_bytes': bytes.length.toString(),
+          'uploaded_by': user.uid,
         };
       } on FirebaseException catch (e) {
-        debugPrint('Storage upload attempt ${attempt + 1} failed: ${e.code} - ${e.message}');
+        debugPrint(
+            'Storage upload attempt ${attempt + 1} failed: ${e.code} - ${e.message}');
         if (e.code == 'unauthorized' || e.code == 'storage/unauthorized') {
           if (attempt < 2) {
             await user.getIdToken(true);
@@ -60,7 +79,8 @@ class StorageService {
         }
         rethrow;
       } catch (e) {
-        debugPrint('Storage upload attempt ${attempt + 1} unexpected error: $e');
+        debugPrint(
+            'Storage upload attempt ${attempt + 1} unexpected error: $e');
         if (attempt < 2) {
           await Future.delayed(Duration(seconds: 1 + attempt));
           continue;
@@ -78,8 +98,21 @@ class StorageService {
     } catch (_) {}
   }
 
+  String _sanitizeFileName(String fileName) {
+    return fileName
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '');
+  }
+
+  String _extension(String fileName) {
+    final parts = fileName.split('.');
+    if (parts.length < 2) return '';
+    return parts.last.toLowerCase();
+  }
+
   String _inferContentType(String fileName) {
-    final ext = fileName.split('.').last.toLowerCase();
+    final ext = _extension(fileName);
     switch (ext) {
       case 'pdf':
         return 'application/pdf';
