@@ -65,8 +65,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 16),
                           SegmentedButton<bool>(
                             segments: const [
-                              ButtonSegment(value: false, label: Text('Email'), icon: Icon(Icons.email_outlined)),
-                              ButtonSegment(value: true, label: Text('DNI'), icon: Icon(Icons.badge_outlined)),
+                              ButtonSegment(
+                                  value: false,
+                                  label: Text('Email'),
+                                  icon: Icon(Icons.email_outlined)),
+                              ButtonSegment(
+                                  value: true,
+                                  label: Text('DNI'),
+                                  icon: Icon(Icons.badge_outlined)),
                             ],
                             selected: {_loginWithDni},
                             onSelectionChanged: (v) => setState(() {
@@ -110,10 +116,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               textCapitalization: TextCapitalization.characters,
                               validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Introduce tu DNI';
-                                final cleaned = v.trim().toUpperCase();
-                                if (!RegExp(r'^[0-9]{8}[A-Z]$').hasMatch(cleaned) &&
-                                    !RegExp(r'^[XYZ][0-9]{7}[A-Z]$').hasMatch(cleaned)) {
+                                if (v == null || v.trim().isEmpty)
+                                  return 'Introduce tu DNI';
+                                final cleaned = v
+                                    .toUpperCase()
+                                    .replaceAll(RegExp(r'[\s\-_.]'), '')
+                                    .trim();
+                                if (!RegExp(r'^[0-9]{8}[A-Z]$')
+                                        .hasMatch(cleaned) &&
+                                    !RegExp(r'^[XYZ][0-9]{7}[A-Z]$')
+                                        .hasMatch(cleaned)) {
                                   return 'Formato DNI/NIE no válido';
                                 }
                                 return null;
@@ -150,8 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           SizedBox(
                             height: 48,
                             child: ElevatedButton(
-                              onPressed:
-                                  authService.isLoading ? null : _signIn,
+                              onPressed: authService.isLoading ? null : _signIn,
                               child: authService.isLoading
                                   ? const SizedBox(
                                       height: 20,
@@ -247,14 +258,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: AppTheme.primaryColor.withAlpha(15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.lock_reset, size: 36, color: AppTheme.primaryColor),
+                  child: const Icon(Icons.lock_reset,
+                      size: 36, color: AppTheme.primaryColor),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Recuperar contrase\u00f1a',
-                  style: Theme.of(dialogContext).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style:
+                      Theme.of(dialogContext).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -277,7 +290,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                      borderSide: const BorderSide(
+                          color: AppTheme.primaryColor, width: 2),
                     ),
                   ),
                   keyboardType: TextInputType.emailAddress,

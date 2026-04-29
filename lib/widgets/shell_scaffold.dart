@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/config/theme.dart';
 
 class ShellScaffold extends StatelessWidget {
@@ -36,7 +37,8 @@ class ShellScaffold extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildDesktopNav(BuildContext context, bool isLoggedIn, bool isAdmin) {
+  List<Widget> _buildDesktopNav(
+      BuildContext context, bool isLoggedIn, bool isAdmin) {
     return [
       _NavButton(label: 'Inicio', route: '/'),
       _NavButton(label: 'Historia', route: '/history'),
@@ -49,13 +51,18 @@ class ShellScaffold extends StatelessWidget {
         icon: const Icon(Icons.more_horiz, color: Colors.white),
         onSelected: (route) => context.go(route),
         itemBuilder: (_) => [
-          const PopupMenuItem(value: '/social-media', child: Text('Redes Sociales')),
+          const PopupMenuItem(
+              value: '/social-media', child: Text('Redes Sociales')),
           const PopupMenuItem(value: '/la-rosa', child: Text('La Rosa')),
-          const PopupMenuItem(value: '/boanerges', child: Text('Revista Boanerges')),
+          const PopupMenuItem(
+              value: '/boanerges', child: Text('Revista Boanerges')),
         ],
       ),
       if (isLoggedIn) ...[
         _NavButton(label: 'Mi Zona', route: '/dashboard'),
+        if (context.watch<AuthService>().canViewTreasury)
+          _NavButton(label: 'Tesorería', route: '/treasury'),
+        _PrivateZoneMenu(),
         if (isAdmin) _NavButton(label: 'Admin', route: '/admin'),
         IconButton(
           icon: const Icon(Icons.logout, color: Colors.white70),
@@ -93,27 +100,60 @@ class ShellScaffold extends StatelessWidget {
             ),
           ),
           _DrawerItem(icon: Icons.home, label: 'Inicio', route: '/'),
-          _DrawerItem(icon: Icons.history_edu, label: 'Historia', route: '/history'),
+          _DrawerItem(
+              icon: Icons.history_edu, label: 'Historia', route: '/history'),
           _DrawerItem(icon: Icons.event, label: 'Eventos', route: '/events'),
           _DrawerItem(icon: Icons.newspaper, label: 'Noticias', route: '/news'),
-          _DrawerItem(icon: Icons.photo_library, label: 'Galería', route: '/gallery'),
-          _DrawerItem(icon: Icons.contact_mail, label: 'Contacto', route: '/contact'),
-          _DrawerItem(icon: Icons.camera_alt, label: 'Redes Sociales', route: '/social-media'),
-          _DrawerItem(icon: Icons.local_florist, label: 'La Rosa', route: '/la-rosa'),
-          _DrawerItem(icon: Icons.menu_book, label: 'Revista Boanerges', route: '/boanerges'),
+          _DrawerItem(
+              icon: Icons.photo_library, label: 'Galería', route: '/gallery'),
+          _DrawerItem(
+              icon: Icons.contact_mail, label: 'Contacto', route: '/contact'),
+          _DrawerItem(
+              icon: Icons.camera_alt,
+              label: 'Redes Sociales',
+              route: '/social-media'),
+          _DrawerItem(
+              icon: Icons.local_florist, label: 'La Rosa', route: '/la-rosa'),
+          _DrawerItem(
+              icon: Icons.menu_book,
+              label: 'Revista Boanerges',
+              route: '/boanerges'),
           const Divider(),
           if (isLoggedIn) ...[
-            _DrawerItem(icon: Icons.dashboard, label: 'Mi Zona', route: '/dashboard'),
-            _DrawerItem(icon: Icons.person, label: 'Mi Perfil', route: '/profile'),
-            _DrawerItem(icon: Icons.payment, label: 'Mis Cuotas', route: '/cuotas'),
-            _DrawerItem(icon: Icons.folder, label: 'Documentos', route: '/documents'),
-            _DrawerItem(icon: Icons.how_to_vote, label: 'Consultas', route: '/convocatorias'),
-            _DrawerItem(icon: Icons.lightbulb_outline, label: 'Sugerencias', route: '/sugerencias'),
-            _DrawerItem(icon: Icons.campaign, label: 'Tablón', route: '/tablon'),
-            _DrawerItem(icon: Icons.checkroom, label: 'Túnicas', route: '/tunicas'),
-            _DrawerItem(icon: Icons.celebration, label: 'Festividad SJE', route: '/festividad'),
-            _DrawerItem(icon: Icons.confirmation_number, label: 'Lotería Navidad', route: '/loteria-disponibilidad'),
-            _DrawerItem(icon: Icons.sell, label: 'Mi Lotería', route: '/loteria'),
+            _DrawerItem(
+                icon: Icons.dashboard, label: 'Mi Zona', route: '/dashboard'),
+            _DrawerItem(
+                icon: Icons.person, label: 'Mi Perfil', route: '/profile'),
+            _DrawerItem(
+                icon: Icons.payment, label: 'Mis Cuotas', route: '/cuotas'),
+            _DrawerItem(
+                icon: Icons.folder, label: 'Documentos', route: '/documents'),
+            _DrawerItem(
+                icon: Icons.how_to_vote,
+                label: 'Consultas',
+                route: '/convocatorias'),
+            _DrawerItem(
+                icon: Icons.lightbulb_outline,
+                label: 'Sugerencias',
+                route: '/sugerencias'),
+            _DrawerItem(
+                icon: Icons.campaign, label: 'Tablón', route: '/tablon'),
+            _DrawerItem(
+                icon: Icons.checkroom, label: 'Túnicas', route: '/tunicas'),
+            _DrawerItem(
+                icon: Icons.celebration,
+                label: 'Festividad SJE',
+                route: '/festividad'),
+            _DrawerItem(
+                icon: Icons.confirmation_number,
+                label: 'Lotería Navidad',
+                route: '/loteria-disponibilidad'),
+            _MiLoteriaDrawerItem(),
+            if (context.watch<AuthService>().canViewTreasury)
+              _DrawerItem(
+                  icon: Icons.account_balance_wallet,
+                  label: 'Tesorería',
+                  route: '/treasury'),
             if (isAdmin) ...[
               const Divider(),
               const Padding(
@@ -121,13 +161,34 @@ class ShellScaffold extends StatelessWidget {
                 child: Text('ADMINISTRACIÓN',
                     style: TextStyle(fontSize: 12, color: Colors.grey)),
               ),
-              _DrawerItem(icon: Icons.admin_panel_settings, label: 'Panel Admin', route: '/admin'),
-              _DrawerItem(icon: Icons.people, label: 'Cofrades', route: '/admin/cofrades'),
-              _DrawerItem(icon: Icons.event_note, label: 'Gestionar Eventos', route: '/admin/events'),
-              _DrawerItem(icon: Icons.article, label: 'Gestionar Noticias', route: '/admin/news'),
-              _DrawerItem(icon: Icons.notifications_active, label: 'Notificaciones', route: '/admin/notifications'),
-              _DrawerItem(icon: Icons.celebration, label: 'Festividad SJE', route: '/admin/festividad'),
-              _DrawerItem(icon: Icons.confirmation_number, label: 'Lotería Navidad', route: '/admin/loteria'),
+              _DrawerItem(
+                  icon: Icons.admin_panel_settings,
+                  label: 'Panel Admin',
+                  route: '/admin'),
+              _DrawerItem(
+                  icon: Icons.people,
+                  label: 'Cofrades',
+                  route: '/admin/cofrades'),
+              _DrawerItem(
+                  icon: Icons.event_note,
+                  label: 'Gestionar Eventos',
+                  route: '/admin/events'),
+              _DrawerItem(
+                  icon: Icons.article,
+                  label: 'Gestionar Noticias',
+                  route: '/admin/news'),
+              _DrawerItem(
+                  icon: Icons.notifications_active,
+                  label: 'Notificaciones',
+                  route: '/admin/notifications'),
+              _DrawerItem(
+                  icon: Icons.celebration,
+                  label: 'Festividad SJE',
+                  route: '/admin/festividad'),
+              _DrawerItem(
+                  icon: Icons.confirmation_number,
+                  label: 'Lotería Navidad',
+                  route: '/admin/loteria'),
             ],
             const Divider(),
             ListTile(
@@ -162,12 +223,64 @@ class _NavButton extends StatelessWidget {
   }
 }
 
+class _PrivateZoneMenu extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final cofradeId = auth.cofrade?.id;
+    final fs = context.read<FirestoreService>();
+    return StreamBuilder<bool>(
+      stream: cofradeId == null
+          ? Stream.value(false)
+          : fs.hasLoteriaAsignadaForCofrade(cofradeId),
+      builder: (context, snap) {
+        return PopupMenuButton<String>(
+          tooltip: 'Zona privada',
+          icon: const Icon(Icons.account_circle, color: Colors.white),
+          onSelected: (route) => context.go(route),
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: '/profile', child: Text('Mi Perfil')),
+            const PopupMenuItem(value: '/documents', child: Text('Documentos')),
+            const PopupMenuItem(
+                value: '/festividad', child: Text('Festividad SJE')),
+            const PopupMenuItem(
+                value: '/loteria-disponibilidad',
+                child: Text('Lotería Navidad')),
+            if (snap.data == true)
+              const PopupMenuItem(value: '/loteria', child: Text('Mi Lotería')),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MiLoteriaDrawerItem extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final cofradeId = auth.cofrade?.id;
+    final fs = context.read<FirestoreService>();
+    return StreamBuilder<bool>(
+      stream: cofradeId == null
+          ? Stream.value(false)
+          : fs.hasLoteriaAsignadaForCofrade(cofradeId),
+      builder: (context, snap) {
+        if (snap.data != true) return const SizedBox.shrink();
+        return _DrawerItem(
+            icon: Icons.sell, label: 'Mi Lotería', route: '/loteria');
+      },
+    );
+  }
+}
+
 class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final String route;
 
-  const _DrawerItem({required this.icon, required this.label, required this.route});
+  const _DrawerItem(
+      {required this.icon, required this.label, required this.route});
 
   @override
   Widget build(BuildContext context) {
