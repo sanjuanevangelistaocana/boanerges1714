@@ -42,7 +42,7 @@ class ShellScaffold extends StatelessWidget {
     return [
       _NavButton(label: 'Inicio', route: '/'),
       _NavButton(label: 'Historia', route: '/history'),
-      _NavButton(label: 'Eventos', route: '/events'),
+      _NavButton(label: 'Eventos', route: isLoggedIn ? '/eventos' : '/events'),
       _NavButton(label: 'Noticias', route: '/news'),
       _NavButton(label: 'Galería', route: '/gallery'),
       _NavButton(label: 'Contacto', route: '/contact'),
@@ -102,7 +102,10 @@ class ShellScaffold extends StatelessWidget {
           _DrawerItem(icon: Icons.home, label: 'Inicio', route: '/'),
           _DrawerItem(
               icon: Icons.history_edu, label: 'Historia', route: '/history'),
-          _DrawerItem(icon: Icons.event, label: 'Eventos', route: '/events'),
+          _DrawerItem(
+              icon: Icons.event,
+              label: 'Eventos',
+              route: isLoggedIn ? '/eventos' : '/events'),
           _DrawerItem(icon: Icons.newspaper, label: 'Noticias', route: '/news'),
           _DrawerItem(
               icon: Icons.photo_library, label: 'Galería', route: '/gallery'),
@@ -128,6 +131,10 @@ class ShellScaffold extends StatelessWidget {
                 icon: Icons.payment, label: 'Mis Cuotas', route: '/cuotas'),
             _DrawerItem(
                 icon: Icons.folder, label: 'Documentos', route: '/documents'),
+            _DrawerItem(
+                icon: Icons.event_available,
+                label: 'Eventos',
+                route: '/eventos'),
             _DrawerItem(
                 icon: Icons.how_to_vote,
                 label: 'Consultas',
@@ -171,8 +178,8 @@ class ShellScaffold extends StatelessWidget {
                   route: '/admin/cofrades'),
               _DrawerItem(
                   icon: Icons.event_note,
-                  label: 'Gestionar Eventos',
-                  route: '/admin/events'),
+                  label: 'Eventos',
+                  route: '/admin/eventos'),
               _DrawerItem(
                   icon: Icons.article,
                   label: 'Gestionar Noticias',
@@ -184,7 +191,7 @@ class ShellScaffold extends StatelessWidget {
               _DrawerItem(
                   icon: Icons.celebration,
                   label: 'Festividad SJE',
-                  route: '/admin/festividad'),
+                  route: '/admin/eventos'),
               _DrawerItem(
                   icon: Icons.confirmation_number,
                   label: 'Lotería Navidad',
@@ -241,6 +248,7 @@ class _PrivateZoneMenu extends StatelessWidget {
           itemBuilder: (_) => [
             const PopupMenuItem(value: '/profile', child: Text('Mi Perfil')),
             const PopupMenuItem(value: '/documents', child: Text('Documentos')),
+            const PopupMenuItem(value: '/eventos', child: Text('Eventos')),
             const PopupMenuItem(
                 value: '/festividad', child: Text('Festividad SJE')),
             const PopupMenuItem(

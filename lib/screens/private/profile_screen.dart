@@ -6,7 +6,8 @@ import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool startEditing;
+  const ProfileScreen({super.key, this.startEditing = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -27,30 +28,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _emailController;
   late TextEditingController _ibanController;
   late TextEditingController _titularIbanController;
-  bool _isEditing = false;
+  late bool _isEditing;
   bool _isSaving = false;
   late bool _tieneTunicaPropia;
 
   @override
   void initState() {
     super.initState();
+    _isEditing = widget.startEditing;
     final cofrade = context.read<AuthService>().cofrade;
     _tieneTunicaPropia = cofrade?.tieneTunicaPropia ?? false;
-    _telefonoFijoController = TextEditingController(text: cofrade?.telefonoFijo ?? '');
-    _telefonoMovilController = TextEditingController(text: cofrade?.telefonoMovil ?? '');
-    _domicilioController = TextEditingController(text: cofrade?.domicilio ?? '');
-    _localidadController = TextEditingController(text: cofrade?.localidad ?? '');
+    _telefonoFijoController =
+        TextEditingController(text: cofrade?.telefonoFijo ?? '');
+    _telefonoMovilController =
+        TextEditingController(text: cofrade?.telefonoMovil ?? '');
+    _domicilioController =
+        TextEditingController(text: cofrade?.domicilio ?? '');
+    _localidadController =
+        TextEditingController(text: cofrade?.localidad ?? '');
     _codigoPostalController =
         TextEditingController(text: cofrade?.codigoPostal ?? '');
-    _estaturaController = TextEditingController(
-        text: cofrade?.estatura?.toString() ?? '');
+    _estaturaController =
+        TextEditingController(text: cofrade?.estatura?.toString() ?? '');
     _tallaController = TextEditingController(text: cofrade?.talla ?? '');
-    _emailSecundarioController = TextEditingController(text: cofrade?.emailSecundario ?? '');
-    _telefonoSecundarioController = TextEditingController(text: cofrade?.telefonoSecundario ?? '');
+    _emailSecundarioController =
+        TextEditingController(text: cofrade?.emailSecundario ?? '');
+    _telefonoSecundarioController =
+        TextEditingController(text: cofrade?.telefonoSecundario ?? '');
     _dniController = TextEditingController(text: cofrade?.dni ?? '');
     _emailController = TextEditingController(text: cofrade?.email ?? '');
     _ibanController = TextEditingController(text: cofrade?.iban ?? '');
-    _titularIbanController = TextEditingController(text: cofrade?.titularIban ?? '');
+    _titularIbanController =
+        TextEditingController(text: cofrade?.titularIban ?? '');
   }
 
   @override
@@ -110,11 +119,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final incompleteFields = <String>[];
     if (cofrade != null) {
-      if (cofrade.telefonoMovil.isEmpty) incompleteFields.add('Tel\u00e9fono m\u00f3vil');
+      if (cofrade.telefonoMovil.isEmpty) {
+        incompleteFields.add('Tel\u00e9fono m\u00f3vil');
+      }
       if (cofrade.domicilio.isEmpty) incompleteFields.add('Domicilio');
       if (cofrade.localidad.isEmpty) incompleteFields.add('Localidad');
-      if (cofrade.codigoPostal.isEmpty) incompleteFields.add('C\u00f3digo postal');
-      if (cofrade.dni == null || cofrade.dni!.isEmpty) incompleteFields.add('DNI');
+      if (cofrade.codigoPostal.isEmpty) {
+        incompleteFields.add('C\u00f3digo postal');
+      }
+      if (cofrade.dni == null || cofrade.dni!.isEmpty) {
+        incompleteFields.add('DNI');
+      }
     }
 
     return SingleChildScrollView(
@@ -136,7 +151,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.orange.shade700),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -144,12 +160,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               'Perfil incompleto',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange.shade900),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               'Faltan por rellenar: ${incompleteFields.join(", ")}',
-                              style: TextStyle(color: Colors.orange.shade800, fontSize: 13),
+                              style: TextStyle(
+                                  color: Colors.orange.shade800, fontSize: 13),
                             ),
                           ],
                         ),
@@ -207,8 +226,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Card(
                 color: Colors.blue[50],
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
                       const Icon(Icons.swap_horiz, color: Colors.blue),
@@ -268,13 +287,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildField('Email', _emailController,
                           keyboardType: TextInputType.emailAddress,
                           validator: _validateEmail),
-                      _buildField('Email Secundario', _emailSecundarioController,
+                      _buildField(
+                          'Email Secundario', _emailSecundarioController,
                           keyboardType: TextInputType.emailAddress),
                       _buildField('Teléfono Móvil', _telefonoMovilController,
                           keyboardType: TextInputType.phone),
                       _buildField('Teléfono Fijo', _telefonoFijoController,
                           keyboardType: TextInputType.phone),
-                      _buildField('Teléfono Secundario', _telefonoSecundarioController,
+                      _buildField(
+                          'Teléfono Secundario', _telefonoSecundarioController,
                           keyboardType: TextInputType.phone),
                       _buildField('Domicilio', _domicilioController),
                       _buildField('Localidad', _localidadController),
@@ -288,9 +309,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           padding: const EdgeInsets.only(bottom: 16),
                           child: SwitchListTile(
                             title: const Text('Tengo t\u00fanica propia'),
-                            subtitle: const Text('Marca si dispones de t\u00fanica propia'),
+                            subtitle: const Text(
+                                'Marca si dispones de t\u00fanica propia'),
                             value: _tieneTunicaPropia,
-                            onChanged: (v) => setState(() => _tieneTunicaPropia = v),
+                            onChanged: (v) =>
+                                setState(() => _tieneTunicaPropia = v),
                             secondary: const Icon(Icons.checkroom),
                             contentPadding: EdgeInsets.zero,
                           ),
@@ -438,7 +461,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (!_isEditing)
                         Text(
                           'Pulsa "Editar" para modificar tus datos bancarios.',
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                          style: TextStyle(
+                              color: Colors.grey.shade600, fontSize: 13),
                         ),
                       const SizedBox(height: 16),
                       _InfoRow(
@@ -455,7 +479,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     : 'No especificado',
                             icon: Icons.account_balance),
                       ],
-                      if (_isEditing) ...[                        const SizedBox(height: 12),
+                      if (_isEditing) ...[
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _ibanController,
                           decoration: const InputDecoration(
@@ -464,7 +489,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             hintText: 'ES12 3456 7890 1234 5678 9012',
                           ),
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\s]')),
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z0-9\s]')),
                             _UpperCaseTextFormatter(),
                           ],
                           validator: _validateIban,
@@ -478,12 +504,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             hintText: 'Nombre del titular de la cuenta',
                           ),
                         ),
-                      ] else ...[                        if (cofrade.iban != null && cofrade.iban!.isNotEmpty)
+                      ] else ...[
+                        if (cofrade.iban != null && cofrade.iban!.isNotEmpty)
                           _InfoRow(
                               label: 'IBAN',
                               value: cofrade.iban!,
                               icon: Icons.credit_card),
-                        if (cofrade.titularIban != null && cofrade.titularIban!.isNotEmpty)
+                        if (cofrade.titularIban != null &&
+                            cofrade.titularIban!.isNotEmpty)
                           _InfoRow(
                               label: 'Titular IBAN',
                               value: cofrade.titularIban!,
@@ -514,7 +542,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         enabled: _isEditing && enabled,
         decoration: InputDecoration(
           labelText: label,
-          helperText: (_isEditing && !enabled && helperText != null) ? helperText : null,
+          helperText: (_isEditing && !enabled && helperText != null)
+              ? helperText
+              : null,
           helperStyle: TextStyle(color: Colors.orange.shade700, fontSize: 12),
         ),
         keyboardType: keyboardType,
@@ -551,6 +581,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final cofradeId = context.read<AuthService>().cofrade?.id;
       if (cofradeId == null) return;
+      final authService = context.read<AuthService>();
+      final firestoreService = context.read<FirestoreService>();
 
       final data = <String, dynamic>{
         'telefono_fijo': _telefonoFijoController.text,
@@ -570,15 +602,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'email': _emailController.text.trim(),
       };
 
-      final cofrade = context.read<AuthService>().cofrade;
+      final cofrade = authService.cofrade;
       final dniIsLocked = cofrade?.dni != null && cofrade!.dni!.isNotEmpty;
       if (!dniIsLocked && _dniController.text.trim().isNotEmpty) {
         data['dni'] = _dniController.text.trim().toUpperCase();
       }
 
-      await context.read<FirestoreService>().updateCofrade(cofradeId, data);
+      await firestoreService.updateCofrade(cofradeId, data);
 
-      await context.read<AuthService>().refreshCofradeData();
+      await authService.refreshCofradeData();
 
       if (mounted) {
         setState(() => _isEditing = false);

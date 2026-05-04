@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/screens/treasury/treasury_dashboard_screen.dart';
-import 'package:boanerges1714/services/auth_service.dart';
 
 class TreasuryHomeScreen extends StatelessWidget {
   const TreasuryHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
-    final canManage = auth.canManageTreasury;
-
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -104,13 +99,6 @@ class TreasuryHomeScreen extends StatelessWidget {
                         subtitle: 'Documentación, auditoría y notificaciones',
                         route: '/treasury/control',
                       ),
-                      _TreasuryModuleCard(
-                        icon: Icons.settings,
-                        title: 'Configuración',
-                        subtitle: 'Cuotas, campaña y categorías',
-                        route: '/treasury/settings',
-                        enabled: canManage,
-                      ),
                     ],
                   ),
                 ],
@@ -128,14 +116,12 @@ class _TreasuryModuleCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final String route;
-  final bool enabled;
 
   const _TreasuryModuleCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.route,
-    this.enabled = true,
   });
 
   @override
@@ -148,7 +134,7 @@ class _TreasuryModuleCard extends StatelessWidget {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: enabled ? () => context.go(route) : null,
+        onTap: () => context.go(route),
         child: Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
@@ -158,27 +144,22 @@ class _TreasuryModuleCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: enabled
-                      ? AppTheme.primaryColor.withAlpha(15)
-                      : Colors.grey.shade100,
+                  color: AppTheme.primaryColor.withAlpha(15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: enabled ? AppTheme.primaryColor : Colors.grey,
-                ),
+                child: Icon(icon, color: AppTheme.primaryColor),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: enabled ? AppTheme.textPrimary : Colors.grey,
+                        color: AppTheme.textPrimary,
                       )),
                   const SizedBox(height: 4),
                   Text(
-                    enabled ? subtitle : 'Solo tesorería/admin',
+                    subtitle,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,

@@ -135,6 +135,18 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /event_campaigns/{campaignId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /event_registrations/{registrationId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
     // Noticias collection
     match /noticias/{noticiaId} {
       // Published news are readable by anyone; admins see all
@@ -237,8 +249,23 @@ service cloud.firestore {
     }
 
     match /treasury_settings/{settingId} {
-      allow read: if canViewTreasury();
+      allow read: if isAuth();
       allow create, update, delete: if canEditTreasurySettings();
+    }
+
+    match /treasury_fee_drafts/{draftId} {
+      allow read: if canViewTreasury() ||
+        (isAuth() &&
+         resource.data.authUid is string &&
+         resource.data.authUid == request.auth.uid);
+      allow create, delete: if canManageTreasury();
+      allow update: if canManageTreasury() ||
+        (isAuth() &&
+         resource.data.authUid is string &&
+         resource.data.authUid == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['validationStatus', 'status', 'validatedIbanMasked',
+                    'validatedIbanHash', 'updatedAt']));
     }
 
     match /treasury_invoices/{invoiceId} {
@@ -260,14 +287,27 @@ service cloud.firestore {
     match /treasury_bank_validations/{validationId} {
       allow read: if canViewTreasury() ||
         (isAuth() &&
-         resource.data.authUid is string &&
-         resource.data.authUid == request.auth.uid);
-      allow create, update: if canManageTreasury() ||
+         resource.data.cofradeAuthUids is list &&
+         request.auth.uid in resource.data.cofradeAuthUids) ||
         (isAuth() &&
-         resource.data.authUid is string &&
-         resource.data.authUid == request.auth.uid &&
+         resource.data.cofradeId is string &&
+         exists(/databases/$(database)/documents/cofrades/$(resource.data.cofradeId)) &&
+         get(/databases/$(database)/documents/cofrades/$(resource.data.cofradeId)).data.authUid == request.auth.uid);
+      allow create: if canManageTreasury();
+      allow update: if canManageTreasury() ||
+        (isAuth() &&
+         resource.data.cofradeAuthUids is list &&
+         request.auth.uid in resource.data.cofradeAuthUids &&
          request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'newIbanMasked', 'changedAt', 'validatedAt', 'updatedBy']));
+          .hasOnly(['status', 'newIbanMasked', 'newIbanHash', 'changedAt',
+                    'validatedAt', 'updatedAt', 'updatedBy'])) ||
+        (isAuth() &&
+         resource.data.cofradeId is string &&
+         exists(/databases/$(database)/documents/cofrades/$(resource.data.cofradeId)) &&
+         get(/databases/$(database)/documents/cofrades/$(resource.data.cofradeId)).data.authUid == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'newIbanMasked', 'newIbanHash', 'changedAt',
+                    'validatedAt', 'updatedAt', 'updatedBy']));
       allow delete: if canManageTreasury();
     }
 
@@ -309,7 +349,11 @@ service cloud.firestore {
 
     match /treasury_audit_logs/{logId} {
       allow read: if canViewTreasury();
-      allow create: if canManageTreasury();
+      allow create: if canManageTreasury() ||
+        (isAuth() &&
+         request.resource.data.action in ['bank_validation_confirmed',
+                                          'bank_iban_modified'] &&
+         request.resource.data.changedBy == request.auth.uid);
       allow update, delete: if false;
     }
 

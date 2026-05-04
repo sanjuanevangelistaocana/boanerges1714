@@ -10,6 +10,15 @@ class TreasuryInvoiceService {
   Stream<List<TreasuryInvoice>> getInvoicesByYear(int year) =>
       repository.getInvoicesByYear(year);
 
+  Stream<List<TreasuryInvoice>> getInvoicesForCofrade(String cofradeId) =>
+      repository.getInvoicesForCofrade(cofradeId);
+
+  Stream<List<TreasuryInvoice>> getInvoicesForAuthUid(String authUid) =>
+      repository.getInvoicesForAuthUid(authUid);
+
+  Stream<List<TreasuryFeeDraft>> getFeeDraftsByYear(int year) =>
+      repository.getFeeDraftsByYear(year);
+
   Stream<List<TreasuryInvoiceLine>> getInvoiceLinesByYear(int year) =>
       repository.getInvoiceLinesByYear(year);
 
@@ -24,10 +33,68 @@ class TreasuryInvoiceService {
     required String generatedBy,
     bool forceRegenerate = false,
   }) {
-    return repository.generateAnnualFees(
+    return repository.generateFeeDrafts(
       year: year,
       generatedBy: generatedBy,
       forceRegenerate: forceRegenerate,
+    );
+  }
+
+  Future<void> reviewFeeDraft({
+    required String feeDraftId,
+    required String changedBy,
+  }) {
+    return repository.approveFeeDraft(
+      feeDraftId: feeDraftId,
+      changedBy: changedBy,
+    );
+  }
+
+  Future<void> updateFeeDraft({
+    required String feeDraftId,
+    required double amount,
+    required String concept,
+    required String paymentMethod,
+    required String changedBy,
+  }) {
+    return repository.updateFeeDraft(
+      feeDraftId: feeDraftId,
+      amount: amount,
+      concept: concept,
+      paymentMethod: paymentMethod,
+      changedBy: changedBy,
+    );
+  }
+
+  Future<int> reviewAllFeeDrafts({
+    required int year,
+    required String changedBy,
+  }) {
+    return repository.approveAllFeeDrafts(
+      year: year,
+      changedBy: changedBy,
+    );
+  }
+
+  Future<TreasuryFinalInvoiceGenerationResult> generateFinalInvoices({
+    required int year,
+    required String generatedBy,
+  }) {
+    return repository.generateFinalInvoices(
+      year: year,
+      generatedBy: generatedBy,
+    );
+  }
+
+  Future<void> markInvoicePdfGenerated({
+    required String invoiceId,
+    required String pdfUrl,
+    required String generatedBy,
+  }) {
+    return repository.markInvoicePdfGenerated(
+      invoiceId: invoiceId,
+      pdfUrl: pdfUrl,
+      generatedBy: generatedBy,
     );
   }
 

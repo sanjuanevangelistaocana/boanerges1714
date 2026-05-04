@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -89,6 +88,42 @@ class StorageService {
       }
     }
     throw Exception('Error inesperado al subir archivo.');
+  }
+
+  Future<Map<String, String>> uploadBytesAtPath({
+    required String fullPath,
+    required Uint8List bytes,
+    required String contentType,
+    Map<String, String>? customMetadata,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('Debes iniciar sesi\u00f3n para subir archivos.');
+    }
+    if (bytes.isEmpty) {
+      throw Exception('El archivo está vacío o no se pudo generar.');
+    }
+
+    await user.getIdToken(true);
+    final ref = _storage.ref().child(fullPath);
+    await ref.putData(
+      bytes,
+      SettableMetadata(
+        contentType: contentType,
+        customMetadata: {
+          'uploadedBy': user.uid,
+          ...?customMetadata,
+        },
+      ),
+    );
+    final url = await ref.getDownloadURL();
+    return {
+      'storage_path': ref.fullPath,
+      'url': url,
+      'tipo': contentType,
+      'tamano_bytes': bytes.length.toString(),
+      'uploaded_by': user.uid,
+    };
   }
 
   Future<void> deleteFile(String url) async {

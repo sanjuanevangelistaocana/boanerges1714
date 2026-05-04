@@ -50,33 +50,46 @@ class DocumentsScreen extends StatelessWidget {
                     ),
                   );
                 }
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: documentos.length,
-                  itemBuilder: (context, index) {
-                    final doc = documentos[index];
+                final grouped = <String, List<Documento>>{};
+                for (final doc in documentos) {
+                  grouped.putIfAbsent(doc.tipo, () => []).add(doc);
+                }
+                final order = [
+                  'estatutos',
+                  'reglamento_interno',
+                  'actas_junta_general',
+                  ...grouped.keys.where((key) => ![
+                        'estatutos',
+                        'reglamento_interno',
+                        'actas_junta_general'
+                      ].contains(key)),
+                ];
+                return Column(
+                  children: order.where(grouped.containsKey).map((tipo) {
+                    final docs = grouped[tipo]!;
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor,
-                          child: Icon(
-                            _getIconForType(doc.tipo),
-                            color: Colors.white,
-                          ),
-                        ),
-                        title: Text(doc.titulo),
-                        subtitle: Text(
-                          '${doc.tipo.toUpperCase()} · ${doc.fecha.day}/${doc.fecha.month}/${doc.fecha.year}',
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.download),
-                          onPressed: () => _openDocument(doc.archivoUrl),
-                        ),
+                      child: ExpansionTile(
+                        leading: Icon(_getIconForType(tipo),
+                            color: AppTheme.primaryColor),
+                        title: Text(_folderName(tipo)),
+                        subtitle: Text('${docs.length} documento(s)'),
+                        children: docs
+                            .map((doc) => ListTile(
+                                  title: Text(doc.titulo),
+                                  subtitle: Text(
+                                    '${doc.fecha.day}/${doc.fecha.month}/${doc.fecha.year}',
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.download),
+                                    onPressed: () =>
+                                        _openDocument(doc.archivoUrl),
+                                  ),
+                                ))
+                            .toList(),
                       ),
                     );
-                  },
+                  }).toList(),
                 );
               },
             ),
@@ -89,13 +102,32 @@ class DocumentsScreen extends StatelessWidget {
   IconData _getIconForType(String tipo) {
     switch (tipo) {
       case 'acta':
+      case 'actas_junta_general':
         return Icons.description;
       case 'estatuto':
+      case 'estatutos':
         return Icons.gavel;
+      case 'reglamento_interno':
+        return Icons.rule_folder;
       case 'circular':
         return Icons.mail;
       default:
         return Icons.insert_drive_file;
+    }
+  }
+
+  String _folderName(String tipo) {
+    switch (tipo) {
+      case 'estatutos':
+      case 'estatuto':
+        return 'Estatutos';
+      case 'reglamento_interno':
+        return 'Reglamento Interno';
+      case 'actas_junta_general':
+      case 'acta':
+        return 'Actas Junta General';
+      default:
+        return tipo.toUpperCase();
     }
   }
 

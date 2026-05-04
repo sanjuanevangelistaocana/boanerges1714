@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:boanerges1714/screens/public/home_screen.dart';
 import 'package:boanerges1714/screens/public/history_screen.dart';
 import 'package:boanerges1714/screens/public/events_screen.dart';
+import 'package:boanerges1714/screens/events/events_home_screen.dart';
+import 'package:boanerges1714/screens/events/events_admin_screen.dart';
 import 'package:boanerges1714/screens/public/news_screen.dart';
 import 'package:boanerges1714/screens/public/contact_screen.dart';
 import 'package:boanerges1714/screens/public/gallery_screen.dart';
@@ -50,10 +52,11 @@ import 'package:boanerges1714/screens/private/loteria/mi_loteria_screen.dart';
 import 'package:boanerges1714/screens/private/loteria/asignacion_externa_screen.dart';
 import 'package:boanerges1714/screens/private/loteria/disponibilidad_loteria_screen.dart';
 import 'package:boanerges1714/screens/treasury/treasury_home_screen.dart';
+import 'package:boanerges1714/screens/treasury/treasury_bank_validation_screen.dart';
+import 'package:boanerges1714/screens/treasury/my_bank_validation_screen.dart';
 import 'package:boanerges1714/screens/treasury/billing_and_collections_screen.dart';
 import 'package:boanerges1714/screens/treasury/treasury_module_screens.dart';
 import 'package:boanerges1714/screens/treasury/treasury_invoice_detail_screen.dart';
-import 'package:boanerges1714/screens/treasury/treasury_settings_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 
@@ -75,6 +78,7 @@ GoRouter createRouter(AuthService authService) {
         '/profile',
         '/cuotas',
         '/documents',
+        '/eventos',
         '/convocatorias',
         '/sugerencias',
         '/tunicas',
@@ -82,7 +86,8 @@ GoRouter createRouter(AuthService authService) {
         '/banco-tunicas',
         '/festividad',
         '/loteria',
-        '/loteria-disponibilidad'
+        '/loteria-disponibilidad',
+        '/bank-validation',
       ];
       if (privateRoutes.any((r) => path.startsWith(r)) && !isLoggedIn) {
         return '/login';
@@ -115,6 +120,9 @@ GoRouter createRouter(AuthService authService) {
               path: '/events',
               builder: (context, state) => const EventsScreen()),
           GoRoute(
+              path: '/eventos',
+              builder: (context, state) => const EventsHomeScreen()),
+          GoRoute(
               path: '/news', builder: (context, state) => const NewsScreen()),
           GoRoute(
               path: '/gallery',
@@ -127,7 +135,9 @@ GoRouter createRouter(AuthService authService) {
               builder: (context, state) => const DashboardScreen()),
           GoRoute(
               path: '/profile',
-              builder: (context, state) => const ProfileScreen()),
+              builder: (context, state) => ProfileScreen(
+                    startEditing: state.uri.queryParameters['editBank'] == '1',
+                  )),
           GoRoute(
               path: '/cuotas',
               builder: (context, state) => const CuotasScreen()),
@@ -143,6 +153,9 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/admin/events',
               builder: (context, state) => const ManageEventsScreen()),
+          GoRoute(
+              path: '/admin/eventos',
+              builder: (context, state) => const EventsAdminScreen()),
           GoRoute(
               path: '/admin/news',
               builder: (context, state) => const ManageNewsScreen()),
@@ -266,6 +279,9 @@ GoRouter createRouter(AuthService authService) {
               path: '/loteria-disponibilidad',
               builder: (context, state) => const DisponibilidadLoteriaScreen()),
           GoRoute(
+              path: '/bank-validation',
+              builder: (context, state) => const MyBankValidationScreen()),
+          GoRoute(
               path: '/loteria/asignacion/:token',
               builder: (context, state) {
                 final token = state.pathParameters['token'] ?? '';
@@ -277,6 +293,10 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
             path: '/treasury/billing',
             builder: (context, state) => const BillingAndCollectionsScreen(),
+          ),
+          GoRoute(
+            path: '/treasury/bank-validation',
+            builder: (context, state) => const TreasuryBankValidationScreen(),
           ),
           GoRoute(
             path: '/treasury/tracking',
@@ -291,8 +311,9 @@ GoRouter createRouter(AuthService authService) {
             builder: (context, state) => const TreasuryControlScreen(),
           ),
           GoRoute(
-              path: '/treasury/settings',
-              builder: (context, state) => const TreasurySettingsScreen()),
+            path: '/treasury/settings',
+            redirect: (context, state) => '/treasury/billing',
+          ),
           GoRoute(
             path: '/treasury/invoices/:invoiceId',
             builder: (context, state) => TreasuryInvoiceDetailScreen(

@@ -4,17 +4,28 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/treasury.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_invoice_service.dart';
+import 'package:boanerges1714/services/treasury/treasury_pdf_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class TreasuryInvoiceDetailScreen extends StatelessWidget {
+class TreasuryInvoiceDetailScreen extends StatefulWidget {
   final String invoiceId;
   const TreasuryInvoiceDetailScreen({super.key, required this.invoiceId});
+
+  @override
+  State<TreasuryInvoiceDetailScreen> createState() =>
+      _TreasuryInvoiceDetailScreenState();
+}
+
+class _TreasuryInvoiceDetailScreenState
+    extends State<TreasuryInvoiceDetailScreen> {
+  bool _processing = false;
 
   @override
   Widget build(BuildContext context) {
     final service = context.read<TreasuryInvoiceService>();
     final auth = context.watch<AuthService>();
     return FutureBuilder<TreasuryInvoice?>(
-      future: service.getInvoice(invoiceId),
+      future: service.getInvoice(widget.invoiceId),
       builder: (context, snap) {
         final invoice = snap.data;
         if (snap.connectionState == ConnectionState.waiting) {
@@ -54,13 +65,37 @@ class TreasuryInvoiceDetailScreen extends StatelessWidget {
                       ),
                       if (auth.canManageTreasury && invoice.status == 'draft')
                         ElevatedButton.icon(
-                          onPressed: () async {
-                            await service.approveInvoice(
-                                invoice.id, auth.userId ?? 'unknown');
-                            if (context.mounted) Navigator.pop(context);
-                          },
+                          onPressed: _processing
+                              ? null
+                              : () => _confirmApprove(invoice),
                           icon: const Icon(Icons.verified),
-                          label: const Text('Aprobar'),
+                          label: const Text('Aprobar factura'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppTheme.primaryColor,
+                          ),
+                        ),
+                      if (invoice.pdfUrl.isNotEmpty)
+                        ElevatedButton.icon(
+                          onPressed: () => launchUrl(
+                            Uri.parse(invoice.pdfUrl),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                          icon: const Icon(Icons.picture_as_pdf),
+                          label: const Text('Ver PDF'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppTheme.primaryColor,
+                          ),
+                        ),
+                      if (auth.canManageTreasury &&
+                          invoice.status == 'approved' &&
+                          invoice.pdfUrl.isEmpty)
+                        ElevatedButton.icon(
+                          onPressed:
+                              _processing ? null : () => _generatePdf(invoice),
+                          icon: const Icon(Icons.picture_as_pdf),
+                          label: const Text('Generar PDF'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: AppTheme.primaryColor,
@@ -70,11 +105,9 @@ class TreasuryInvoiceDetailScreen extends StatelessWidget {
                       if (auth.canManageTreasury &&
                           invoice.status != 'cancelled')
                         OutlinedButton.icon(
-                          onPressed: () async {
-                            await service.cancelInvoice(
-                                invoice.id, auth.userId ?? 'unknown');
-                            if (context.mounted) Navigator.pop(context);
-                          },
+                          onPressed: _processing
+                              ? null
+                              : () => _confirmCancel(invoice),
                           icon: const Icon(Icons.cancel),
                           label: const Text('Cancelar'),
                           style: OutlinedButton.styleFrom(
@@ -185,6 +218,116 @@ class TreasuryInvoiceDetailScreen extends StatelessWidget {
         return 'Cancelada';
       default:
         return 'Borrador';
+    }
+  }
+
+  Future<void> _confirmApprove(TreasuryInvoice invoice) async {
+    final service = context.read<TreasuryInvoiceService>();
+    final auth = context.read<AuthService>();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Aprobar factura'),
+        content: Text(
+          'Se aprobará la factura ${invoice.invoiceNumber}. A partir de ese momento podrá entrar en validación bancaria.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Aprobar factura'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _processing = true);
+    try {
+      await service.approveInvoice(
+        invoice.id,
+        auth.userId ?? auth.cofrade?.id ?? 'unknown',
+      );
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Factura aprobada correctamente.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  Future<void> _confirmCancel(TreasuryInvoice invoice) async {
+    final service = context.read<TreasuryInvoiceService>();
+    final auth = context.read<AuthService>();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar factura'),
+        content: Text('Se cancelará la factura ${invoice.invoiceNumber}.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Volver'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancelar factura'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _processing = true);
+    try {
+      await service.cancelInvoice(
+        invoice.id,
+        auth.userId ?? auth.cofrade?.id ?? 'unknown',
+      );
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Factura cancelada.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
+    }
+  }
+
+  Future<void> _generatePdf(TreasuryInvoice invoice) async {
+    setState(() => _processing = true);
+    final pdfService = context.read<TreasuryPdfService>();
+    final auth = context.read<AuthService>();
+    try {
+      await pdfService.generateAndUploadInvoicePdf(
+        invoiceId: invoice.id,
+        generatedBy: auth.userId ?? auth.cofrade?.id ?? 'unknown',
+      );
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF generado correctamente.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _processing = false);
     }
   }
 }

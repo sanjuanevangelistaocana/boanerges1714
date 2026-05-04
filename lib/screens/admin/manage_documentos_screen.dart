@@ -314,6 +314,14 @@ void _showDocDialog(BuildContext context, FirestoreService fs,
                 items: const [
                   DropdownMenuItem(value: 'general', child: Text('General')),
                   DropdownMenuItem(
+                      value: 'estatutos', child: Text('Estatutos')),
+                  DropdownMenuItem(
+                      value: 'reglamento_interno',
+                      child: Text('Reglamento Interno')),
+                  DropdownMenuItem(
+                      value: 'actas_junta_general',
+                      child: Text('Actas Junta General')),
+                  DropdownMenuItem(
                       value: 'normativa', child: Text('Normativa')),
                   DropdownMenuItem(value: 'acta', child: Text('Acta')),
                   DropdownMenuItem(

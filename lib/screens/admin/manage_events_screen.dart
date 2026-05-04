@@ -80,8 +80,7 @@ class ManageEventsScreen extends StatelessWidget {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () =>
-                                  _confirmDelete(context, evento),
+                              onPressed: () => _confirmDelete(context, evento),
                             ),
                           ],
                         ),
@@ -98,17 +97,19 @@ class ManageEventsScreen extends StatelessWidget {
   }
 
   void _showEventDialog(BuildContext context, {Evento? evento}) {
-    final tituloController =
-        TextEditingController(text: evento?.titulo ?? '');
+    final tituloController = TextEditingController(text: evento?.titulo ?? '');
     final descripcionController =
         TextEditingController(text: evento?.descripcion ?? '');
-    final horaController =
-        TextEditingController(text: evento?.hora ?? '');
-    final lugarController =
-        TextEditingController(text: evento?.lugar ?? '');
+    final horaController = TextEditingController(text: evento?.hora ?? '');
+    final lugarController = TextEditingController(text: evento?.lugar ?? '');
+    final imagenController =
+        TextEditingController(text: evento?.imagenUrl ?? '');
     DateTime selectedDate = evento?.fecha ?? DateTime.now();
+    DateTime selectedEndDate = evento?.fechaFin ?? selectedDate;
     bool publicado = evento?.publicado ?? true;
     bool soloCofrades = evento?.soloCofrades ?? false;
+    bool inscripcionActiva = evento?.inscripcionActiva ?? false;
+    bool esPublico = evento?.esPublico ?? !soloCofrades;
     List<Map<String, String>> adjuntos = List.from(evento?.adjuntos ?? []);
     bool uploading = false;
 
@@ -149,6 +150,23 @@ class ManageEventsScreen extends StatelessWidget {
                     }
                   },
                 ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                      'Fecha fin: ${selectedEndDate.day}/${selectedEndDate.month}/${selectedEndDate.year}'),
+                  trailing: const Icon(Icons.event_available),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedEndDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2030),
+                    );
+                    if (date != null) {
+                      setDialogState(() => selectedEndDate = date);
+                    }
+                  },
+                ),
                 TextField(
                   controller: horaController,
                   decoration:
@@ -160,6 +178,11 @@ class ManageEventsScreen extends StatelessWidget {
                   decoration: const InputDecoration(labelText: 'Lugar'),
                 ),
                 const SizedBox(height: 12),
+                TextField(
+                  controller: imagenController,
+                  decoration: const InputDecoration(labelText: 'URL de imagen'),
+                ),
+                const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Publicado'),
@@ -168,8 +191,25 @@ class ManageEventsScreen extends StatelessWidget {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
+                  title: const Text('Inscripción activa'),
+                  value: inscripcionActiva,
+                  onChanged: (v) => setDialogState(() => inscripcionActiva = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Evento público'),
+                  subtitle: const Text('Si se desactiva, será privado/cofrade'),
+                  value: esPublico,
+                  onChanged: (v) => setDialogState(() {
+                    esPublico = v;
+                    soloCofrades = !v;
+                  }),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
                   title: const Text('Solo cofrades'),
-                  subtitle: const Text('Visible solo para cofrades registrados'),
+                  subtitle:
+                      const Text('Visible solo para cofrades registrados'),
                   value: soloCofrades,
                   onChanged: (v) => setDialogState(() => soloCofrades = v),
                 ),
@@ -188,39 +228,50 @@ class ManageEventsScreen extends StatelessWidget {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                             textStyle: const TextStyle(fontSize: 13),
                           ),
-                          onPressed: uploading ? null : () async {
-                            setDialogState(() => uploading = true);
-                            try {
-                              final result = await FilePicker.platform.pickFiles(
-                                type: FileType.any,
-                                withData: true,
-                                allowMultiple: false,
-                              );
-                              if (result != null && result.files.isNotEmpty) {
-                                final file = result.files.first;
-                                if (file.bytes != null) {
-                                  final storage = dialogContext.read<StorageService>();
-                                  final adj = await storage.uploadFile(
-                                    path: 'eventos/${evento?.id ?? 'new'}/adjuntos',
-                                    bytes: file.bytes!,
-                                    fileName: file.name,
-                                  );
-                                  setDialogState(() => adjuntos.add(adj));
-                                }
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error al adjuntar: $e'), backgroundColor: Colors.red),
-                                );
-                              }
-                            } finally {
-                              setDialogState(() => uploading = false);
-                            }
-                          },
+                          onPressed: uploading
+                              ? null
+                              : () async {
+                                  setDialogState(() => uploading = true);
+                                  try {
+                                    final result =
+                                        await FilePicker.platform.pickFiles(
+                                      type: FileType.any,
+                                      withData: true,
+                                      allowMultiple: false,
+                                    );
+                                    if (result != null &&
+                                        result.files.isNotEmpty) {
+                                      final file = result.files.first;
+                                      if (file.bytes != null) {
+                                        final storage = dialogContext
+                                            .read<StorageService>();
+                                        final adj = await storage.uploadFile(
+                                          path:
+                                              'eventos/${evento?.id ?? 'new'}/adjuntos',
+                                          bytes: file.bytes!,
+                                          fileName: file.name,
+                                        );
+                                        setDialogState(() => adjuntos.add(adj));
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content:
+                                                Text('Error al adjuntar: $e'),
+                                            backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  } finally {
+                                    setDialogState(() => uploading = false);
+                                  }
+                                },
                         ),
                       ],
                     ),
@@ -247,7 +298,8 @@ class ManageEventsScreen extends StatelessWidget {
                     subtitle: Text(adj['tipo'] ?? '',
                         style: const TextStyle(fontSize: 11)),
                     trailing: IconButton(
-                      icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                      icon:
+                          const Icon(Icons.close, size: 18, color: Colors.red),
                       onPressed: () {
                         setDialogState(() => adjuntos.removeAt(i));
                       },
@@ -263,32 +315,42 @@ class ManageEventsScreen extends StatelessWidget {
               child: const Text('Cancelar'),
             ),
             ElevatedButton(
-              onPressed: uploading ? null : () async {
-                if (tituloController.text.isEmpty) return;
-                final firestoreService = dialogContext.read<FirestoreService>();
-                final newEvento = Evento(
-                  id: evento?.id ?? '',
-                  titulo: tituloController.text,
-                  descripcion: descripcionController.text,
-                  fecha: selectedDate,
-                  hora: horaController.text.isNotEmpty
-                      ? horaController.text
-                      : null,
-                  lugar: lugarController.text.isNotEmpty
-                      ? lugarController.text
-                      : null,
-                  publicado: publicado,
-                  soloCofrades: soloCofrades,
-                  adjuntos: adjuntos,
-                );
-                if (evento == null) {
-                  await firestoreService.createEvento(newEvento);
-                } else {
-                  await firestoreService.updateEvento(
-                      evento.id, newEvento.toFirestore());
-                }
-                if (context.mounted) Navigator.pop(context);
-              },
+              onPressed: uploading
+                  ? null
+                  : () async {
+                      if (tituloController.text.isEmpty) return;
+                      final firestoreService =
+                          dialogContext.read<FirestoreService>();
+                      final newEvento = Evento(
+                        id: evento?.id ?? '',
+                        titulo: tituloController.text,
+                        descripcion: descripcionController.text,
+                        fecha: selectedDate,
+                        hora: horaController.text.isNotEmpty
+                            ? horaController.text
+                            : null,
+                        lugar: lugarController.text.isNotEmpty
+                            ? lugarController.text
+                            : null,
+                        publicado: publicado,
+                        soloCofrades: soloCofrades,
+                        fechaFin: selectedEndDate,
+                        imagenUrl: imagenController.text.trim().isNotEmpty
+                            ? imagenController.text.trim()
+                            : null,
+                        inscripcionActiva: inscripcionActiva,
+                        esPublico: esPublico,
+                        tipo: 'general',
+                        adjuntos: adjuntos,
+                      );
+                      if (evento == null) {
+                        await firestoreService.createEvento(newEvento);
+                      } else {
+                        await firestoreService.updateEvento(
+                            evento.id, newEvento.toFirestore());
+                      }
+                      if (context.mounted) Navigator.pop(context);
+                    },
               child: Text(evento == null ? 'Crear' : 'Guardar'),
             ),
           ],

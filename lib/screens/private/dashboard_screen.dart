@@ -14,6 +14,10 @@ import 'package:boanerges1714/models/evento.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/models/sugerencia.dart';
 import 'package:boanerges1714/models/loteria.dart';
+import 'package:boanerges1714/models/treasury.dart';
+import 'package:boanerges1714/services/treasury/treasury_bank_validation_service.dart';
+import 'package:boanerges1714/services/treasury/treasury_invoice_service.dart';
+import 'package:boanerges1714/services/treasury/treasury_repository.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,6 +28,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _popupShown = false;
+  bool _treasuryPopupShown = false;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +40,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _popupShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkUnansweredConvocatorias(context, firestoreService, cofrade.id);
+      });
+    }
+    if (!_treasuryPopupShown && authService.userId != null) {
+      _treasuryPopupShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkPendingBankValidation(authService.userId!);
       });
     }
 
@@ -62,6 +73,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _PendingBanner(),
                   _FestividadBanner(firestoreService: firestoreService),
                   _LoteriaBanner(firestoreService: firestoreService),
+                  if (authService.userId != null)
+                    _TreasuryValidationBanner(
+                      authUid: authService.userId!,
+                      cofradeId: cofrade?.id,
+                    ),
                   _NovedadesSection(
                       firestoreService: firestoreService,
                       cofradeId: cofrade?.id),
@@ -105,7 +121,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final resp = await firestoreService.getMiRespuesta(c.id, cofradeId);
         if (resp == null) unanswered.add(c);
       }
-      if (unanswered.isNotEmpty && mounted) {
+      if (!context.mounted) return;
+      if (unanswered.isNotEmpty) {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -189,6 +206,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       }
     } catch (_) {}
+  }
+
+  Future<void> _checkPendingBankValidation(String authUid) async {
+    try {
+      final validationService = context.read<TreasuryBankValidationService>();
+      final repository = context.read<TreasuryRepository>();
+      final cofradeId = context.read<AuthService>().cofrade?.id;
+      final validations = await validationService
+          .watchMyBankValidations(authUid, cofradeId: cofradeId)
+          .first;
+      final pending = validations
+          .where((v) =>
+              v.status == 'pending' ||
+              (v.status == 'modified' && v.validatedAt == null))
+          .cast<TreasuryBankValidation?>()
+          .firstWhere((v) => v != null, orElse: () => null);
+      if (pending == null) return;
+      final settings = await repository.getSettingsByYear(pending.year);
+      if (!repository.isValidationCampaignOpen(settings) || !mounted) return;
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.account_balance, color: AppTheme.primaryColor),
+              SizedBox(width: 8),
+              Expanded(child: Text('Validación bancaria pendiente')),
+            ],
+          ),
+          content: Text(settings?.validationMessage.trim().isNotEmpty == true
+              ? settings!.validationMessage.trim()
+              : 'Tienes pendiente la validación de tus datos de cobro para la cuota anual.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Más tarde'),
+            ),
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.go('/profile?editBank=1');
+              },
+              child: const Text('Modificar datos'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.go('/bank-validation');
+              },
+              child: const Text('Validar ahora'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error checking treasury validation popup: $e');
+    }
   }
 }
 
@@ -319,13 +394,12 @@ class _FestividadBanner extends StatelessWidget {
         final estado = edicion['estado'] ?? 'borrador';
         if (estado != 'abierto') return const SizedBox.shrink();
         final fechaLimite = (edicion['fecha_limite'] as Timestamp?)?.toDate();
-        if (fechaLimite != null && fechaLimite.isBefore(DateTime.now()))
+        if (fechaLimite != null && fechaLimite.isBefore(DateTime.now())) {
           return const SizedBox.shrink();
+        }
 
         final fmt = DateFormat('dd/MM/yyyy');
-        final diasRestantes = fechaLimite != null
-            ? fechaLimite.difference(DateTime.now()).inDays
-            : null;
+        final diasRestantes = fechaLimite?.difference(DateTime.now()).inDays;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 20),
@@ -404,16 +478,16 @@ class _LoteriaBanner extends StatelessWidget {
       stream: firestoreService.getCampanaActiva(),
       builder: (context, snap) {
         final campana = snap.data;
-        if (campana == null || !campana.isActiva)
+        if (campana == null || !campana.isActiva) {
           return const SizedBox.shrink();
+        }
         return StreamBuilder<Map<String, dynamic>>(
           stream: firestoreService.getLoteriaCampanaStats(campana.id),
           builder: (context, statsSnap) {
             final stats = statsSnap.data ?? const {};
             final fechaFin = campana.fechaFin;
-            final dias = fechaFin == null
-                ? null
-                : fechaFin.difference(DateTime.now()).inDays.clamp(0, 999);
+            final dias =
+                fechaFin?.difference(DateTime.now()).inDays.clamp(0, 999);
             final cofradeId = context.watch<AuthService>().cofrade?.id;
             return StreamBuilder<bool>(
               stream: cofradeId == null
@@ -517,6 +591,97 @@ class _BannerMetric extends StatelessWidget {
   }
 }
 
+class _TreasuryValidationBanner extends StatelessWidget {
+  final String authUid;
+  final String? cofradeId;
+
+  const _TreasuryValidationBanner({required this.authUid, this.cofradeId});
+
+  @override
+  Widget build(BuildContext context) {
+    final validationService = context.read<TreasuryBankValidationService>();
+    final repository = context.read<TreasuryRepository>();
+    return StreamBuilder<List<TreasuryBankValidation>>(
+      stream: validationService.watchMyBankValidations(authUid,
+          cofradeId: cofradeId),
+      builder: (context, validationSnap) {
+        final pending = (validationSnap.data ?? const [])
+            .where((validation) =>
+                validation.status == 'pending' ||
+                (validation.status == 'modified' &&
+                    validation.validatedAt == null))
+            .toList();
+        if (pending.isEmpty) return const SizedBox.shrink();
+        final validation = pending.first;
+        return StreamBuilder<TreasurySettings?>(
+          stream: repository.watchSettingsByYear(validation.year),
+          builder: (context, settingsSnap) {
+            final settings = settingsSnap.data;
+            if (!repository.isValidationCampaignOpen(settings)) {
+              return const SizedBox.shrink();
+            }
+            final message = settings?.validationMessage.trim().isNotEmpty ==
+                    true
+                ? settings!.validationMessage.trim()
+                : 'Tienes pendiente la validación de tus datos de cobro para la cuota anual.';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF5F1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFB7D0C4)),
+              ),
+              child: InkWell(
+                onTap: () => context.go('/bank-validation'),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F3D2E).withAlpha(22),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.account_balance,
+                          color: Color(0xFF0F3D2E)),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Validación bancaria obligatoria',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF0F3D2E),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            message,
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios,
+                        size: 16, color: AppTheme.textSecondary),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _NovedadesSection extends StatefulWidget {
   final FirestoreService firestoreService;
   final String? cofradeId;
@@ -554,11 +719,12 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
     try {
       final leidas =
           await widget.firestoreService.getNovedadesLeidas(widget.cofradeId!);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _leidas = leidas;
           _leidasLoaded = true;
         });
+      }
     } catch (e) {
       debugPrint('Error loading novedades leidas: $e');
       if (mounted) setState(() => _leidasLoaded = true);
@@ -604,6 +770,8 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
         return Icons.celebration;
       case 'loteria':
         return Icons.confirmation_number;
+      case 'tesoreria':
+        return Icons.account_balance;
       default:
         return Icons.notifications;
     }
@@ -627,6 +795,8 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
         return AppTheme.primaryColor;
       case 'loteria':
         return Colors.amber.shade800;
+      case 'tesoreria':
+        return AppTheme.primaryColor;
       default:
         return AppTheme.primaryColor;
     }
@@ -989,8 +1159,9 @@ class _BirthdaySection extends StatelessWidget {
     return StreamBuilder<List<Cofrade>>(
       stream: firestoreService.getAllCofradesStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting)
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
+        }
         final allCofrades = snapshot.data ?? [];
         if (allCofrades.isEmpty) return const SizedBox.shrink();
 
@@ -1012,8 +1183,9 @@ class _BirthdaySection extends StatelessWidget {
           }
         }
 
-        if (birthdayToday.isEmpty && birthdayThisWeek.isEmpty)
+        if (birthdayToday.isEmpty && birthdayThisWeek.isEmpty) {
           return const SizedBox.shrink();
+        }
 
         final isMine = birthdayToday.any((c) => c.id == currentCofrade?.id);
 
@@ -1178,78 +1350,114 @@ class _QuickActions extends StatelessWidget {
               .hasLoteriaAsignadaForCofrade(authService.cofrade!.id),
       builder: (context, lotterySnap) {
         final showMiLoteria = lotterySnap.data == true;
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: isWide ? 4 : 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: isWide ? 1.6 : 1.4,
-          children: [
-            _ActionCard(
-                icon: Icons.person,
-                label: 'Mi Perfil',
-                subtitle: 'Datos personales',
-                onTap: () => context.go('/profile')),
-            _ActionCard(
-                icon: Icons.payment,
-                label: 'Mis Cuotas',
-                subtitle: 'Estado de pagos',
-                onTap: () => context.go('/cuotas')),
-            _ActionCard(
-                icon: Icons.event,
-                label: 'Eventos',
-                subtitle: 'Actividades',
-                onTap: () => context.go('/events')),
-            _ActionCard(
-                icon: Icons.how_to_vote,
-                label: 'Convocatorias',
-                subtitle: 'Consultas',
-                onTap: () => context.go('/convocatorias')),
-            _ActionCard(
-                icon: Icons.folder,
-                label: 'Documentos',
-                subtitle: 'Actas y estatutos',
-                onTap: () => context.go('/documents')),
-            _ActionCard(
-                icon: Icons.checkroom,
-                label: 'T\u00fanicas',
-                subtitle: 'Proveedores',
-                onTap: () => context.go('/tunicas')),
-            _ActionCard(
-                icon: Icons.lightbulb_outline,
-                label: 'Sugerencias',
-                subtitle: 'Env\u00eda tu opini\u00f3n',
-                onTap: () => context.go('/sugerencias')),
-            _ActionCard(
-                icon: Icons.campaign,
-                label: 'Tabl\u00f3n',
-                subtitle: 'Anuncios cofrades',
-                onTap: () => context.go('/tablon')),
-            _ActionCard(
-                icon: Icons.celebration,
-                label: 'Festividad',
-                subtitle: '27 de diciembre',
-                onTap: () => context.go('/festividad')),
-            _ActionCard(
-                icon: Icons.confirmation_number,
-                label: 'Lotería Navidad',
-                subtitle: 'Campaña activa',
-                onTap: () => context.go('/loteria-disponibilidad')),
-            if (showMiLoteria)
-              _ActionCard(
-                  icon: Icons.sell,
-                  label: 'Mi Lotería',
-                  subtitle: 'Ventas asignadas',
-                  onTap: () => context.go('/loteria')),
-            if (authService.isAdmin)
-              _ActionCard(
-                  icon: Icons.admin_panel_settings,
-                  label: 'Admin',
-                  subtitle: 'Panel de gesti\u00f3n',
-                  onTap: () => context.go('/admin'),
-                  isAdmin: true),
-          ],
+        final userId = authService.userId;
+        final validationService = context.read<TreasuryBankValidationService>();
+        final repository = context.read<TreasuryRepository>();
+        return StreamBuilder<List<TreasuryBankValidation>>(
+          stream: userId == null
+              ? Stream.value(const [])
+              : validationService.watchMyBankValidations(
+                  userId,
+                  cofradeId: authService.cofrade?.id,
+                ),
+          builder: (context, validationSnap) {
+            final validations = validationSnap.data ?? const [];
+            final openValidation = validations
+                .where((v) =>
+                    v.status == 'pending' ||
+                    (v.status == 'modified' && v.validatedAt == null))
+                .toList();
+            final firstValidation =
+                openValidation.isEmpty ? null : openValidation.first;
+            return StreamBuilder<TreasurySettings?>(
+              stream: firstValidation == null
+                  ? Stream<TreasurySettings?>.value(null)
+                  : repository.watchSettingsByYear(firstValidation.year),
+              builder: (context, settingsSnap) {
+                final showBankValidation = firstValidation != null &&
+                    repository.isValidationCampaignOpen(settingsSnap.data);
+                return GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: isWide ? 4 : 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: isWide ? 1.6 : 1.4,
+                  children: [
+                    _ActionCard(
+                        icon: Icons.person,
+                        label: 'Mi Perfil',
+                        subtitle: 'Datos personales',
+                        onTap: () => context.go('/profile')),
+                    _ActionCard(
+                        icon: Icons.payment,
+                        label: 'Mis Cuotas',
+                        subtitle: 'Estado de pagos',
+                        onTap: () => context.go('/cuotas')),
+                    if (showBankValidation)
+                      _ActionCard(
+                          icon: Icons.account_balance,
+                          label: 'Validación bancaria',
+                          subtitle: 'Confirma tus datos',
+                          onTap: () => context.go('/bank-validation')),
+                    _ActionCard(
+                        icon: Icons.event,
+                        label: 'Eventos',
+                        subtitle: 'Actividades',
+                        onTap: () => context.go('/events')),
+                    _ActionCard(
+                        icon: Icons.how_to_vote,
+                        label: 'Convocatorias',
+                        subtitle: 'Consultas',
+                        onTap: () => context.go('/convocatorias')),
+                    _ActionCard(
+                        icon: Icons.folder,
+                        label: 'Documentos',
+                        subtitle: 'Actas y estatutos',
+                        onTap: () => context.go('/documents')),
+                    _ActionCard(
+                        icon: Icons.checkroom,
+                        label: 'T\u00fanicas',
+                        subtitle: 'Proveedores',
+                        onTap: () => context.go('/tunicas')),
+                    _ActionCard(
+                        icon: Icons.lightbulb_outline,
+                        label: 'Sugerencias',
+                        subtitle: 'Env\u00eda tu opini\u00f3n',
+                        onTap: () => context.go('/sugerencias')),
+                    _ActionCard(
+                        icon: Icons.campaign,
+                        label: 'Tabl\u00f3n',
+                        subtitle: 'Anuncios cofrades',
+                        onTap: () => context.go('/tablon')),
+                    _ActionCard(
+                        icon: Icons.celebration,
+                        label: 'Festividad',
+                        subtitle: '27 de diciembre',
+                        onTap: () => context.go('/festividad')),
+                    _ActionCard(
+                        icon: Icons.confirmation_number,
+                        label: 'Lotería Navidad',
+                        subtitle: 'Campaña activa',
+                        onTap: () => context.go('/loteria-disponibilidad')),
+                    if (showMiLoteria)
+                      _ActionCard(
+                          icon: Icons.sell,
+                          label: 'Mi Lotería',
+                          subtitle: 'Ventas asignadas',
+                          onTap: () => context.go('/loteria')),
+                    if (authService.isAdmin)
+                      _ActionCard(
+                          icon: Icons.admin_panel_settings,
+                          label: 'Admin',
+                          subtitle: 'Panel de gesti\u00f3n',
+                          onTap: () => context.go('/admin'),
+                          isAdmin: true),
+                  ],
+                );
+              },
+            );
+          },
         );
       },
     );
@@ -2054,8 +2262,9 @@ class _ActiveConvocatoriasSection extends StatelessWidget {
         StreamBuilder<List<Convocatoria>>(
           stream: firestoreService.getConvocatoriasActivas(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
+            }
             final convocatorias = snapshot.data ?? [];
             if (convocatorias.isEmpty) {
               return Card(
@@ -2142,8 +2351,9 @@ class _PrivateNewsSection extends StatelessWidget {
         StreamBuilder<List<Noticia>>(
           stream: firestoreService.getNoticiasCofrades(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
+            }
             final noticias = snapshot.data ?? [];
             if (noticias.isEmpty) {
               return Card(
@@ -2217,57 +2427,72 @@ class _CuotasResumenSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        StreamBuilder<List<Cuota>>(
-          stream: firestoreService.getCuotasCofrade(cofrade.id),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting)
-              return const Center(child: CircularProgressIndicator());
-            final cuotas = snapshot.data ?? [];
-            if (cuotas.isEmpty) {
-              return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade200)),
-                child: const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('No hay cuotas registradas.')),
-              );
-            }
-            final pendientes = cuotas.where((c) => c.isPendiente).length;
-            final pagadas = cuotas.where((c) => c.isPagada).length;
-            return Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade200)),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _CuotaStat(
-                        label: 'Pagadas',
-                        count: pagadas,
-                        icon: Icons.check_circle,
-                        color: AppTheme.accentColor),
-                    Container(
-                        width: 1, height: 50, color: Colors.grey.shade200),
-                    _CuotaStat(
-                        label: 'Pendientes',
-                        count: pendientes,
-                        icon: Icons.pending,
-                        color: Colors.orange.shade700),
-                    Container(
-                        width: 1, height: 50, color: Colors.grey.shade200),
-                    _CuotaStat(
-                        label: 'Total',
-                        count: cuotas.length,
-                        icon: Icons.receipt_long,
-                        color: AppTheme.primaryColor),
-                  ],
-                ),
-              ),
+        StreamBuilder<List<TreasuryInvoice>>(
+          stream: context
+              .read<TreasuryInvoiceService>()
+              .getInvoicesForCofrade(cofrade.id),
+          builder: (context, invoiceSnapshot) {
+            final invoices = invoiceSnapshot.data ?? const [];
+            return StreamBuilder<List<Cuota>>(
+              stream: firestoreService.getCuotasCofrade(cofrade.id),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    invoiceSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final cuotas = snapshot.data ?? [];
+                if (cuotas.isEmpty && invoices.isEmpty) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200)),
+                    child: const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('No hay cuotas registradas.')),
+                  );
+                }
+                final pendientes = cuotas.where((c) => c.isPendiente).length;
+                final pagadas = cuotas.where((c) => c.isPagada).length;
+                final paidInvoices =
+                    invoices.where((i) => i.status == 'paid').length;
+                final pendingInvoices =
+                    invoices.where((i) => i.status != 'paid').length;
+                return Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.shade200)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _CuotaStat(
+                            label: 'Pagadas',
+                            count: pagadas + paidInvoices,
+                            icon: Icons.check_circle,
+                            color: AppTheme.accentColor),
+                        Container(
+                            width: 1, height: 50, color: Colors.grey.shade200),
+                        _CuotaStat(
+                            label: 'Pendientes',
+                            count: pendientes + pendingInvoices,
+                            icon: Icons.pending,
+                            color: Colors.orange.shade700),
+                        Container(
+                            width: 1, height: 50, color: Colors.grey.shade200),
+                        _CuotaStat(
+                            label: 'Total',
+                            count: cuotas.length + invoices.length,
+                            icon: Icons.receipt_long,
+                            color: AppTheme.primaryColor),
+                      ],
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),
