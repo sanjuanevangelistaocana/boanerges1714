@@ -1,6 +1,35 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuth() &&
+        (request.auth.token.admin == true ||
+         request.auth.token.superadmin == true ||
+         firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isCofradeOwner(cofradeId) {
+      return isAuth() &&
+        (firestore.get(/databases/(default)/documents/cofrades/$(cofradeId)).data.auth_uid == request.auth.uid ||
+         firestore.get(/databases/(default)/documents/cofrades/$(cofradeId)).data.email == request.auth.token.email ||
+         firestore.get(/databases/(default)/documents/cofrades/$(cofradeId)).data.digitalTutorEmail == request.auth.token.email ||
+         firestore.get(/databases/(default)/documents/cofrades/$(cofradeId)).data.tutelado_digital == request.auth.token.email);
+    }
+
+    function isAllowedGdprFile() {
+      return request.resource != null &&
+        request.resource.size < 10 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'application/pdf',
+          'image/jpeg',
+          'image/png'
+        ];
+    }
+
     match /noticias/{noticiaId}/adjuntos/{fileName} {
       allow read: if true;
       allow write: if request.auth != null;
@@ -9,9 +38,34 @@ service firebase.storage {
       allow read: if true;
       allow write: if request.auth != null;
     }
+    match /documentos/{fileName} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+    match /cofrades/{cofradeId}/documents/gdpr/{fileName} {
+      allow read: if isAdmin() || isCofradeOwner(cofradeId);
+      allow create, update: if isAllowedGdprFile() &&
+        (isAdmin() ||
+         (isCofradeOwner(cofradeId) &&
+          fileName.matches('gdpr_digital_.*\\.pdf') &&
+          request.resource.contentType == 'application/pdf'));
+      allow delete: if isAdmin();
+    }
+    match /cofrades/{cofradeId}/documents/private/{fileName} {
+      allow read: if isAdmin() || isCofradeOwner(cofradeId);
+      allow create, update: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size < 15 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ];
+      allow delete: if isAdmin();
+    }
     match /{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

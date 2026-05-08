@@ -7,11 +7,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper: check if user is admin via admins collection
-    // (Cloud Function syncAdminRole maintains admins/{auth_uid} docs)
+    // Helper: check if user is admin via custom claims or admins collection.
+    // The admins/{auth_uid} docs are maintained by Cloud Functions because
+    // cofrade document IDs are internal COF-000xxx IDs, not Firebase Auth UIDs.
     function isAdmin() {
       return isAuth() &&
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+        (request.auth.token.admin == true ||
+         request.auth.token.superadmin == true ||
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
     }
 
     // Treasury role documents are intentionally separated from cofrade records
@@ -56,6 +59,57 @@ service cloud.firestore {
         resource.data.tutelado_digital == request.auth.token.email;
     }
 
+    function isLinkedCofrade(cofradeId) {
+      return isAuth() &&
+        (cofradeId == request.auth.uid ||
+         get(/databases/$(database)/documents/cofrades/$(cofradeId)).data.auth_uid == request.auth.uid ||
+         get(/databases/$(database)/documents/cofrades/$(cofradeId)).data.email == request.auth.token.email ||
+         get(/databases/$(database)/documents/cofrades/$(cofradeId)).data.digitalTutorEmail == request.auth.token.email ||
+         get(/databases/$(database)/documents/cofrades/$(cofradeId)).data.tutelado_digital == request.auth.token.email);
+    }
+
+    function adminPermissionsConsistent() {
+      return !('admin_permissions' in request.resource.data) ||
+        (
+          (!('cofrades' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.cofrades.write != true ||
+           request.resource.data.admin_permissions.cofrades.read == true) &&
+          (!('solicitudes' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.solicitudes.write != true ||
+           request.resource.data.admin_permissions.solicitudes.read == true) &&
+          (!('tesoreria' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.tesoreria.write != true ||
+           request.resource.data.admin_permissions.tesoreria.read == true) &&
+          (!('loteria' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.loteria.write != true ||
+           request.resource.data.admin_permissions.loteria.read == true) &&
+          (!('tunicas' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.tunicas.write != true ||
+           request.resource.data.admin_permissions.tunicas.read == true) &&
+          (!('festividad' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.festividad.write != true ||
+           request.resource.data.admin_permissions.festividad.read == true) &&
+          (!('tags' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.tags.write != true ||
+           request.resource.data.admin_permissions.tags.read == true) &&
+          (!('campos_configurables' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.campos_configurables.write != true ||
+           request.resource.data.admin_permissions.campos_configurables.read == true) &&
+          (!('seguridad_roles' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.seguridad_roles.write != true ||
+           request.resource.data.admin_permissions.seguridad_roles.read == true) &&
+          (!('novedades' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.novedades.write != true ||
+           request.resource.data.admin_permissions.novedades.read == true) &&
+          (!('proveedores' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.proveedores.write != true ||
+           request.resource.data.admin_permissions.proveedores.read == true) &&
+          (!('tablon' in request.resource.data.admin_permissions) ||
+           request.resource.data.admin_permissions.tablon.write != true ||
+           request.resource.data.admin_permissions.tablon.read == true)
+        );
+    }
+
     // Cofrades collection
     match /cofrades/{cofradeId} {
       // Authenticated users can read cofrades linked to them by auth_uid,
@@ -73,17 +127,38 @@ service cloud.firestore {
         (resource.data.email == request.auth.token.email ||
          resource.data.tutelado_digital == request.auth.token.email) &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['auth_uid', 'fecha_actualizacion']);
+          .hasOnly(['auth_uid', 'login_method', 'lastLoginMethod',
+                    'authUid', 'linkedAuthProviders', 'hasLoggedIn',
+                    'firstLoginAt', 'lastLoginAt', 'loginCount',
+                    'fecha_actualizacion', 'ultimo_acceso']);
+
+      allow update: if isAuth() &&
+        (resource.data.auth_uid == request.auth.uid ||
+         resource.data.email == request.auth.token.email) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['gdpr_firmado_digital',
+                    'gdprDigitalAccepted',
+                    'gdprDigitalAcceptedAt',
+                    'gdprDigitalConsentVersion',
+                    'gdprDigitalConsentHash',
+          'gdprDigitalDocumentId',
+          'gdprDigitalRevoked',
+          'gdprDigitalRevokedAt',
+          'gdprDigitalStatus',
+          'gdprDigitalReacceptanceRequired',
+                    'fecha_actualizacion']);
 
         // Cofrades can update their own non-sensitive fields
         // (iban, titular_iban, email, dni are now editable from profile)
         allow update: if (isOwner(cofradeId) || isTutor()) &&
           !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
-                     'anio_mayordomia', 'fecha_baja', 'causa_baja',
+            .hasAny(['rol', 'role', 'roles', 'estado', 'status', 'isActive',
+                     'numero', 'anio_alta', 'anios_hermandad',
+                     'anio_mayordomia', 'fecha_baja', 'bajaAt', 'bajaReason',
+                     'bajaBy', 'causa_baja',
                      'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
                      'gdpr_firmado', 'auth_uid',
-                     'dni_tutor', 'cargo', 'gdpr_firmado_digital',
+                     'cargo', 'gdpr_firmado_digital',
                      'fecha_gdpr_digital', 'fecha_registro_app']);
 
         // Fallback: allow cofrade to update if their email matches
@@ -91,21 +166,71 @@ service cloud.firestore {
         allow update: if isAuth() &&
           resource.data.email == request.auth.token.email &&
           !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['rol', 'estado', 'numero', 'anio_alta', 'anios_hermandad',
-                     'anio_mayordomia', 'fecha_baja', 'causa_baja',
+            .hasAny(['rol', 'role', 'roles', 'estado', 'status', 'isActive',
+                     'numero', 'anio_alta', 'anios_hermandad',
+                     'anio_mayordomia', 'fecha_baja', 'bajaAt', 'bajaReason',
+                     'bajaBy', 'causa_baja',
                      'tiene_cuota', 'cuota_metalico', 'cuota_domiciliada',
                      'gdpr_firmado', 'auth_uid',
-                     'dni_tutor', 'cargo', 'gdpr_firmado_digital',
+                     'cargo', 'gdpr_firmado_digital',
                      'fecha_gdpr_digital', 'fecha_registro_app']);
 
       // Admins can create, update, delete any cofrade
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin() && adminPermissionsConsistent();
+
+      match /documents/{documentId} {
+        allow read: if isAuth() &&
+          (isLinkedCofrade(cofradeId) || isAdmin());
+        allow create, update: if isAdmin() ||
+          (isAuth() &&
+           (request.resource.data.type == 'GDPR_DIGITAL' ||
+            (request.resource.data.type == 'GDPR' &&
+             request.resource.data.subtype == 'GDPR_DIGITAL')) &&
+           request.resource.data.cofradeId == cofradeId &&
+           request.resource.data.status == 'valid' &&
+           isLinkedCofrade(cofradeId));
+        allow delete: if isAdmin();
+      }
+
+      match /consents/{consentVersionId} {
+        allow read: if isLinkedCofrade(cofradeId) || isAdmin();
+        allow create: if isLinkedCofrade(cofradeId) &&
+          request.resource.data.cofradeId == cofradeId &&
+          request.resource.data.consentVersionId == consentVersionId &&
+          request.resource.data.accepted == true &&
+          request.resource.data.status == 'accepted' &&
+          request.resource.data.source == 'private_app';
+        allow update: if isAdmin() || (isLinkedCofrade(cofradeId) &&
+          request.resource.data.cofradeId == cofradeId &&
+          request.resource.data.status == 'revocation_requested' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['cofradeId', 'consentVersionId', 'status',
+                      'consentStatus', 'revocationRequestedAt',
+                      'revocationRequestedBy', 'revocationRequestedByRole',
+                      'originalSignedAt', 'updatedAt', 'revocationReason']));
+        allow delete: if false;
+      }
+
+      match /conversations/{conversationId} {
+        allow read: if isAuth() && (isLinkedCofrade(cofradeId) || isAdmin());
+        allow create: if isAdmin() &&
+          request.resource.data.cofradeId == cofradeId;
+        allow update: if isAuth() && (isLinkedCofrade(cofradeId) || isAdmin());
+        allow delete: if isAdmin();
+
+        match /messages/{messageId} {
+          allow read: if isAuth() &&
+            (isLinkedCofrade(cofradeId) || isAdmin());
+          allow create: if isAuth() &&
+            (isLinkedCofrade(cofradeId) || isAdmin());
+          allow update, delete: if isAdmin();
+        }
+      }
 
       // Preferencias subcollection (novedades leidas, etc.)
       match /preferencias/{prefId} {
         allow read, write: if isAuth() &&
-          (get(/databases/$(database)/documents/cofrades/$(cofradeId)).data.auth_uid == request.auth.uid ||
-           isAdmin());
+          (isLinkedCofrade(cofradeId) || isAdmin());
       }
     }
 
@@ -123,6 +248,39 @@ service cloud.firestore {
     match /cofrades_busqueda/{cofradeId} {
       allow read: if isAuth();
       allow write: if false;
+    }
+
+    match /tags_config/{tagId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /cofrade_fields_config/{fieldId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() ||
+        (isAuth() &&
+         request.resource.data.action in [
+          'gdpr_digital_consent_accepted',
+          'gdpr_digital_consent_pdf_generated',
+          'gdpr_digital_consent_revocation_requested',
+          'gdpr_document_uploaded',
+          'gdpr_document_replaced',
+          'consent_revocation_requested',
+          'consent_reaccepted_by_admin',
+          'email_verification_sent',
+          'email_verified',
+          'cofrade_field_updated',
+          'google_login',
+          'private_conversation_started',
+          'private_conversation_message_sent'
+         ] &&
+         request.resource.data.changed_by == request.resource.data.target_id);
+      allow update, delete: if false;
     }
 
     // Eventos collection
@@ -241,6 +399,10 @@ service cloud.firestore {
     // Admin roles collection (managed by Cloud Functions only)
     match /admins/{adminUid} {
       allow read, write: if false;
+    }
+
+    match /app_config/{configId} {
+      allow read, write: if isAdmin();
     }
 
     match /treasury_roles/{roleUid} {
@@ -374,6 +536,41 @@ service cloud.firestore {
         allow create: if isAuth();
         allow update: if isAuth();
         allow delete: if isAdmin();
+      }
+
+    }
+
+    match /legal_consents/{versionId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isAdmin() ||
+        (isAuth() &&
+         resource.data.cofradeId is string &&
+         isLinkedCofrade(resource.data.cofradeId));
+      allow create: if isAdmin() ||
+        (isAuth() &&
+         request.resource.data.cofradeId is string &&
+         request.resource.data.origin == 'cofrade' &&
+         isLinkedCofrade(request.resource.data.cofradeId));
+      allow update: if isAdmin() ||
+        (isAuth() &&
+         resource.data.cofradeId is string &&
+         isLinkedCofrade(resource.data.cofradeId));
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAdmin() ||
+          (isAuth() &&
+           get(/databases/$(database)/documents/conversations/$(conversationId)).data.cofradeId is string &&
+           isLinkedCofrade(get(/databases/$(database)/documents/conversations/$(conversationId)).data.cofradeId));
+        allow create: if isAdmin() ||
+          (isAuth() &&
+           get(/databases/$(database)/documents/conversations/$(conversationId)).data.cofradeId is string &&
+           isLinkedCofrade(get(/databases/$(database)/documents/conversations/$(conversationId)).data.cofradeId));
+        allow update, delete: if isAdmin();
       }
     }
 

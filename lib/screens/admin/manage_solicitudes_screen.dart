@@ -41,7 +41,8 @@ class ManageSolicitudesScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                          const Icon(Icons.error_outline,
+                              color: Colors.red, size: 40),
                           const SizedBox(height: 12),
                           Text(
                             'Error al cargar solicitudes: ${snapshot.error}',
@@ -53,7 +54,8 @@ class ManageSolicitudesScreen extends StatelessWidget {
                             'Puede ser necesario crear un \u00edndice en Firestore. '
                             'Revisa la consola de Firebase para m\u00e1s detalles.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                            style: TextStyle(
+                                fontSize: 12, color: AppTheme.textSecondary),
                           ),
                         ],
                       ),
@@ -88,8 +90,7 @@ class ManageSolicitudesScreen extends StatelessWidget {
                             ),
                       ),
                       const SizedBox(height: 12),
-                      ...pendientes
-                          .map((s) => _SolicitudCard(solicitud: s)),
+                      ...pendientes.map((s) => _SolicitudCard(solicitud: s)),
                       const SizedBox(height: 24),
                     ],
                     if (resueltas.isNotEmpty) ...[
@@ -98,8 +99,7 @@ class ManageSolicitudesScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 12),
-                      ...resueltas
-                          .map((s) => _SolicitudCard(solicitud: s)),
+                      ...resueltas.map((s) => _SolicitudCard(solicitud: s)),
                     ],
                   ],
                 );
@@ -145,9 +145,14 @@ class _SolicitudCard extends StatelessWidget {
               _InfoLine(icon: Icons.phone, text: solicitud.telefono!),
             if (solicitud.dni != null && solicitud.dni!.isNotEmpty)
               _InfoLine(icon: Icons.badge, text: 'DNI: ${solicitud.dni}'),
+            if (solicitud.genero != null && solicitud.genero!.isNotEmpty)
+              _InfoLine(icon: Icons.wc, text: 'Género: ${solicitud.genero}'),
             if (solicitud.localidad != null && solicitud.localidad!.isNotEmpty)
+              _InfoLine(icon: Icons.location_city, text: solicitud.localidad!),
+            if (solicitud.requiresDigitalTutor)
               _InfoLine(
-                  icon: Icons.location_city, text: solicitud.localidad!),
+                  icon: Icons.supervisor_account,
+                  text: 'Requiere tutela digital'),
             if (solicitud.motivacion != null &&
                 solicitud.motivacion!.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -166,8 +171,7 @@ class _SolicitudCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: () =>
-                        _showRechazarDialog(context, solicitud.id),
+                    onPressed: () => _showRechazarDialog(context, solicitud.id),
                     icon: const Icon(Icons.close, color: Colors.red),
                     label: const Text('Rechazar',
                         style: TextStyle(color: Colors.red)),
@@ -195,21 +199,99 @@ class _SolicitudCard extends StatelessWidget {
   }
 
   void _aprobar(BuildContext context, String solicitudId) async {
+    var requiresTutor =
+        solicitud.requiresDigitalTutor || _isMinor(solicitud.fechaNacimiento);
+    final tutorNameController =
+        TextEditingController(text: solicitud.digitalTutorName ?? '');
+    final tutorDniController =
+        TextEditingController(text: solicitud.digitalTutorDni ?? '');
+    final tutorPhoneController =
+        TextEditingController(text: solicitud.digitalTutorPhone ?? '');
+    final tutorEmailController =
+        TextEditingController(text: solicitud.digitalTutorEmail ?? '');
+    final tutorRelationshipController =
+        TextEditingController(text: solicitud.digitalTutorRelationship ?? '');
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Aprobar solicitud'),
-        content: Text(
-            '¿Aprobar la solicitud de ${solicitud.nombreCompleto}? '
-            'Se creará un nuevo cofrade con sus datos.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Aprobar')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Aprobar solicitud'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('¿Aprobar la solicitud de ${solicitud.nombreCompleto}? '
+                    'Se creará un nuevo cofrade con sus datos.'),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: requiresTutor,
+                  title: const Text('Requiere tutela digital'),
+                  subtitle:
+                      const Text('Actívalo para menores o cofrades tutelados.'),
+                  onChanged: (value) =>
+                      setDialogState(() => requiresTutor = value),
+                ),
+                if (requiresTutor) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: tutorNameController,
+                    decoration:
+                        const InputDecoration(labelText: 'Nombre del tutor *'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: tutorDniController,
+                    decoration:
+                        const InputDecoration(labelText: 'DNI del tutor *'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: tutorPhoneController,
+                    decoration: const InputDecoration(
+                        labelText: 'Teléfono del tutor *'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: tutorEmailController,
+                    decoration:
+                        const InputDecoration(labelText: 'Email del tutor *'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: tutorRelationshipController,
+                    decoration:
+                        const InputDecoration(labelText: 'Parentesco *'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancelar')),
+            ElevatedButton(
+                onPressed: () {
+                  if (requiresTutor &&
+                      (tutorNameController.text.trim().isEmpty ||
+                          tutorDniController.text.trim().isEmpty ||
+                          tutorPhoneController.text.trim().isEmpty ||
+                          tutorEmailController.text.trim().isEmpty ||
+                          tutorRelationshipController.text.trim().isEmpty)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Completa los datos obligatorios del tutor.')),
+                    );
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
+                child: const Text('Aprobar')),
+          ],
+        ),
       ),
     );
 
@@ -218,9 +300,16 @@ class _SolicitudCard extends StatelessWidget {
     try {
       final adminName =
           context.read<AuthService>().cofrade?.nombreCompleto ?? 'Admin';
-      await context
-          .read<FirestoreService>()
-          .aprobarSolicitud(solicitudId, adminName);
+      await context.read<FirestoreService>().aprobarSolicitud(
+            solicitudId,
+            adminName,
+            requiresDigitalTutor: requiresTutor,
+            digitalTutorName: tutorNameController.text.trim(),
+            digitalTutorDni: tutorDniController.text.trim(),
+            digitalTutorPhone: tutorPhoneController.text.trim(),
+            digitalTutorEmail: tutorEmailController.text.trim(),
+            digitalTutorRelationship: tutorRelationshipController.text.trim(),
+          );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Solicitud aprobada. Cofrade creado.')),
@@ -233,6 +322,17 @@ class _SolicitudCard extends StatelessWidget {
         );
       }
     }
+  }
+
+  bool _isMinor(DateTime? date) {
+    if (date == null) return false;
+    final now = DateTime.now();
+    var age = now.year - date.year;
+    if (now.month < date.month ||
+        (now.month == date.month && now.day < date.day)) {
+      age--;
+    }
+    return age < 18;
   }
 
   void _showRechazarDialog(BuildContext context, String solicitudId) {

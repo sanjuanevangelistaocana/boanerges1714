@@ -8,6 +8,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/cofrade.dart';
+import 'package:boanerges1714/models/cofrade_field_config.dart';
 import 'package:boanerges1714/models/cuota.dart';
 import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/models/evento.dart';
@@ -77,6 +78,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _TreasuryValidationBanner(
                       authUid: authService.userId!,
                       cofradeId: cofrade?.id,
+                    ),
+                  if (cofrade != null)
+                    _MissingRequiredFieldsBanner(
+                      firestoreService: firestoreService,
+                      cofrade: cofrade,
+                    ),
+                  if (cofrade != null)
+                    _PendingMessagesBanner(
+                      firestoreService: firestoreService,
+                      cofradeId: cofrade.id,
                     ),
                   _NovedadesSection(
                       firestoreService: firestoreService,
@@ -468,6 +479,71 @@ class _FestividadBanner extends StatelessWidget {
   }
 }
 
+class _MissingRequiredFieldsBanner extends StatelessWidget {
+  final FirestoreService firestoreService;
+  final Cofrade cofrade;
+
+  const _MissingRequiredFieldsBanner({
+    required this.firestoreService,
+    required this.cofrade,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<CofradeFieldConfig>>(
+      stream: firestoreService.getCofradeFieldsConfig(),
+      builder: (context, snapshot) {
+        final fields = snapshot.data ?? const <CofradeFieldConfig>[];
+        if (fields.isEmpty) return const SizedBox.shrink();
+        final missing =
+            firestoreService.getMissingRequiredFields(cofrade, fields);
+        if (missing.isEmpty) return const SizedBox.shrink();
+        final labels = missing.map((field) => field.label).join(', ');
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange.shade200),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tienes datos obligatorios pendientes de completar',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      labels,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
+                onPressed: () => context.go('/profile'),
+                child: const Text('Completar mis datos'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _LoteriaBanner extends StatelessWidget {
   final FirestoreService firestoreService;
   const _LoteriaBanner({required this.firestoreService});
@@ -676,6 +752,67 @@ class _TreasuryValidationBanner extends StatelessWidget {
               ),
             );
           },
+        );
+      },
+    );
+  }
+}
+
+class _PendingMessagesBanner extends StatelessWidget {
+  final FirestoreService firestoreService;
+  final String cofradeId;
+
+  const _PendingMessagesBanner({
+    required this.firestoreService,
+    required this.cofradeId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: firestoreService.watchConversations(cofradeId),
+      builder: (context, snapshot) {
+        final pending = (snapshot.data ?? [])
+            .where((conversation) =>
+                conversation['status'] == 'pending_cofrade' &&
+                conversation['unreadByCofrade'] == true)
+            .toList();
+        if (pending.isEmpty) return const SizedBox.shrink();
+        final count = pending.length;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red.shade200),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+                child: Text('$count'),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  count == 1
+                      ? 'Tienes 1 mensaje de Administración pendiente de contestar.'
+                      : 'Tienes $count mensajes de Administración pendientes de contestar.',
+                  style: TextStyle(
+                    color: Colors.red.shade900,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => context.go('/sugerencias'),
+                icon: const Icon(Icons.forum_outlined),
+                label: const Text('Ver mensaje'),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -1421,9 +1558,9 @@ class _QuickActions extends StatelessWidget {
                         subtitle: 'Proveedores',
                         onTap: () => context.go('/tunicas')),
                     _ActionCard(
-                        icon: Icons.lightbulb_outline,
-                        label: 'Sugerencias',
-                        subtitle: 'Env\u00eda tu opini\u00f3n',
+                        icon: Icons.forum_outlined,
+                        label: 'Mensajería',
+                        subtitle: 'Sugerencias, peticiones y respuestas',
                         onTap: () => context.go('/sugerencias')),
                     _ActionCard(
                         icon: Icons.campaign,

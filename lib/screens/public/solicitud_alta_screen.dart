@@ -44,6 +44,7 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
   final _dniController = TextEditingController();
   final _motivacionController = TextEditingController();
   DateTime? _fechaNacimiento;
+  String? _genero;
   bool _isSending = false;
   bool _sent = false;
 
@@ -187,8 +188,7 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text('Datos personales',
-                              style:
-                                  Theme.of(context).textTheme.titleMedium),
+                              style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _nombreController,
@@ -232,7 +232,8 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                             ),
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[\d\s\+\-\(\)]')),
+                              FilteringTextInputFormatter.allow(
+                                  RegExp(r'[\d\s\+\-\(\)]')),
                             ],
                             validator: _validatePhone,
                           ),
@@ -246,16 +247,34 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                             ),
                             textCapitalization: TextCapitalization.characters,
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9A-Za-zXYZxyz]')),
+                              FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9A-Za-zXYZxyz]')),
                               LengthLimitingTextInputFormatter(9),
                             ],
                             validator: _validateDni,
                           ),
                           const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: _genero,
+                            decoration: const InputDecoration(
+                              labelText: 'Género *',
+                              prefixIcon: Icon(Icons.wc_outlined),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'Hombre', child: Text('Hombre')),
+                              DropdownMenuItem(
+                                  value: 'Mujer', child: Text('Mujer')),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => _genero = value),
+                            validator: (value) =>
+                                value == null ? 'Campo obligatorio' : null,
+                          ),
+                          const SizedBox(height: 12),
                           ListTile(
                             contentPadding: EdgeInsets.zero,
-                            leading:
-                                const Icon(Icons.cake, color: Colors.grey),
+                            leading: const Icon(Icons.cake, color: Colors.grey),
                             title: Text(
                               _fechaNacimiento != null
                                   ? '${_fechaNacimiento!.day.toString().padLeft(2, '0')}/${_fechaNacimiento!.month.toString().padLeft(2, '0')}/${_fechaNacimiento!.year}'
@@ -281,8 +300,7 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                           const Divider(),
                           const SizedBox(height: 8),
                           Text('Dirección',
-                              style:
-                                  Theme.of(context).textTheme.titleMedium),
+                              style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _domicilioController,
@@ -305,9 +323,11 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                               );
                             },
                             onSelected: _onLocalidadSelected,
-                            fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                            fieldViewBuilder: (context, controller, focusNode,
+                                onFieldSubmitted) {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (_localidadController.text.isNotEmpty && controller.text.isEmpty) {
+                                if (_localidadController.text.isNotEmpty &&
+                                    controller.text.isEmpty) {
                                   controller.text = _localidadController.text;
                                 }
                               });
@@ -361,8 +381,7 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
                                       height: 20,
                                       width: 20,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white),
+                                          strokeWidth: 2, color: Colors.white),
                                     )
                                   : const Icon(Icons.send),
                               label: const Text('Enviar solicitud'),
@@ -396,6 +415,7 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
         localidad: _localidadController.text.trim(),
         codigoPostal: _codigoPostalController.text.trim(),
         fechaNacimiento: _fechaNacimiento,
+        genero: _genero,
         dni: _dniController.text.trim(),
         motivacion: _motivacionController.text.trim(),
         fechaSolicitud: DateTime.now(),
@@ -407,10 +427,14 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
       if (mounted) {
         String errorMsg = 'Error al enviar la solicitud.';
         final errorStr = e.toString();
-        if (errorStr.contains('permission-denied') || errorStr.contains('PERMISSION_DENIED')) {
-          errorMsg = 'Error de permisos. Int\u00e9ntalo de nuevo m\u00e1s tarde.';
-        } else if (errorStr.contains('unavailable') || errorStr.contains('network')) {
-          errorMsg = 'Error de conexi\u00f3n. Comprueba tu internet e int\u00e9ntalo de nuevo.';
+        if (errorStr.contains('permission-denied') ||
+            errorStr.contains('PERMISSION_DENIED')) {
+          errorMsg =
+              'Error de permisos. Int\u00e9ntalo de nuevo m\u00e1s tarde.';
+        } else if (errorStr.contains('unavailable') ||
+            errorStr.contains('network')) {
+          errorMsg =
+              'Error de conexi\u00f3n. Comprueba tu internet e int\u00e9ntalo de nuevo.';
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

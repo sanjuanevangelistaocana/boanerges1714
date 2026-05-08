@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/config/theme.dart';
+import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/documento.dart';
 
@@ -11,6 +12,7 @@ class DocumentsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firestoreService = context.read<FirestoreService>();
+    final cofrade = context.watch<AuthService>().cofrade;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -27,6 +29,40 @@ class DocumentsScreen extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 24),
+            if (cofrade != null) ...[
+              StreamBuilder<List<Map<String, dynamic>>>(
+                stream: firestoreService.watchPrivateDocuments(
+                  cofrade.id,
+                  onlyVisibleToCofrade: true,
+                ),
+                builder: (context, snapshot) {
+                  final docs = snapshot.data ?? const <Map<String, dynamic>>[];
+                  if (docs.isEmpty) return const SizedBox.shrink();
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: ExpansionTile(
+                      initiallyExpanded: true,
+                      leading: const Icon(Icons.lock_person_outlined,
+                          color: AppTheme.primaryColor),
+                      title: const Text('Documentos particulares'),
+                      subtitle: Text('${docs.length} documento(s) privados'),
+                      children: docs
+                          .map((doc) => ListTile(
+                                title: Text(
+                                    '${doc['title'] ?? doc['fileName'] ?? ''}'),
+                                subtitle: Text('${doc['type'] ?? 'Documento'}'),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.open_in_new),
+                                  onPressed: () =>
+                                      _openDocument('${doc['downloadUrl']}'),
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                  );
+                },
+              ),
+            ],
             StreamBuilder<List<Documento>>(
               stream: firestoreService.getDocumentos(),
               builder: (context, snapshot) {

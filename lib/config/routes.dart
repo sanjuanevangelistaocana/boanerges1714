@@ -11,6 +11,10 @@ import 'package:boanerges1714/screens/public/gallery_screen.dart';
 import 'package:boanerges1714/screens/private/login_screen.dart';
 import 'package:boanerges1714/screens/private/register_screen.dart';
 import 'package:boanerges1714/screens/private/profile_screen.dart';
+import 'package:boanerges1714/screens/private/gdpr_consent_screen.dart';
+import 'package:boanerges1714/screens/private/access_disabled_screen.dart';
+import 'package:boanerges1714/screens/private/email_verification_screen.dart';
+import 'package:boanerges1714/screens/private/profile_selection_screen.dart';
 import 'package:boanerges1714/screens/private/dashboard_screen.dart';
 import 'package:boanerges1714/screens/private/cuotas_screen.dart';
 import 'package:boanerges1714/screens/private/documents_screen.dart';
@@ -88,9 +92,46 @@ GoRouter createRouter(AuthService authService) {
         '/loteria',
         '/loteria-disponibilidad',
         '/bank-validation',
+        '/consent',
+        '/select-profile',
+        '/access-disabled',
+        '/verify-email',
       ];
       if (privateRoutes.any((r) => path.startsWith(r)) && !isLoggedIn) {
         return '/login';
+      }
+
+      if (isLoggedIn &&
+          authService.needsEmailVerification &&
+          path != '/verify-email' &&
+          path != '/access-disabled' &&
+          path != '/consent' &&
+          !path.startsWith('/admin')) {
+        return '/verify-email';
+      }
+
+      if (isLoggedIn &&
+          authService.needsProfileSelection &&
+          path != '/select-profile' &&
+          path != '/access-disabled' &&
+          path != '/verify-email' &&
+          !path.startsWith('/admin')) {
+        return '/select-profile';
+      }
+
+      if (isLoggedIn &&
+          authService.isAccessDisabled &&
+          path != '/access-disabled' &&
+          !path.startsWith('/admin')) {
+        return '/access-disabled';
+      }
+
+      if (isLoggedIn &&
+          authService.needsGdprConsent &&
+          path != '/consent' &&
+          path != '/access-disabled' &&
+          !path.startsWith('/admin')) {
+        return '/consent';
       }
 
       if (path.startsWith('/admin') && !isAdmin) {
@@ -133,6 +174,18 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/dashboard',
               builder: (context, state) => const DashboardScreen()),
+          GoRoute(
+              path: '/consent',
+              builder: (context, state) => const GdprConsentScreen()),
+          GoRoute(
+              path: '/select-profile',
+              builder: (context, state) => const ProfileSelectionScreen()),
+          GoRoute(
+              path: '/access-disabled',
+              builder: (context, state) => const AccessDisabledScreen()),
+          GoRoute(
+              path: '/verify-email',
+              builder: (context, state) => const EmailVerificationScreen()),
           GoRoute(
               path: '/profile',
               builder: (context, state) => ProfileScreen(

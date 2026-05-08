@@ -173,6 +173,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : const Text('Entrar'),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: authService.isLoading
+                                  ? null
+                                  : _signInWithGoogle,
+                              icon: const _GoogleMark(),
+                              label: const Text('Continuar con Google'),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -231,6 +242,14 @@ class _LoginScreenState extends State<LoginScreen> {
           );
     }
 
+    if (error != null && mounted) {
+      setState(() => _error = error);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _error = null);
+    final error = await context.read<AuthService>().signInWithGoogle();
     if (error != null && mounted) {
       setState(() => _error = error);
     }
@@ -357,6 +376,28 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      'https://developers.google.com/identity/images/g-logo.png',
+      width: 20,
+      height: 20,
+      errorBuilder: (_, __, ___) => const Text(
+        'G',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF4285F4),
+          letterSpacing: 0,
         ),
       ),
     );

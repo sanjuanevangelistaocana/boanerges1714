@@ -133,6 +133,15 @@ class StorageService {
     } catch (_) {}
   }
 
+  Future<String> getDownloadUrlFromPath(String storagePath) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('Debes iniciar sesión para ver este documento.');
+    }
+    await user.getIdToken(true);
+    return _storage.ref().child(storagePath).getDownloadURL();
+  }
+
   String _sanitizeFileName(String fileName) {
     return fileName
         .trim()

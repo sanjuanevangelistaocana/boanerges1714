@@ -33,7 +33,12 @@ class ShellScaffold extends StatelessWidget {
         actions: isWide ? _buildDesktopNav(context, isLoggedIn, isAdmin) : null,
       ),
       drawer: isWide ? null : _buildDrawer(context, isLoggedIn, isAdmin),
-      body: child,
+      body: Column(
+        children: [
+          if (_shouldShowBreadcrumbs(context)) const _Breadcrumbs(),
+          Expanded(child: child),
+        ],
+      ),
     );
   }
 
@@ -141,7 +146,7 @@ class ShellScaffold extends StatelessWidget {
                 route: '/convocatorias'),
             _DrawerItem(
                 icon: Icons.lightbulb_outline,
-                label: 'Sugerencias',
+                label: 'Mensajería',
                 route: '/sugerencias'),
             _DrawerItem(
                 icon: Icons.campaign, label: 'Tablón', route: '/tablon'),
@@ -189,6 +194,10 @@ class ShellScaffold extends StatelessWidget {
                   label: 'Notificaciones',
                   route: '/admin/notifications'),
               _DrawerItem(
+                  icon: Icons.forum_outlined,
+                  label: 'Mensajería',
+                  route: '/admin/sugerencias'),
+              _DrawerItem(
                   icon: Icons.celebration,
                   label: 'Festividad SJE',
                   route: '/admin/eventos'),
@@ -213,6 +222,116 @@ class ShellScaffold extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _shouldShowBreadcrumbs(BuildContext context) {
+  final path = GoRouterState.of(context).uri.path;
+  if (path == '/' ||
+      path == '/login' ||
+      path == '/register' ||
+      path == '/verify-email' ||
+      path == '/gdpr-consent') {
+    return false;
+  }
+  return path.startsWith('/admin') ||
+      path.startsWith('/dashboard') ||
+      path.startsWith('/profile') ||
+      path.startsWith('/documents') ||
+      path.startsWith('/sugerencias') ||
+      path.startsWith('/cuotas') ||
+      path.startsWith('/treasury');
+}
+
+class _Breadcrumbs extends StatelessWidget {
+  const _Breadcrumbs();
+
+  @override
+  Widget build(BuildContext context) {
+    final path = GoRouterState.of(context).uri.path;
+    final auth = context.watch<AuthService>();
+    final items = _itemsForPath(path, auth);
+    if (items.length <= 1) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+      ),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0)
+              Icon(Icons.chevron_right, size: 16, color: Colors.grey.shade500),
+            TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor:
+                    i == items.length - 1 ? AppTheme.textSecondary : null,
+              ),
+              onPressed: i == items.length - 1
+                  ? null
+                  : () => context.go(items[i].path),
+              child: Text(items[i].label, style: const TextStyle(fontSize: 12)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<_BreadcrumbItem> _itemsForPath(String path, AuthService auth) {
+    final homePath = !auth.isLoggedIn
+        ? '/'
+        : path.startsWith('/admin') && auth.isAdmin
+            ? '/admin'
+            : '/dashboard';
+    final items = <_BreadcrumbItem>[_BreadcrumbItem('Inicio', homePath)];
+    if (path.startsWith('/admin')) {
+      items.add(_BreadcrumbItem('Administración', '/admin'));
+      final adminLabels = {
+        '/admin/cofrades': 'Gestión de Cofrades',
+        '/admin/sugerencias': 'Mensajería',
+        '/admin/solicitudes': 'Solicitudes',
+        '/admin/documentos': 'Documentos',
+        '/admin/seguridad': 'Seguridad y permisos',
+        '/admin/treasury': 'Tesorería',
+      };
+      final match = adminLabels.entries
+          .where((entry) => path.startsWith(entry.key))
+          .toList();
+      if (match.isNotEmpty) {
+        items.add(_BreadcrumbItem(match.first.value, match.first.key));
+      }
+      return items;
+    }
+    final privateLabels = {
+      '/dashboard': 'Mi Zona',
+      '/profile': 'Perfil',
+      '/documents': 'Documentos',
+      '/sugerencias': 'Mensajería',
+      '/cuotas': 'Mis cuotas',
+      '/treasury': 'Tesorería',
+    };
+    final match = privateLabels.entries
+        .where((entry) => path.startsWith(entry.key))
+        .toList();
+    if (match.isNotEmpty) {
+      items.add(_BreadcrumbItem(match.first.value, match.first.key));
+    }
+    return items;
+  }
+}
+
+class _BreadcrumbItem {
+  final String label;
+  final String path;
+
+  const _BreadcrumbItem(this.label, this.path);
 }
 
 class _NavButton extends StatelessWidget {
@@ -248,6 +367,8 @@ class _PrivateZoneMenu extends StatelessWidget {
           itemBuilder: (_) => [
             const PopupMenuItem(value: '/profile', child: Text('Mi Perfil')),
             const PopupMenuItem(value: '/documents', child: Text('Documentos')),
+            const PopupMenuItem(
+                value: '/sugerencias', child: Text('Mensajería')),
             const PopupMenuItem(value: '/eventos', child: Text('Eventos')),
             const PopupMenuItem(
                 value: '/festividad', child: Text('Festividad SJE')),

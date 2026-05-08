@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/evento.dart';
 import 'package:boanerges1714/models/noticia.dart';
@@ -11,15 +14,44 @@ import 'package:boanerges1714/models/sugerencia.dart';
 import 'package:boanerges1714/models/proveedor.dart';
 import 'package:boanerges1714/models/revista.dart';
 import 'package:boanerges1714/models/loteria.dart';
+import 'package:boanerges1714/models/tag_config.dart';
+import 'package:boanerges1714/models/cofrade_field_config.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // --- Cofrades ---
   Stream<List<Cofrade>> getCofrades() {
-    return _db.collection('cofrades').orderBy('apellidos').snapshots().map(
-        (snapshot) =>
-            snapshot.docs.map((doc) => Cofrade.fromFirestore(doc)).toList());
+    return watchAllCofradesForAdmin();
+  }
+
+  Stream<List<Cofrade>> watchAllCofradesForAdmin() {
+    debugPrint(
+        '[Firestore] watchAllCofradesForAdmin query: collection=cofrades filters=NONE sort=client_numero');
+    return _db.collection('cofrades').snapshots().map(
+      (snapshot) {
+        var discarded = 0;
+        debugPrint(
+            '[Firestore] watchAllCofradesForAdmin: ${snapshot.docs.length} docs recibidos antes de mapear');
+        final result = <Cofrade>[];
+        for (final doc in snapshot.docs) {
+          try {
+            result.add(Cofrade.fromFirestore(doc));
+          } catch (e, st) {
+            discarded++;
+            debugPrint(
+                '[Firestore] watchAllCofradesForAdmin parse error doc=${doc.id}: $e\n$st');
+          }
+        }
+        debugPrint(
+            '[Firestore] watchAllCofradesForAdmin: ${result.length} convertidos OK, $discarded descartados por parseo');
+        return result;
+      },
+    ).handleError((error, stackTrace) {
+      debugPrint(
+          '[Firestore] watchAllCofradesForAdmin stream error: $error\n$stackTrace');
+      throw error;
+    });
   }
 
   Future<Cofrade?> getCofrade(String id) async {
@@ -30,9 +62,27 @@ class FirestoreService {
     return null;
   }
 
-  Future<void> updateCofrade(String id, Map<String, dynamic> data) async {
+  Future<void> updateCofrade(
+    String id,
+    Map<String, dynamic> data, {
+    String? changedBy,
+    String? changedByRole,
+    bool audit = true,
+    bool markPendingReview = true,
+  }) async {
+    final ref = _db.collection('cofrades').doc(id);
+    final beforeSnap = audit ? await ref.get() : null;
+    final before = beforeSnap?.data();
     if (data.containsKey('dni')) {
       data['dni_normalizado'] = _normalizeDni(data['dni']?.toString() ?? '');
+    }
+    final actorRole = (changedByRole ?? '').toLowerCase();
+    final isSelfProfileEdit =
+        markPendingReview && changedBy == id && !actorRole.contains('admin');
+    if (isSelfProfileEdit) {
+      data['hasPendingProfileReview'] = true;
+      data['lastProfileChangeAt'] = FieldValue.serverTimestamp();
+      data['lastProfileChangeBy'] = changedBy;
     }
     data['fecha_actualizacion'] = FieldValue.serverTimestamp();
     // Skip null values to avoid accidentally deleting fields that were not
@@ -45,12 +95,2004 @@ class FirestoreService {
       }
     }
     debugPrint('[Firestore] updateCofrade($id): ${cleaned.keys.join(', ')}');
-    await _db.collection('cofrades').doc(id).update(cleaned);
+    await ref.update(cleaned);
+    if (audit && before != null) {
+      final changes = _diffChanges(before, cleaned);
+      if (changes.isNotEmpty) {
+        final targetNombre =
+            '${before['nombre'] ?? ''} ${before['apellidos'] ?? ''}'.trim();
+        await _db.collection('audit_logs').add({
+          'action': 'cofrade_field_updated',
+          'target_id': id,
+          'target_type': 'cofrade',
+          'target_nombre': targetNombre,
+          'changed_by': changedBy ?? 'system',
+          'changed_by_role': changedByRole ?? 'system',
+          'changed_at': FieldValue.serverTimestamp(),
+          'changes': changes,
+        });
+        for (final change in changes) {
+          await _db.collection('audit_logs').add({
+            'entityType': 'cofrade',
+            'entityId': id,
+            'action': 'cofrade_field_updated',
+            'fieldKey': change['field'],
+            'fieldLabel': _humanizeFieldKey('${change['field']}'),
+            'oldValue': change['old_value'],
+            'newValue': change['new_value'],
+            'target_id': id,
+            'target_type': 'cofrade',
+            'target_nombre': targetNombre,
+            'changed_by': changedBy ?? 'system',
+            'changed_by_role': changedByRole ?? 'system',
+            'changed_at': FieldValue.serverTimestamp(),
+            'metadata': {
+              'source': isSelfProfileEdit ? 'private_profile' : 'admin_panel',
+            },
+          });
+        }
+      }
+    }
     debugPrint('[Firestore] updateCofrade($id): OK');
+  }
+
+  List<Map<String, dynamic>> _diffChanges(
+    Map<String, dynamic> before,
+    Map<String, dynamic> after,
+  ) {
+    const ignored = {'fecha_actualizacion'};
+    final changes = <Map<String, dynamic>>[];
+    for (final entry in after.entries) {
+      if (ignored.contains(entry.key)) continue;
+      final oldValue = before[entry.key];
+      final newValue = entry.value;
+      if ('$oldValue' != '$newValue') {
+        changes.add({
+          'field': entry.key,
+          'fieldLabel': _humanizeFieldKey(entry.key),
+          'old_value': oldValue,
+          'new_value': newValue,
+        });
+      }
+    }
+    return changes;
+  }
+
+  Future<void> markProfileChangesReviewed({
+    required Cofrade cofrade,
+    required String changedBy,
+    required String changedByRole,
+  }) async {
+    await updateCofrade(
+      cofrade.id,
+      {
+        'hasPendingProfileReview': false,
+        'profileReviewedAt': FieldValue.serverTimestamp(),
+        'profileReviewedBy': changedBy,
+      },
+      changedBy: changedBy,
+      changedByRole: changedByRole,
+      markPendingReview: false,
+    );
+    await createAuditLog(
+      action: 'cofrade_profile_changes_reviewed',
+      targetId: cofrade.id,
+      targetType: 'cofrade',
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: changedBy,
+      newValue: {
+        'hasPendingProfileReview': false,
+        'profileReviewedBy': changedBy,
+      },
+      metadata: {'changedByRole': changedByRole},
+    );
+  }
+
+  Future<void> setAdminRole(
+    Cofrade cofrade, {
+    required bool enabled,
+    required String changedBy,
+  }) async {
+    final currentRoles = cofrade.roles.toSet();
+    if (enabled) {
+      currentRoles.add('admin');
+    } else {
+      currentRoles.removeWhere((role) => role.toLowerCase() == 'admin');
+    }
+    final oldValue = {
+      'rol': cofrade.rol,
+      'role': cofrade.rol,
+      'roles': cofrade.roles,
+    };
+    final newValue = {
+      'rol': enabled ? 'admin' : 'cofrade',
+      'role': enabled ? 'admin' : 'cofrade',
+      'roles': currentRoles.toList()..sort(),
+    };
+    await updateCofrade(cofrade.id, newValue);
+    await createAuditLog(
+      action: enabled ? 'admin_granted' : 'admin_revoked',
+      targetId: cofrade.id,
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: changedBy,
+      oldValue: oldValue,
+      newValue: newValue,
+    );
+  }
+
+  Future<void> updateRolesAndPermissions({
+    required Cofrade cofrade,
+    required List<String> roles,
+    required Map<String, dynamic> permissions,
+    required String changedBy,
+    required String changedByRole,
+  }) async {
+    if (cofrade.id == 'ADM-000000' || cofrade.esCuentaServicio) {
+      throw StateError('El Administrador Sistema es inmutable desde la UI.');
+    }
+    final normalizedPermissions = _normalizeAdminPermissions(permissions);
+    final roleLower = roles.map((r) => r.toLowerCase()).toSet();
+    final newRol = roleLower.contains('admin')
+        ? 'admin'
+        : roleLower.contains('tesorería')
+            ? 'tesorero'
+            : roleLower.contains('junta')
+                ? 'junta'
+                : 'cofrade';
+    final oldValue = {
+      'rol': cofrade.rol,
+      'role': cofrade.rol,
+      'roles': cofrade.roles,
+    };
+    final newValue = {
+      'rol': newRol,
+      'role': newRol,
+      'roles': roles,
+      'admin_permissions': normalizedPermissions,
+    };
+    await updateCofrade(
+      cofrade.id,
+      newValue,
+      changedBy: changedBy,
+      changedByRole: changedByRole,
+    );
+    await createAuditLog(
+      action: 'permissions_updated',
+      targetId: cofrade.id,
+      targetType: 'cofrade',
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: changedBy,
+      oldValue: oldValue,
+      newValue: newValue,
+    );
+  }
+
+  Map<String, dynamic> _normalizeAdminPermissions(
+    Map<String, dynamic> permissions,
+  ) {
+    final normalized = <String, dynamic>{};
+    for (final entry in permissions.entries) {
+      final raw = (entry.value as Map).cast<String, dynamic>();
+      final write = raw['write'] == true || raw['edit'] == true;
+      final read = raw['read'] == true || write;
+      normalized[entry.key] = {
+        'read': read,
+        'write': write,
+      };
+    }
+    return normalized;
+  }
+
+  Future<void> darDeBajaCofrade({
+    required String cofradeId,
+    required String causaBaja,
+    required String changedBy,
+    required String changedByRole,
+  }) async {
+    final targetRef = _db.collection('cofrades').doc(cofradeId);
+    final targetSnap = await targetRef.get();
+    if (!targetSnap.exists) return;
+    final target = Cofrade.fromFirestore(targetSnap);
+    final oldNumber = target.numero;
+    final now = FieldValue.serverTimestamp();
+    if (oldNumber == null) {
+      await updateCofrade(
+        cofradeId,
+        {
+          'estado': 'Baja',
+          'status': 'baja',
+          'isActive': false,
+          'bajaAt': now,
+          'bajaReason': causaBaja,
+          'bajaBy': changedBy,
+          'causa_baja': causaBaja,
+          'fecha_baja_str': _todayString(),
+        },
+        changedBy: changedBy,
+        changedByRole: changedByRole,
+      );
+      return;
+    }
+
+    final affected = await _db
+        .collection('cofrades')
+        .where('numero', isGreaterThan: oldNumber)
+        .get();
+    final batch = _db.batch();
+    batch.update(targetRef, {
+      'estado': 'Baja',
+      'status': 'baja',
+      'isActive': false,
+      'bajaAt': now,
+      'bajaReason': causaBaja,
+      'bajaBy': changedBy,
+      'numero': null,
+      'numero_anterior': oldNumber,
+      'fecha_baja_str': _todayString(),
+      'causa_baja': causaBaja,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+    var recalculated = 0;
+    for (final doc in affected.docs) {
+      if (doc.id.startsWith('ADM-') ||
+          doc.data()['es_cuenta_servicio'] == true) {
+        continue;
+      }
+      final affectedCofrade = Cofrade.fromFirestore(doc);
+      if (!affectedCofrade.isActivo) continue;
+      final current = (doc.data()['numero'] as num?)?.toInt();
+      if (current == null) continue;
+      batch.update(doc.reference, {
+        'numero': current - 1,
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      });
+      recalculated++;
+    }
+    await batch.commit();
+    await createAuditLog(
+      action: 'cofrade_deactivated',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: target.nombreCompleto,
+      changedBy: changedBy,
+      oldValue: {
+        'estado': target.estado,
+        'numero': oldNumber,
+      },
+      newValue: {
+        'estado': 'Baja',
+        'status': 'baja',
+        'isActive': false,
+        'numero': null,
+        'numero_anterior': oldNumber,
+      },
+      metadata: {
+        'causa_baja': causaBaja,
+        'recalculated_count': recalculated,
+      },
+    );
+    await createAuditLog(
+      action: 'cofrade_numbers_recalculated',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: target.nombreCompleto,
+      changedBy: changedBy,
+      oldValue: oldNumber,
+      newValue: oldNumber,
+      metadata: {'recalculated_count': recalculated},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> previewBajaNumbering(
+    String cofradeId,
+  ) async {
+    final targetSnap = await _db.collection('cofrades').doc(cofradeId).get();
+    if (!targetSnap.exists) return [];
+    final oldNumber = (targetSnap.data()?['numero'] as num?)?.toInt();
+    if (oldNumber == null) return [];
+    final affected = await _db
+        .collection('cofrades')
+        .where('numero', isGreaterThan: oldNumber)
+        .get();
+    final rows = affected.docs
+        .where((doc) =>
+            !doc.id.startsWith('ADM-') &&
+            doc.data()['es_cuenta_servicio'] != true &&
+            Cofrade.fromFirestore(doc).isActivo)
+        .map((doc) {
+      final current = (doc.data()['numero'] as num?)?.toInt();
+      return {
+        'id': doc.id,
+        'nombre':
+            '${doc.data()['nombre'] ?? ''} ${doc.data()['apellidos'] ?? ''}'
+                .trim(),
+        'oldNumber': current,
+        'newNumber': current == null ? null : current - 1,
+      };
+    }).toList();
+    rows.sort((a, b) => ((a['oldNumber'] as int?) ?? 0)
+        .compareTo((b['oldNumber'] as int?) ?? 0));
+    return rows;
+  }
+
+  Future<void> reactivarCofrade({
+    required String cofradeId,
+    required bool recuperarNumeroAnterior,
+    required String changedBy,
+    required String changedByRole,
+  }) async {
+    final targetRef = _db.collection('cofrades').doc(cofradeId);
+    final targetSnap = await targetRef.get();
+    if (!targetSnap.exists) return;
+    final targetData = targetSnap.data()!;
+    final target = Cofrade.fromFirestore(targetSnap);
+    final previous = (targetData['numero_anterior'] as num?)?.toInt();
+
+    if (recuperarNumeroAnterior && previous != null) {
+      final affected = await _db
+          .collection('cofrades')
+          .where('numero', isGreaterThanOrEqualTo: previous)
+          .get();
+      final batch = _db.batch();
+      for (final doc in affected.docs) {
+        if (doc.id.startsWith('ADM-') ||
+            doc.data()['es_cuenta_servicio'] == true) {
+          continue;
+        }
+        final active = Cofrade.fromFirestore(doc).isActivo;
+        if (!active) continue;
+        final current = (doc.data()['numero'] as num?)?.toInt();
+        if (current == null) continue;
+        batch.update(doc.reference, {
+          'numero': current + 1,
+          'fecha_actualizacion': FieldValue.serverTimestamp(),
+        });
+      }
+      batch.update(targetRef, {
+        'estado': 'Activo',
+        'status': 'active',
+        'isActive': true,
+        'numero': previous,
+        'fecha_baja_str': '',
+        'causa_baja': '',
+        'gdprDigitalAccepted': false,
+        'gdprDigitalStatus': 'pending_reacceptance',
+        'gdprDigitalReacceptanceRequired': true,
+        'reactivatedAt': FieldValue.serverTimestamp(),
+        'reactivatedBy': changedBy,
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+      await createAuditLog(
+        action: 'cofrade_reactivated_previous_number',
+        targetId: cofradeId,
+        targetType: 'cofrade',
+        targetNombre: target.nombreCompleto,
+        changedBy: changedBy,
+        oldValue: {'estado': target.estado, 'numero': target.numero},
+        newValue: {
+          'estado': 'Activo',
+          'status': 'active',
+          'numero': previous,
+          'gdprDigitalStatus': 'pending_reacceptance',
+        },
+      );
+      return;
+    }
+
+    final last = await _db
+        .collection('cofrades')
+        .where('estado', isEqualTo: 'Activo')
+        .get();
+    final lastNumber = last.docs
+        .where((doc) =>
+            !doc.id.startsWith('ADM-') &&
+            doc.data()['es_cuenta_servicio'] != true)
+        .map((doc) => (doc.data()['numero'] as num?)?.toInt() ?? 0)
+        .fold<int>(0, (max, value) => value > max ? value : max);
+    final newNumber = lastNumber + 1;
+    await updateCofrade(
+      cofradeId,
+      {
+        'estado': 'Activo',
+        'status': 'active',
+        'isActive': true,
+        'numero': newNumber,
+        'fecha_baja_str': '',
+        'causa_baja': '',
+        'gdprDigitalAccepted': false,
+        'gdprDigitalStatus': 'pending_reacceptance',
+        'gdprDigitalReacceptanceRequired': true,
+        'reactivatedAt': FieldValue.serverTimestamp(),
+        'reactivatedBy': changedBy,
+      },
+      changedBy: changedBy,
+      changedByRole: changedByRole,
+    );
+    await createAuditLog(
+      action: 'cofrade_reactivated_new_number',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: target.nombreCompleto,
+      changedBy: changedBy,
+      oldValue: {'estado': target.estado, 'numero': target.numero},
+      newValue: {
+        'estado': 'Activo',
+        'status': 'active',
+        'numero': newNumber,
+        'gdprDigitalStatus': 'pending_reacceptance',
+      },
+    );
+  }
+
+  Future<void> createServiceAdminAccount({
+    required String email,
+    required String changedBy,
+  }) async {
+    const id = 'ADM-000000';
+    final ref = _db.collection('cofrades').doc(id);
+    final snap = await ref.get();
+    final data = {
+      'id_interno': id,
+      'nombre': 'Administrador',
+      'apellidos': 'Sistema',
+      'rol': 'admin',
+      'role': 'admin',
+      'roles': ['admin', 'superadmin'],
+      'estado': 'Activo',
+      'status': 'active',
+      'numero': null,
+      'email': email.trim(),
+      'notificaciones_activas': false,
+      'tiene_cuota': false,
+      'cuota_domiciliada': false,
+      'cuota_metalico': false,
+      'gdpr_firmado': true,
+      'tutelado_digital': false,
+      'es_cuenta_servicio': true,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+      if (!snap.exists) 'fecha_creacion': FieldValue.serverTimestamp(),
+    };
+    await ref.set(data, SetOptions(merge: true));
+    await createAuditLog(
+      action: 'service_admin_created',
+      targetId: id,
+      targetNombre: 'Administrador Sistema',
+      changedBy: changedBy,
+      oldValue: snap.data(),
+      newValue: data,
+    );
   }
 
   Future<void> deleteCofrade(String id) async {
     await _db.collection('cofrades').doc(id).delete();
+  }
+
+  Future<String> createCofradeForAdmin(Map<String, dynamic> data) async {
+    if (data['numero'] == null) {
+      final active = await _db
+          .collection('cofrades')
+          .where('estado', isEqualTo: 'Activo')
+          .get();
+      final maxNumber = active.docs
+          .where((doc) =>
+              !doc.id.startsWith('ADM-') &&
+              doc.data()['es_cuenta_servicio'] != true)
+          .map((doc) => (doc.data()['numero'] as num?)?.toInt() ?? 0)
+          .fold<int>(0, (max, value) => value > max ? value : max);
+      data['numero'] = maxNumber + 1;
+    }
+    final createdId = await _db.runTransaction<String>((transaction) async {
+      final counterRef = _db.collection('app_config').doc('cofrades_counter');
+      final counterSnap = await transaction.get(counterRef);
+      final last = counterSnap.exists
+          ? (counterSnap.data()?['last_internal_id'] as num?)?.toInt() ?? 0
+          : 0;
+      var next = last + 1;
+      late DocumentReference<Map<String, dynamic>> cofradeRef;
+      late String internalId;
+      var attempts = 0;
+
+      do {
+        internalId = 'COF-${next.toString().padLeft(6, '0')}';
+        cofradeRef = _db.collection('cofrades').doc(internalId);
+        final existing = await transaction.get(cofradeRef);
+        if (!existing.exists) break;
+        next++;
+        attempts++;
+      } while (attempts < 1000);
+
+      if (attempts >= 1000) {
+        throw StateError(
+            'No se pudo generar un ID interno libre para cofrades.');
+      }
+
+      transaction.set(
+          counterRef,
+          {
+            'last_internal_id': next,
+            'fecha_actualizacion': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true));
+      transaction.set(cofradeRef, {
+        ...data,
+        'id_interno': internalId,
+        'rol': data['rol'] ?? 'cofrade',
+        'role': data['role'] ?? data['rol'] ?? 'cofrade',
+        'roles': data['roles'] ?? <String>[],
+        'estado': data['estado'] ?? 'Activo',
+        'status': data['status'] ?? 'active',
+        'isActive': data['isActive'] ?? true,
+        'cuotaActiva': data['cuotaActiva'] ?? true,
+        'tiene_cuota': data['tiene_cuota'] ?? true,
+        'tags_manual': data['tags_manual'] ?? <String>[],
+        'tags_auto': data['tags_auto'] ?? <String>[],
+        'fecha_creacion': FieldValue.serverTimestamp(),
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      });
+      debugPrint(
+          '[Firestore] createCofradeForAdmin transaction: created $internalId from counter last=$last');
+      return internalId;
+    });
+    await createAuditLog(
+      action: 'cofrade_created',
+      targetId: createdId,
+      targetType: 'cofrade',
+      targetNombre: '${data['nombre'] ?? ''} ${data['apellidos'] ?? ''}'.trim(),
+      changedBy: 'system',
+      oldValue: null,
+      newValue: data,
+    );
+    return createdId;
+  }
+
+  Future<void> createWelcomeNovedadForCofrade(String cofradeId) async {
+    final existing = await _db
+        .collection('novedades')
+        .where('tipo', isEqualTo: 'cofrade_created')
+        .where('target_cofrade_id', isEqualTo: cofradeId)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) return;
+    await _db.collection('novedades').add({
+      'tipo': 'cofrade_created',
+      'titulo': 'Bienvenido/a',
+      'mensaje':
+          'Tu perfil de cofrade ha sido creado. Revisa y completa tus datos.',
+      'target_cofrade_id': cofradeId,
+      'created_at': FieldValue.serverTimestamp(),
+      'read': false,
+      'active': true,
+    });
+  }
+
+  // --- Tags cofrades ---
+  Stream<List<TagConfig>> getTagsConfig() {
+    return _db.collection('tags_config').orderBy('nombre').snapshots().map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => TagConfig.fromFirestore(doc)).toList(),
+        );
+  }
+
+  Stream<List<TagConfig>> getUsedTagsConfig() {
+    return _db
+        .collection('tags_config')
+        .orderBy('nombre')
+        .snapshots()
+        .asyncMap((snapshot) async {
+      final used = <TagConfig>[];
+      for (final doc in snapshot.docs) {
+        final tag = TagConfig.fromFirestore(doc);
+        if (tag.id == 'faltan_datos') continue;
+        if (await countCofradesWithTag(tag.id) > 0) {
+          used.add(tag);
+        }
+      }
+      return used;
+    });
+  }
+
+  Future<void> saveTagConfig(TagConfig tag) async {
+    if (tag.nombre.trim().isEmpty) {
+      throw ArgumentError('El nombre del tag es obligatorio.');
+    }
+    final ref = tag.id.isEmpty
+        ? _db.collection('tags_config').doc()
+        : _db.collection('tags_config').doc(tag.id);
+    final payload = {
+      ...tag.toFirestore(),
+      'id': ref.id,
+      'nombre': tag.nombre.trim(),
+      'descripcion': tag.descripcion.trim(),
+      'color': _normalizeHexColor(tag.color),
+    };
+    debugPrint(
+        '[Firestore] saveTagConfig: doc=${ref.id} nombre=${payload['nombre']} tipo=${payload['tipo']}');
+    await ref.set(payload, SetOptions(merge: true));
+    await createAuditLog(
+      action: tag.id.isEmpty ? 'tag_created' : 'tag_updated',
+      targetId: ref.id,
+      targetType: 'tags_config',
+      targetNombre: tag.nombre.trim(),
+      changedBy: 'system',
+      newValue: payload,
+    );
+    debugPrint('[Firestore] saveTagConfig: OK doc=${ref.id}');
+  }
+
+  String _normalizeHexColor(String value) {
+    final raw = value.trim();
+    final hex = raw.startsWith('#') ? raw : '#$raw';
+    return RegExp(r'^#[0-9A-Fa-f]{6}$').hasMatch(hex)
+        ? hex.toUpperCase()
+        : '#607D8B';
+  }
+
+  Future<void> deleteTagConfig(String tagId,
+      {required String changedBy}) async {
+    final tagRef = _db.collection('tags_config').doc(tagId);
+    final tagSnap = await tagRef.get();
+    if (!tagSnap.exists) return;
+    final manualSnap = await _db
+        .collection('cofrades')
+        .where('tags_manual', arrayContains: tagId)
+        .get();
+    final autoSnap = await _db
+        .collection('cofrades')
+        .where('tags_auto', arrayContains: tagId)
+        .get();
+    final affected = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+    for (final doc in manualSnap.docs) {
+      affected[doc.id] = doc;
+    }
+    for (final doc in autoSnap.docs) {
+      affected[doc.id] = doc;
+    }
+    final batch = _db.batch();
+    for (final doc in affected.values) {
+      batch.update(doc.reference, {
+        'tags_manual': FieldValue.arrayRemove([tagId]),
+        'tags_auto': FieldValue.arrayRemove([tagId]),
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      });
+    }
+    batch.delete(tagRef);
+    await batch.commit();
+    await createAuditLog(
+      action: 'tag_deleted',
+      targetId: tagId,
+      targetType: 'tags_config',
+      targetNombre: '${tagSnap.data()?['nombre'] ?? tagId}',
+      changedBy: changedBy,
+      oldValue: tagSnap.data(),
+      metadata: {'affected_cofrades': affected.length},
+    );
+  }
+
+  Stream<List<CofradeFieldConfig>> getCofradeFieldsConfig() {
+    return _db
+        .collection('cofrade_fields_config')
+        .orderBy('order')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => CofradeFieldConfig.fromFirestore(doc))
+            .toList());
+  }
+
+  Future<void> saveCofradeFieldConfig(CofradeFieldConfig config) async {
+    if (config.fieldKey.trim().isEmpty || config.label.trim().isEmpty) {
+      throw ArgumentError('La clave y la etiqueta son obligatorias.');
+    }
+    final ref = config.id.isEmpty
+        ? _db.collection('cofrade_fields_config').doc(config.fieldKey.trim())
+        : _db.collection('cofrade_fields_config').doc(config.id);
+    final before = await ref.get();
+    await ref.set(config.toFirestore(), SetOptions(merge: true));
+    await createAuditLog(
+      action: 'required_fields_config_updated',
+      targetId: ref.id,
+      targetType: 'cofrade_fields_config',
+      targetNombre: config.label,
+      changedBy: 'system',
+      oldValue: before.data(),
+      newValue: {
+        'field_key': config.fieldKey,
+        'label': config.label,
+        'required': config.required,
+        'active': config.active,
+      },
+    );
+  }
+
+  Future<void> seedDefaultCofradeFieldsConfig() async {
+    final detected = <String>{};
+    final cofradesSnap = await _db.collection('cofrades').limit(200).get();
+    for (final doc in cofradesSnap.docs) {
+      detected.addAll(doc.data().keys);
+    }
+    final fields = <List<Object>>[
+      ['nombre', 'Nombre', 'string', true],
+      ['apellidos', 'Apellidos', 'string', true],
+      ['dni', 'DNI/NIF', 'string', false],
+      ['email', 'Email', 'string', true],
+      ['telefono_movil', 'Teléfono móvil', 'string', true],
+      ['telefono_fijo', 'Teléfono fijo', 'string', false],
+      ['fecha_nacimiento_str', 'Fecha de nacimiento', 'date', true],
+      ['genero', 'Género', 'select', false],
+      ['domicilio', 'Domicilio', 'string', false],
+      ['localidad', 'Localidad', 'string', false],
+      ['numero', 'Número de cofrade', 'number', false],
+      ['anio_alta', 'Año de alta', 'number', false],
+      ['anios_hermandad', 'Años en hermandad', 'number', false],
+      ['anio_mayordomia', 'Año de mayordomía', 'number', false],
+      ['cuotaActiva', 'Cuota activa', 'boolean', false],
+      ['tiene_cuota', 'Tiene cuota', 'boolean', false],
+      ['cuota_metalico', 'Cuota metálico', 'boolean', false],
+      ['cuota_domiciliada', 'Cuota domiciliada', 'boolean', false],
+      ['iban', 'IBAN', 'string', false],
+      ['titular_iban', 'Titular IBAN', 'string', false],
+      ['gdpr_papel', 'GDPR firmado en papel', 'boolean', false],
+      ['gdprDigitalAccepted', 'GDPR digital aceptado', 'boolean', false],
+      ['requiresDigitalTutor', 'Requiere tutela digital', 'boolean', false],
+      ['digitalTutorName', 'Nombre tutor', 'string', false],
+      ['digitalTutorDni', 'DNI tutor', 'string', false],
+      ['digitalTutorPhone', 'Teléfono tutor', 'string', false],
+      ['digitalTutorEmail', 'Email tutor', 'string', false],
+      ['digitalTutorRelationship', 'Parentesco tutor', 'string', false],
+      ['portador', 'Portador', 'boolean', false],
+      ['tiene_tunica_propia', 'Túnica propia', 'boolean', false],
+      ['lastLoginAt', 'Último acceso', 'date', false],
+      ['firstLoginAt', 'Primer acceso', 'date', false],
+      ['hasLoggedIn', 'Ha accedido a la app', 'boolean', false],
+      ['loginCount', 'Número de accesos', 'number', false],
+      ['lastLoginMethod', 'Último método de acceso', 'select', false],
+      ['linkedAuthProviders', 'Métodos de acceso vinculados', 'string', false],
+      for (final key in detected)
+        if (!_knownFieldKeys.contains(key))
+          [key, _humanizeFieldKey(key), _inferFieldType(key), false],
+    ];
+    final batch = _db.batch();
+    for (var i = 0; i < fields.length; i++) {
+      final field = fields[i];
+      final key = field[0] as String;
+      final ref = _db.collection('cofrade_fields_config').doc(key);
+      batch.set(
+        ref,
+        CofradeFieldConfig(
+          id: key,
+          fieldKey: key,
+          label: field[1] as String,
+          type: field[2] as String,
+          required: field[3] as bool,
+          order: i,
+          options: key == 'genero'
+              ? const ['Hombre', 'Mujer']
+              : key == 'lastLoginMethod'
+                  ? const ['google', 'password', 'dni']
+                  : const [],
+        ).toFirestore(),
+        SetOptions(merge: true),
+      );
+    }
+    await batch.commit();
+  }
+
+  static const Set<String> _knownFieldKeys = {
+    'nombre',
+    'apellidos',
+    'dni',
+    'email',
+    'telefono_movil',
+    'telefono_fijo',
+    'fecha_nacimiento_str',
+    'genero',
+    'domicilio',
+    'localidad',
+    'numero',
+    'anio_alta',
+    'anios_hermandad',
+    'anio_mayordomia',
+    'cuotaActiva',
+    'tiene_cuota',
+    'cuota_metalico',
+    'cuota_domiciliada',
+    'iban',
+    'titular_iban',
+    'gdpr_papel',
+    'gdprDigitalAccepted',
+    'requiresDigitalTutor',
+    'digitalTutorName',
+    'digitalTutorDni',
+    'digitalTutorPhone',
+    'digitalTutorEmail',
+    'digitalTutorRelationship',
+    'portador',
+    'tiene_tunica_propia',
+    'lastLoginAt',
+    'firstLoginAt',
+    'hasLoggedIn',
+    'loginCount',
+    'lastLoginMethod',
+    'linkedAuthProviders',
+  };
+
+  String _humanizeFieldKey(String key) {
+    return key
+        .replaceAll('_', ' ')
+        .replaceAllMapped(RegExp(r'([a-z])([A-Z])'),
+            (match) => '${match.group(1)} ${match.group(2)}')
+        .trim()
+        .split(' ')
+        .map((part) => part.isEmpty
+            ? part
+            : '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
+  }
+
+  String _inferFieldType(String key) {
+    final lower = key.toLowerCase();
+    if (lower.contains('date') ||
+        lower.contains('fecha') ||
+        lower.endsWith('at')) {
+      return 'date';
+    }
+    if (lower.startsWith('is') ||
+        lower.startsWith('has') ||
+        lower.contains('gdpr') ||
+        lower.contains('cuota') ||
+        lower.contains('tutor')) {
+      return 'boolean';
+    }
+    if (lower.contains('numero') ||
+        lower.contains('anio') ||
+        lower.contains('count') ||
+        lower.contains('edad')) {
+      return 'number';
+    }
+    return 'string';
+  }
+
+  List<CofradeFieldConfig> getMissingRequiredFields(
+    Cofrade cofrade,
+    List<CofradeFieldConfig> fieldsConfig,
+  ) {
+    return fieldsConfig.where((field) {
+      if (!field.active || !field.required || !field.visibleInPrivateProfile) {
+        return false;
+      }
+      if (_isGdprRequiredField(field.fieldKey)) {
+        return !cofrade.gdprPapel;
+      }
+      if (_isAnyGdprRequiredField(field.fieldKey)) {
+        return !(cofrade.gdprPapel ||
+            cofrade.gdprDigitalAccepted ||
+            cofrade.gdprFirmado);
+      }
+      final value = cofrade.valueForFieldKey(field.fieldKey);
+      if (value == null) return true;
+      if (value is String) return value.trim().isEmpty;
+      if (value is Iterable) return value.isEmpty;
+      if (field.fieldKey == 'gdpr_firmado' && value is bool) return !value;
+      return false;
+    }).toList();
+  }
+
+  bool _isGdprRequiredField(String key) {
+    return {
+      'gdpr_papel',
+      'gdprPapel',
+      'gdprFirmadoPapel',
+    }.contains(key);
+  }
+
+  bool _isAnyGdprRequiredField(String key) {
+    return {
+      'gdpr_firmado',
+      'gdpr_firmado_digital',
+      'gdprDigitalAccepted',
+    }.contains(key);
+  }
+
+  Future<void> createAuditLog({
+    required String action,
+    required String targetId,
+    String targetType = '',
+    required String targetNombre,
+    required String changedBy,
+    Object? oldValue,
+    Object? newValue,
+    Map<String, dynamic>? metadata,
+  }) async {
+    await _db.collection('audit_logs').add({
+      'action': action,
+      'target_id': targetId,
+      'target_type': targetType,
+      'target_nombre': targetNombre,
+      'changed_by': changedBy,
+      'changed_at': FieldValue.serverTimestamp(),
+      'old_value': _safeAuditValue(oldValue),
+      'new_value': _safeAuditValue(newValue),
+      'metadata': metadata ?? {},
+    });
+  }
+
+  bool _isActiveGdprPaperDocument(Map<String, dynamic> data) {
+    final type = '${data['type'] ?? ''}';
+    final subtype = '${data['subtype'] ?? ''}';
+    final status = '${data['status'] ?? ''}';
+    final isPaper = type == 'GDPR_PAPEL' ||
+        subtype == 'GDPR_PAPEL' ||
+        (type == 'GDPR' && subtype == 'GDPR_PAPEL');
+    return isPaper &&
+        const {'valid', 'active', 'pending_validation'}.contains(status);
+  }
+
+  Future<void> syncGdprPaperStatus({
+    required String cofradeId,
+    String changedBy = 'system',
+  }) async {
+    final docs = await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .get();
+    final activePaperDocs = docs.docs
+        .where((doc) => _isActiveGdprPaperDocument(doc.data()))
+        .toList();
+    final hasPaper = activePaperDocs.isNotEmpty;
+    final cofradeRef = _db.collection('cofrades').doc(cofradeId);
+    final cofradeSnap = await cofradeRef.get();
+    final data = cofradeSnap.data() ?? {};
+    final current = data['gdprPapel'] == true ||
+        data['gdprFirmadoPapel'] == true ||
+        data['gdpr_papel'] == true;
+    final currentDocId = data['gdprPapelDocumentId'];
+    final nextDocId = hasPaper ? activePaperDocs.first.id : null;
+    if (current == hasPaper && currentDocId == nextDocId) return;
+    await updateCofrade(
+      cofradeId,
+      {
+        'gdpr_papel': hasPaper,
+        'gdprPapel': hasPaper,
+        'gdprFirmadoPapel': hasPaper,
+        'gdpr_firmado': hasPaper,
+        'gdprPapelUpdatedAt': FieldValue.serverTimestamp(),
+        'gdprPapelDocumentId': nextDocId,
+      },
+      changedBy: changedBy,
+      changedByRole: 'system',
+    );
+  }
+
+  Future<Map<String, dynamic>> resolveGdprPapelStatus(String cofradeId) async {
+    final docs = await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .get();
+    final activePaperDocs = docs.docs
+        .where((doc) => _isActiveGdprPaperDocument(doc.data()))
+        .toList();
+    if (activePaperDocs.isNotEmpty) {
+      await syncGdprPaperStatus(cofradeId: cofradeId);
+      return {
+        'hasGdprPapel': true,
+        'documentId': activePaperDocs.first.id,
+        'source': 'document',
+      };
+    }
+    final cofradeSnap = await _db.collection('cofrades').doc(cofradeId).get();
+    final data = cofradeSnap.data() ?? {};
+    final hasField = data['gdprPapel'] == true ||
+        data['gdprFirmadoPapel'] == true ||
+        data['gdpr_papel'] == true;
+    return {
+      'hasGdprPapel': hasField,
+      'documentId': data['gdprPapelDocumentId'],
+      'source': hasField ? 'field' : 'none',
+    };
+  }
+
+  Stream<Map<String, dynamic>?> watchGdprPaperDocument(String cofradeId) {
+    return _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .snapshots()
+        .asyncMap((snapshot) async {
+      final docs = snapshot.docs
+          .where((doc) => _isActiveGdprPaperDocument(doc.data()))
+          .toList();
+      docs.sort((a, b) {
+        final at = a.data()['uploadedAt'] ?? a.data()['createdAt'];
+        final bt = b.data()['uploadedAt'] ?? b.data()['createdAt'];
+        if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
+        return 0;
+      });
+      await syncGdprPaperStatus(cofradeId: cofradeId);
+      if (docs.isEmpty) return null;
+      return {'id': docs.first.id, ...docs.first.data()};
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> watchGdprDocuments(String cofradeId) {
+    return _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .snapshots()
+        .map((snapshot) {
+      final docs = snapshot.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .where((doc) =>
+              (['GDPR_PAPEL', 'GDPR_DIGITAL'].contains(doc['type']) ||
+                  (doc['type'] == 'GDPR' &&
+                      ['GDPR_PAPEL', 'GDPR_DIGITAL']
+                          .contains(doc['subtype']))) &&
+              ['valid', 'active', 'pending_validation'].contains(doc['status']))
+          .toList();
+      docs.sort((a, b) => '${a['type']}'.compareTo('${b['type']}'));
+      return docs;
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> watchPrivateDocuments(
+    String cofradeId, {
+    bool onlyVisibleToCofrade = false,
+  }) {
+    return _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .snapshots()
+        .map((snapshot) {
+      final docs = snapshot.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .where((doc) =>
+              doc['isPrivate'] == true &&
+              doc['status'] == 'active' &&
+              (!onlyVisibleToCofrade || doc['visibleToCofrade'] == true))
+          .toList();
+      docs.sort((a, b) {
+        final at = a['uploadedAt'] ?? a['createdAt'];
+        final bt = b['uploadedAt'] ?? b['createdAt'];
+        if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
+        return '${a['title'] ?? ''}'.compareTo('${b['title'] ?? ''}');
+      });
+      return docs;
+    });
+  }
+
+  Future<void> savePrivateDocument({
+    required String cofradeId,
+    required Map<String, String> upload,
+    required String title,
+    required String type,
+    String subtype = '',
+    bool visibleToCofrade = true,
+    String comments = '',
+    required String performedBy,
+  }) async {
+    final docsRef =
+        _db.collection('cofrades').doc(cofradeId).collection('documents');
+    final payload = {
+      'cofradeId': cofradeId,
+      'title': title.trim().isEmpty ? upload['nombre'] : title.trim(),
+      'type': type,
+      'subtype': subtype,
+      'storagePath': upload['storage_path'],
+      'downloadUrl': upload['url'],
+      'fileName': upload['nombre'],
+      'mimeType': upload['tipo'],
+      'sizeBytes': int.tryParse(upload['tamano_bytes'] ?? ''),
+      'uploadedAt': FieldValue.serverTimestamp(),
+      'uploadedBy': performedBy,
+      'visibleToCofrade': visibleToCofrade,
+      'isPrivate': true,
+      'status': 'active',
+      'comments': comments,
+    };
+    final doc = await docsRef.add(payload);
+    if (type == 'GDPR_PAPEL' || subtype == 'GDPR_PAPEL') {
+      await syncGdprPaperStatus(cofradeId: cofradeId, changedBy: performedBy);
+    }
+    await createAuditLog(
+      action: 'private_document_uploaded',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: performedBy,
+      newValue: payload,
+      metadata: {'document_id': doc.id, 'storagePath': upload['storage_path']},
+    );
+  }
+
+  Future<void> deletePrivateDocument({
+    required String cofradeId,
+    required String documentId,
+    required String performedBy,
+  }) async {
+    final ref = _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .doc(documentId);
+    final before = await ref.get();
+    await ref.update({
+      'status': 'deleted',
+      'deletedAt': FieldValue.serverTimestamp(),
+      'deletedBy': performedBy,
+    });
+    final beforeData = before.data();
+    if (beforeData != null && _isActiveGdprPaperDocument(beforeData)) {
+      await syncGdprPaperStatus(cofradeId: cofradeId, changedBy: performedBy);
+    }
+    await createAuditLog(
+      action: 'private_document_deleted',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: performedBy,
+      oldValue: before.data(),
+      metadata: {'document_id': documentId},
+    );
+  }
+
+  Future<void> saveGdprPaperDocument({
+    required String cofradeId,
+    required Map<String, String> upload,
+    required String performedBy,
+    required String source,
+    bool pendingValidation = false,
+  }) async {
+    final docsRef =
+        _db.collection('cofrades').doc(cofradeId).collection('documents');
+    final existingAll = await docsRef.get();
+    final existingDocs = existingAll.docs
+        .where((doc) => _isActiveGdprPaperDocument(doc.data()))
+        .toList();
+    final isReplacement = existingDocs.isNotEmpty;
+    if (isReplacement) {
+      await existingDocs.first.reference.update({
+        'status': 'deleted',
+        'deletedAt': FieldValue.serverTimestamp(),
+        'deletedBy': performedBy,
+      });
+    }
+    final payload = {
+      'type': 'GDPR_PAPEL',
+      'subtype': 'GDPR_PAPEL',
+      'title': 'GDPR firmado en papel',
+      'cofradeId': cofradeId,
+      'storagePath': upload['storage_path'],
+      'downloadUrl': upload['url'],
+      'fileName': upload['nombre'],
+      'mimeType': upload['tipo'],
+      'sizeBytes': int.tryParse(upload['tamano_bytes'] ?? ''),
+      'uploadedAt': FieldValue.serverTimestamp(),
+      'uploadedBy': performedBy,
+      'validatedAt': pendingValidation ? null : FieldValue.serverTimestamp(),
+      'validatedBy': pendingValidation ? null : performedBy,
+      'status': pendingValidation ? 'pending_validation' : 'valid',
+      'isPrivate': true,
+      'visibleToCofrade': true,
+    };
+    final doc = await docsRef.add(payload);
+    await updateCofrade(
+      cofradeId,
+      {
+        'gdpr_papel': true,
+        'gdprPapel': true,
+        'gdprFirmadoPapel': true,
+        'gdpr_firmado': true,
+        'gdprPapelUpdatedAt': FieldValue.serverTimestamp(),
+        'gdprPapelDocumentId': doc.id,
+      },
+      changedBy: performedBy,
+      changedByRole: source,
+    );
+    await createAuditLog(
+      action:
+          isReplacement ? 'gdpr_document_replaced' : 'gdpr_document_uploaded',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: performedBy,
+      oldValue: isReplacement ? existingDocs.first.data() : null,
+      newValue: payload,
+      metadata: {
+        'document_id': doc.id,
+        'storagePath': upload['storage_path'],
+        'source': source,
+      },
+    );
+  }
+
+  Future<void> deleteGdprPaperDocument({
+    required String cofradeId,
+    required String documentId,
+    required String performedBy,
+  }) async {
+    final ref = _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .doc(documentId);
+    final before = await ref.get();
+    await ref.update({
+      'status': 'deleted',
+      'deletedAt': FieldValue.serverTimestamp(),
+      'deletedBy': performedBy,
+    });
+    final remaining = await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('documents')
+        .get();
+    final hasRemaining =
+        remaining.docs.any((doc) => _isActiveGdprPaperDocument(doc.data()));
+    if (!hasRemaining) {
+      await updateCofrade(
+        cofradeId,
+        {
+          'gdpr_papel': false,
+          'gdprPapel': false,
+          'gdprFirmadoPapel': false,
+          'gdpr_firmado': false,
+          'gdprPapelUpdatedAt': FieldValue.serverTimestamp(),
+          'gdprPapelDocumentId': null,
+        },
+        changedBy: performedBy,
+        changedByRole: 'admin_panel',
+      );
+    }
+    await createAuditLog(
+      action: 'gdpr_document_deleted',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: performedBy,
+      oldValue: before.data(),
+      metadata: {'document_id': documentId, 'source': 'admin_panel'},
+    );
+  }
+
+  Future<void> acceptDigitalGdprConsent({
+    required Cofrade cofrade,
+    required String acceptedByUid,
+    required String acceptedByEmail,
+    required Map<String, dynamic> consent,
+    required Map<String, bool> checkboxes,
+    String? documentId,
+  }) async {
+    final version = '${consent['versionId'] ?? 'gdpr-rgpd-v1'}';
+    final legalText = '${consent['legalText'] ?? ''}';
+    final hash = sha256.convert(utf8.encode(legalText)).toString();
+    final isTutorSignature = cofrade.requiresDigitalTutor;
+    if (isTutorSignature &&
+        (cofrade.digitalTutorName.trim().isEmpty ||
+            cofrade.digitalTutorDni.trim().isEmpty ||
+            cofrade.digitalTutorRelationship.trim().isEmpty)) {
+      throw StateError(
+        'Faltan datos obligatorios del tutor digital. Contacta con la Cofradía.',
+      );
+    }
+    final consentRef = _db
+        .collection('cofrades')
+        .doc(cofrade.id)
+        .collection('consents')
+        .doc(version);
+    final snap = await consentRef.get();
+    final payload = {
+      'cofradeId': cofrade.id,
+      'consentVersionId': version,
+      'accepted': true,
+      'acceptedAt': FieldValue.serverTimestamp(),
+      'acceptedByUid': acceptedByUid,
+      'acceptedByEmail': acceptedByEmail,
+      'legalTextHash': hash,
+      'legalTextSnapshot': legalText,
+      'checkboxesAccepted': checkboxes,
+      'signedByType': isTutorSignature ? 'digital_tutor' : 'cofrade',
+      'signedByName':
+          isTutorSignature ? cofrade.digitalTutorName : cofrade.nombreCompleto,
+      'signedByDni':
+          isTutorSignature ? cofrade.digitalTutorDni : (cofrade.dni ?? ''),
+      'signedForCofradeId': cofrade.id,
+      'signedForCofradeName': cofrade.nombreCompleto,
+      'signedByRelationship':
+          isTutorSignature ? cofrade.digitalTutorRelationship : '',
+      'source': 'private_app',
+      'status': 'accepted',
+      'revokedAt': null,
+      'revocationRequestedAt': null,
+      'revocationReason': null,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    if (!(snap.exists && snap.data()?['accepted'] == true)) {
+      await consentRef.set(payload);
+    }
+    await updateCofrade(
+      cofrade.id,
+      {
+        'gdpr_firmado_digital': true,
+        'gdprDigitalAccepted': true,
+        'gdprDigitalAcceptedAt': FieldValue.serverTimestamp(),
+        'gdprDigitalConsentVersion': version,
+        'gdprDigitalConsentHash': hash,
+        if (documentId != null) 'gdprDigitalDocumentId': documentId,
+        'gdprDigitalRevoked': false,
+        'gdprDigitalStatus': 'accepted',
+        'gdprDigitalReacceptanceRequired': false,
+      },
+      changedBy: cofrade.id,
+      changedByRole: 'cofrade',
+      markPendingReview: false,
+    );
+    await createAuditLog(
+      action: 'gdpr_digital_consent_accepted',
+      targetId: cofrade.id,
+      targetType: 'cofrade',
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: cofrade.id,
+      newValue: {
+        'consentVersion': version,
+        'legalTextHash': hash,
+        'signedByType': isTutorSignature ? 'digital_tutor' : 'cofrade',
+      },
+      metadata: {'source': 'private_app'},
+    );
+  }
+
+  Future<String> saveGdprDigitalDocument({
+    required Cofrade cofrade,
+    required Map<String, String> upload,
+    required String consentVersion,
+    required String legalTextHash,
+    required String performedBy,
+    Map<String, dynamic>? signatureMetadata,
+  }) async {
+    final docsRef =
+        _db.collection('cofrades').doc(cofrade.id).collection('documents');
+    final safeVersion =
+        consentVersion.replaceAll(RegExp(r'[^A-Za-z0-9_\-]'), '_');
+    final docRef = docsRef.doc('gdpr_digital_$safeVersion');
+    final existing = await docRef.get();
+    if (existing.exists && existing.data()?['status'] == 'valid') {
+      return docRef.id;
+    }
+    final payload = {
+      'type': 'GDPR',
+      'subtype': 'GDPR_DIGITAL',
+      'title': 'Consentimiento digital',
+      'cofradeId': cofrade.id,
+      'storagePath': upload['storage_path'],
+      'downloadUrl': upload['url'],
+      'fileName': upload['nombre'] ?? 'Consentimiento digital.pdf',
+      'mimeType': upload['tipo'],
+      'sizeBytes': int.tryParse(upload['tamano_bytes'] ?? ''),
+      'consentVersion': consentVersion,
+      'acceptedAt': FieldValue.serverTimestamp(),
+      'uploadedAt': FieldValue.serverTimestamp(),
+      'uploadedBy': performedBy,
+      'validatedAt': FieldValue.serverTimestamp(),
+      'validatedBy': performedBy,
+      'legalTextHash': legalTextHash,
+      if (signatureMetadata != null) ...signatureMetadata,
+      'status': 'valid',
+      'isPrivate': true,
+      'visibleToCofrade': true,
+    };
+    await docRef.set(payload, SetOptions(merge: true));
+    await createAuditLog(
+      action: 'gdpr_digital_consent_pdf_generated',
+      targetId: cofrade.id,
+      targetType: 'cofrade',
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: performedBy,
+      newValue: payload,
+      metadata: {
+        'document_id': docRef.id,
+        'storagePath': upload['storage_path'],
+        'source': 'private_app',
+      },
+    );
+    return docRef.id;
+  }
+
+  Future<void> requestGdprDigitalRevocation({
+    required Cofrade cofrade,
+    required String performedBy,
+    String performedByRole = 'cofrade',
+    String reason = '',
+  }) async {
+    final version = cofrade.gdprDigitalConsentVersion ?? 'gdpr-rgpd-v1';
+    final consentRef = _db
+        .collection('cofrades')
+        .doc(cofrade.id)
+        .collection('consents')
+        .doc(version);
+    final consentSnap = await consentRef.get();
+    final oldConsent = consentSnap.data();
+    final updatePayload = {
+      'cofradeId': cofrade.id,
+      'consentVersionId': version,
+      'status': 'revocation_requested',
+      'consentStatus': 'revocation_requested',
+      'revocationRequestedAt': FieldValue.serverTimestamp(),
+      'revocationRequestedBy': performedBy,
+      'revocationRequestedByRole': performedByRole,
+      'originalSignedAt': cofrade.gdprDigitalAcceptedAt != null
+          ? Timestamp.fromDate(cofrade.gdprDigitalAcceptedAt!)
+          : oldConsent?['acceptedAt'],
+      'updatedAt': FieldValue.serverTimestamp(),
+      if (reason.trim().isNotEmpty) 'revocationReason': reason.trim(),
+    };
+    await consentRef.set(updatePayload, SetOptions(merge: true));
+    await updateCofrade(
+      cofrade.id,
+      {
+        'gdprDigitalStatus': 'revocation_requested',
+        'gdprDigitalRevocationRequestedAt': FieldValue.serverTimestamp(),
+        'gdprDigitalRevocationRequestedBy': performedBy,
+      },
+      changedBy: performedBy,
+      changedByRole: performedByRole,
+      markPendingReview: false,
+    );
+    await createAuditLog(
+      action: 'consent_revocation_requested',
+      targetId: cofrade.id,
+      targetType: 'consent',
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: performedBy,
+      oldValue: {'gdprDigitalStatus': cofrade.gdprDigitalStatus},
+      newValue: {
+        'gdprDigitalStatus': 'revocation_requested',
+        'consentId': version,
+      },
+      metadata: {
+        'entityType': 'consent',
+        'entityId': version,
+        'cofradeId': cofrade.id,
+        'changedByRole': performedByRole,
+        'reason': reason,
+        'source':
+            performedByRole == 'admin' ? 'admin_panel' : 'private_profile',
+      },
+    );
+  }
+
+  Future<void> reacceptDigitalConsentByAdmin({
+    required Cofrade cofrade,
+    required String changedBy,
+    required String changedByRole,
+    required String reason,
+    required String notes,
+  }) async {
+    if (reason.trim().isEmpty || notes.trim().isEmpty) {
+      throw StateError('Motivo y observaciones son obligatorios.');
+    }
+    final version = cofrade.gdprDigitalConsentVersion ?? 'gdpr-rgpd-v1';
+    final consentRef = _db
+        .collection('cofrades')
+        .doc(cofrade.id)
+        .collection('consents')
+        .doc(version);
+    final before = await consentRef.get();
+    await consentRef.set({
+      'cofradeId': cofrade.id,
+      'consentVersionId': version,
+      'status': 'accepted',
+      'consentStatus': 'signed',
+      'accepted': true,
+      'acceptedAgainAt': FieldValue.serverTimestamp(),
+      'acceptedAgainBy': changedBy,
+      'acceptedAgainReason': reason.trim(),
+      'acceptedAgainNotes': notes.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await updateCofrade(
+      cofrade.id,
+      {
+        'gdprDigitalAccepted': true,
+        'gdpr_firmado_digital': true,
+        'gdprDigitalRevoked': false,
+        'gdprDigitalStatus': 'accepted',
+        'gdprDigitalReacceptanceRequired': false,
+        'gdprDigitalAcceptedAgainAt': FieldValue.serverTimestamp(),
+        'gdprDigitalAcceptedAgainBy': changedBy,
+        'gdprDigitalAcceptedAgainReason': reason.trim(),
+        'gdprDigitalAcceptedAgainNotes': notes.trim(),
+      },
+      changedBy: changedBy,
+      changedByRole: changedByRole,
+      markPendingReview: false,
+    );
+    await createAuditLog(
+      action: 'consent_reaccepted_by_admin',
+      targetId: cofrade.id,
+      targetType: 'consent',
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: changedBy,
+      oldValue: before.data() ?? {'status': cofrade.gdprDigitalStatus},
+      newValue: {'status': 'signed'},
+      metadata: {
+        'entityType': 'consent',
+        'entityId': version,
+        'cofradeId': cofrade.id,
+        'changedByRole': changedByRole,
+        'reason': reason.trim(),
+        'notes': notes.trim(),
+      },
+    );
+  }
+
+  Stream<List<Map<String, dynamic>>> watchConversations(String cofradeId) {
+    return _db
+        .collection('conversations')
+        .where('cofradeId', isEqualTo: cofradeId)
+        .snapshots()
+        .map((snapshot) {
+      final items =
+          snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      items.sort((a, b) {
+        final at = a['lastMessageAt'];
+        final bt = b['lastMessageAt'];
+        if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
+        return 0;
+      });
+      return items;
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> watchConversationMessages(
+    String cofradeId,
+    String conversationId,
+  ) {
+    return _db
+        .collection('conversations')
+        .doc(conversationId)
+        .collection('messages')
+        .orderBy('createdAt')
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+  }
+
+  Stream<List<Map<String, dynamic>>> watchAllConversations() {
+    return _db.collection('conversations').snapshots().map((snapshot) {
+      final items =
+          snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      items.sort((a, b) {
+        final at = a['lastMessageAt'];
+        final bt = b['lastMessageAt'];
+        if (at is Timestamp && bt is Timestamp) return bt.compareTo(at);
+        return 0;
+      });
+      return items;
+    });
+  }
+
+  Stream<int> getPendingConversationsForAdminCountStream() {
+    return _db
+        .collection('conversations')
+        .where('status', isEqualTo: 'pending_admin')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  Future<String> startConversation({
+    required String cofradeId,
+    required String subject,
+    required String body,
+    required String createdBy,
+    required String createdByRole,
+    String priority = 'normal',
+    String type = 'admin_message',
+    String origin = 'admin',
+    String cofradeName = '',
+  }) async {
+    final convRef = _db.collection('conversations').doc();
+    final isAdminOrigin = origin == 'admin';
+    final batch = _db.batch();
+    batch.set(convRef, {
+      'cofradeId': cofradeId,
+      'cofradeName': cofradeName,
+      'type': type,
+      'origin': origin,
+      'subject': subject.trim(),
+      'priority': priority,
+      'status': isAdminOrigin ? 'pending_cofrade' : 'pending_admin',
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdBy': createdBy,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': createdBy,
+      'unreadByAdmin': !isAdminOrigin,
+      'unreadByCofrade': isAdminOrigin,
+      'closedAt': null,
+      'closedBy': null,
+    });
+    final msgRef = convRef.collection('messages').doc();
+    batch.set(msgRef, {
+      'body': body.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdBy': createdBy,
+      'createdByRole': createdByRole,
+      'readAt': null,
+      'attachments': [],
+    });
+    await batch.commit();
+    await createAuditLog(
+      action: 'private_conversation_started',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: createdBy,
+      newValue: {'conversationId': convRef.id, 'subject': subject},
+    );
+    return convRef.id;
+  }
+
+  Future<void> replyConversation({
+    required String cofradeId,
+    required String conversationId,
+    required String body,
+    required String createdBy,
+    required String createdByRole,
+  }) async {
+    final convRef = _db.collection('conversations').doc(conversationId);
+    final convSnap = await convRef.get();
+    if (convSnap.data()?['status'] == 'closed') {
+      throw StateError('La conversación está cerrada.');
+    }
+    final isAdminReply = createdByRole.toLowerCase().contains('admin') ||
+        createdByRole.toLowerCase() == 'tesorero' ||
+        createdByRole.toLowerCase() == 'junta';
+    await convRef.collection('messages').add({
+      'body': body.trim(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'createdBy': createdBy,
+      'createdByRole': createdByRole,
+      'readAt': null,
+      'attachments': [],
+    });
+    await convRef.update({
+      'status': isAdminReply ? 'pending_cofrade' : 'pending_admin',
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': createdBy,
+      'unreadByAdmin': !isAdminReply,
+      'unreadByCofrade': isAdminReply,
+    });
+    await createAuditLog(
+      action: 'private_conversation_message_sent',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: createdBy,
+      metadata: {'conversationId': conversationId},
+    );
+  }
+
+  Future<void> closeConversation({
+    required String conversationId,
+    required String cofradeId,
+    required String closedBy,
+  }) async {
+    final ref = _db.collection('conversations').doc(conversationId);
+    final before = await ref.get();
+    await ref.update({
+      'status': 'closed',
+      'closedAt': FieldValue.serverTimestamp(),
+      'closedBy': closedBy,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': closedBy,
+      'unreadByAdmin': false,
+      'unreadByCofrade': false,
+    });
+    await createAuditLog(
+      action: 'conversation_closed',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: closedBy,
+      oldValue: before.data(),
+      newValue: {'status': 'closed'},
+      metadata: {'conversationId': conversationId},
+    );
+  }
+
+  Future<void> reopenConversation({
+    required String conversationId,
+    required String cofradeId,
+    required String reopenedBy,
+  }) async {
+    final ref = _db.collection('conversations').doc(conversationId);
+    final before = await ref.get();
+    await ref.update({
+      'status': 'open',
+      'closedAt': null,
+      'closedBy': null,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastMessageBy': reopenedBy,
+      'unreadByAdmin': false,
+      'unreadByCofrade': true,
+    });
+    await createAuditLog(
+      action: 'conversation_reopened',
+      targetId: cofradeId,
+      targetType: 'cofrade',
+      targetNombre: cofradeId,
+      changedBy: reopenedBy,
+      oldValue: before.data(),
+      newValue: {'status': 'open'},
+      metadata: {'conversationId': conversationId},
+    );
+  }
+
+  Object? _safeAuditValue(Object? value) {
+    if (value == null) return null;
+    if (value is FieldValue) return '<serverTimestamp>';
+    if (value is Timestamp ||
+        value is String ||
+        value is num ||
+        value is bool) {
+      return value;
+    }
+    if (value is Map) {
+      return value.map((key, item) => MapEntry('$key', _safeAuditValue(item)));
+    }
+    if (value is Iterable) {
+      return value.map(_safeAuditValue).toList();
+    }
+    return '$value';
+  }
+
+  String _todayString() {
+    final now = DateTime.now();
+    return '${now.day.toString().padLeft(2, '0')}/'
+        '${now.month.toString().padLeft(2, '0')}/${now.year}';
+  }
+
+  Stream<List<Map<String, dynamic>>> watchRoleAuditEntries() {
+    return _db.collection('cofrades').snapshots().map((snapshot) {
+      final entries = <Map<String, dynamic>>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final rol = '${data['rol'] ?? 'cofrade'}';
+        final roles = (data['roles'] as List<dynamic>? ?? []).map((e) => '$e');
+        final normalizedRoles = roles.map((role) => role.toLowerCase());
+        final isService = data['es_cuenta_servicio'] == true;
+        final isAdminAccount = rol.toLowerCase() == 'admin' ||
+            normalizedRoles.contains('admin') ||
+            normalizedRoles.contains('superadmin') ||
+            isService;
+        if (isAdminAccount) {
+          entries.add({
+            'id': doc.id,
+            ...data,
+            'roles': roles.toList(),
+          });
+        }
+      }
+      entries.sort((a, b) => '${a['id']}'.compareTo('${b['id']}'));
+      return entries;
+    });
+  }
+
+  Future<void> toggleTagConfig(String id, bool activo) async {
+    await _db.collection('tags_config').doc(id).update({
+      'activo': activo,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<int> countCofradesWithTag(String tagId) async {
+    final manual = await _db
+        .collection('cofrades')
+        .where('tags_manual', arrayContains: tagId)
+        .count()
+        .get();
+    final auto = await _db
+        .collection('cofrades')
+        .where('tags_auto', arrayContains: tagId)
+        .count()
+        .get();
+    return (manual.count ?? 0) + (auto.count ?? 0);
+  }
+
+  Future<void> seedDefaultManualTags() async {
+    const names = [
+      'Junta de Gobierno',
+      'Protocolo',
+      'Juventud',
+      'Andas',
+      'Costalero',
+      'Música',
+      'Coro',
+      'Cultos',
+      'Caridad',
+      'Lotería',
+      'Túnicas',
+      'Colaborador habitual',
+      'Donante',
+      'Proveedor',
+      'Pendiente contactar',
+      'Datos incompletos',
+      'Requiere revisión',
+      'Familia vinculada',
+      'Mayordomía',
+      'Prioridad secretaría',
+      'Prioridad tesorería',
+    ];
+    final existing = await _db.collection('tags_config').get();
+    final existingNames = existing.docs
+        .map((doc) => '${doc.data()['nombre']}'.toLowerCase())
+        .toSet();
+    final batch = _db.batch();
+    for (final name in names) {
+      if (existingNames.contains(name.toLowerCase())) continue;
+      final ref = _db.collection('tags_config').doc();
+      batch.set(ref, {
+        ...TagConfig(id: ref.id, nombre: name).toFirestore(),
+        'id': ref.id,
+      });
+    }
+    await batch.commit();
+  }
+
+  Future<void> updateCofradeManualTags(
+    String cofradeId,
+    List<String> tags,
+  ) async {
+    final before = await _db.collection('cofrades').doc(cofradeId).get();
+    final oldTags = (before.data()?['tags_manual'] as List<dynamic>? ?? [])
+        .map((e) => '$e')
+        .toSet();
+    final newTags = tags.toSet();
+    await updateCofrade(cofradeId, {'tags_manual': tags});
+    for (final tag in newTags.difference(oldTags)) {
+      await createAuditLog(
+        action: 'manual_tag_assigned',
+        targetId: cofradeId,
+        targetType: 'cofrade',
+        targetNombre:
+            '${before.data()?['nombre'] ?? ''} ${before.data()?['apellidos'] ?? ''}'
+                .trim(),
+        changedBy: 'system',
+        newValue: tag,
+      );
+    }
+    for (final tag in oldTags.difference(newTags)) {
+      await createAuditLog(
+        action: 'manual_tag_removed',
+        targetId: cofradeId,
+        targetType: 'cofrade',
+        targetNombre:
+            '${before.data()?['nombre'] ?? ''} ${before.data()?['apellidos'] ?? ''}'
+                .trim(),
+        changedBy: 'system',
+        oldValue: tag,
+      );
+    }
+  }
+
+  Future<int> recomputeAutomaticTags() async {
+    await _ensureMissingDataTagConfig();
+    final tagsSnap = await _db
+        .collection('tags_config')
+        .where('tipo', isEqualTo: 'automatico')
+        .where('activo', isEqualTo: true)
+        .get();
+    final fieldsSnap = await _db.collection('cofrade_fields_config').get();
+    final cofradesSnap = await _db.collection('cofrades').get();
+    final tags =
+        tagsSnap.docs.map((doc) => TagConfig.fromFirestore(doc)).toList();
+    final fieldsConfig = fieldsSnap.docs
+        .map((doc) => CofradeFieldConfig.fromFirestore(doc))
+        .toList();
+    final batch = _db.batch();
+    var changed = 0;
+    for (final doc in cofradesSnap.docs) {
+      if (doc.id.startsWith('ADM-') ||
+          doc.data()['es_cuenta_servicio'] == true) {
+        continue;
+      }
+      final data = doc.data();
+      final cofrade = Cofrade.fromFirestore(doc);
+      if (!cofrade.isActivo) {
+        final previous = (doc.data()['tags_auto'] as List<dynamic>? ?? [])
+            .map((item) => '$item')
+            .toSet();
+        if (previous.isNotEmpty || doc.data()['dataQualityStatus'] != null) {
+          batch.update(doc.reference, {
+            'tags_auto': <String>[],
+            'dataQualityStatus': 'INACTIVE',
+            'anios_hermandad': cofrade.anioAlta == null
+                ? null
+                : DateTime.now().year - cofrade.anioAlta!,
+            'fecha_actualizacion': FieldValue.serverTimestamp(),
+          });
+          changed++;
+        }
+        continue;
+      }
+      final autoTags = <String>[];
+      final missingRequired = getMissingRequiredFields(cofrade, fieldsConfig);
+      for (final tag in tags) {
+        if (tag.id == 'faltan_datos') {
+          if (missingRequired.isNotEmpty) {
+            autoTags.add(tag.id);
+          }
+        } else if (_matchesAutomaticCriterion(data, tag.criterio, cofrade)) {
+          autoTags.add(tag.id);
+        }
+      }
+      final dataQualityStatus = _dataQualityStatusForCofrade(
+        cofrade,
+        missingRequired,
+      );
+      final previous = (doc.data()['tags_auto'] as List<dynamic>? ?? [])
+          .map((item) => '$item')
+          .toSet();
+      final next = autoTags.toSet();
+      final computedYears = cofrade.anioAlta == null
+          ? null
+          : DateTime.now().year - cofrade.anioAlta!;
+      if (previous.length == next.length &&
+          previous.containsAll(next) &&
+          doc.data()['dataQualityStatus'] == dataQualityStatus &&
+          doc.data()['anios_hermandad'] == computedYears) {
+        continue;
+      }
+      batch.update(doc.reference, {
+        'tags_auto': autoTags,
+        'dataQualityStatus': dataQualityStatus,
+        'anios_hermandad': computedYears,
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      });
+      changed++;
+    }
+    if (changed > 0) {
+      await batch.commit();
+      await createAuditLog(
+        action: 'auto_tags_recalculated',
+        targetId: 'tags_auto',
+        targetType: 'tags_config',
+        targetNombre: 'Tags automáticas',
+        changedBy: 'system',
+        metadata: {
+          'cofrades_count': cofradesSnap.docs.length,
+          'changed_count': changed,
+        },
+      );
+    }
+    return changed;
+  }
+
+  String _dataQualityStatusForCofrade(
+    Cofrade cofrade,
+    List<CofradeFieldConfig> missing,
+  ) {
+    if (missing.isEmpty) return 'COMPLETE';
+    return 'INCOMPLETE';
+  }
+
+  Future<void> _ensureMissingDataTagConfig() async {
+    final ref = _db.collection('tags_config').doc('faltan_datos');
+    final snap = await ref.get();
+    if (snap.exists) return;
+    await ref.set({
+      'id': 'faltan_datos',
+      'nombre': 'Faltan datos',
+      'descripcion': 'Campos obligatorios configurados pendientes de completar',
+      'tipo': 'automatico',
+      'color': '#D97706',
+      'activo': true,
+      'criterio': {'campo': 'tiene_datos_obligatorios_pendientes'},
+      'fecha_creacion': FieldValue.serverTimestamp(),
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
   }
 
   // --- Eventos ---
@@ -239,18 +2281,21 @@ class FirestoreService {
     await _db.collection('solicitudes').add(solicitud.toFirestore());
   }
 
-  Future<void> aprobarSolicitud(String solicitudId, String aprobadaPor) async {
+  Future<void> aprobarSolicitud(
+    String solicitudId,
+    String aprobadaPor, {
+    bool? requiresDigitalTutor,
+    String? digitalTutorName,
+    String? digitalTutorDni,
+    String? digitalTutorPhone,
+    String? digitalTutorEmail,
+    String? digitalTutorRelationship,
+  }) async {
     final solicitudDoc =
         await _db.collection('solicitudes').doc(solicitudId).get();
     if (!solicitudDoc.exists) return;
 
     final solicitud = Solicitud.fromFirestore(solicitudDoc);
-
-    await _db.collection('solicitudes').doc(solicitudId).update({
-      'estado': 'aprobada',
-      'aprobada_por': aprobadaPor,
-      'fecha_resolucion': FieldValue.serverTimestamp(),
-    });
 
     final lastNum = await _db
         .collection('cofrades')
@@ -261,7 +2306,11 @@ class FirestoreService {
         ? ((lastNum.docs.first.data()['numero'] ?? 0) + 1)
         : 1;
 
-    await _db.collection('cofrades').add({
+    final tutorRequired = requiresDigitalTutor ??
+        solicitud.requiresDigitalTutor ||
+            _ageFromDate(solicitud.fechaNacimiento) < 18;
+
+    final cofradeId = await createCofradeForAdmin({
       'numero': nextNum,
       'nombre': solicitud.nombre,
       'apellidos': solicitud.apellidos,
@@ -276,16 +2325,53 @@ class FirestoreService {
       'dni': solicitud.dni ?? '',
       'dni_normalizado': _normalizeDni(solicitud.dni ?? ''),
       'estado': 'Activo',
+      'status': 'active',
+      'isActive': true,
       'anio_alta': DateTime.now().year,
-      'genero': '',
-      'tiene_cuota': false,
+      'genero': solicitud.genero ?? '',
+      'tiene_cuota': true,
+      'cuotaActiva': true,
       'gdpr_firmado': false,
       'gdpr_firmado_digital': false,
       'notificaciones_activas': true,
       'tiene_tunica_propia': false,
       'rol': 'cofrade',
+      'role': 'cofrade',
+      'roles': ['cofrade'],
       'fecha_actualizacion': FieldValue.serverTimestamp(),
+      'requiresDigitalTutor': tutorRequired,
+      'tutelado_digital': tutorRequired,
+      'digitalTutorName': digitalTutorName ?? solicitud.digitalTutorName ?? '',
+      'digitalTutorDni': digitalTutorDni ?? solicitud.digitalTutorDni ?? '',
+      'digitalTutorPhone':
+          digitalTutorPhone ?? solicitud.digitalTutorPhone ?? '',
+      'digitalTutorEmail':
+          digitalTutorEmail ?? solicitud.digitalTutorEmail ?? '',
+      'digitalTutorRelationship':
+          digitalTutorRelationship ?? solicitud.digitalTutorRelationship ?? '',
+      'dni_tutor': digitalTutorDni ?? solicitud.digitalTutorDni ?? '',
+      'parentesco_tutor':
+          digitalTutorRelationship ?? solicitud.digitalTutorRelationship ?? '',
+      'digitalTutorConsentAccepted': false,
     });
+
+    await _db.collection('solicitudes').doc(solicitudId).update({
+      'estado': 'aprobada',
+      'aprobada_por': aprobadaPor,
+      'cofrade_id': cofradeId,
+      'requiresDigitalTutor': tutorRequired,
+      'tutelado_digital': tutorRequired,
+      'digitalTutorName': digitalTutorName ?? solicitud.digitalTutorName ?? '',
+      'digitalTutorDni': digitalTutorDni ?? solicitud.digitalTutorDni ?? '',
+      'digitalTutorPhone':
+          digitalTutorPhone ?? solicitud.digitalTutorPhone ?? '',
+      'digitalTutorEmail':
+          digitalTutorEmail ?? solicitud.digitalTutorEmail ?? '',
+      'digitalTutorRelationship':
+          digitalTutorRelationship ?? solicitud.digitalTutorRelationship ?? '',
+      'fecha_resolucion': FieldValue.serverTimestamp(),
+    });
+    await createWelcomeNovedadForCofrade(cofradeId);
   }
 
   Future<void> rechazarSolicitud(
@@ -431,7 +2517,26 @@ class FirestoreService {
   }
 
   Future<void> createSugerencia(Sugerencia sugerencia) async {
-    await _db.collection('sugerencias').add(sugerencia.toFirestore());
+    final legacyRef =
+        await _db.collection('sugerencias').add(sugerencia.toFirestore());
+    await startConversation(
+      cofradeId: sugerencia.cofradeId,
+      cofradeName: sugerencia.cofradeNombre,
+      subject: sugerencia.titulo,
+      body: sugerencia.mensaje,
+      createdBy: sugerencia.cofradeId,
+      createdByRole: 'cofrade',
+      type: sugerencia.tipo == 'peticion' ? 'request' : 'suggestion',
+      origin: 'cofrade',
+    );
+    await createAuditLog(
+      action: 'conversation_created_from_suggestion',
+      targetId: sugerencia.cofradeId,
+      targetType: 'cofrade',
+      targetNombre: sugerencia.cofradeNombre,
+      changedBy: sugerencia.cofradeId,
+      metadata: {'sugerencia_id': legacyRef.id, 'type': sugerencia.tipo},
+    );
   }
 
   Future<void> responderSugerencia(String id, String respuesta) async {
@@ -1476,16 +3581,16 @@ class FirestoreService {
       final disponibles = decimos.where((d) => d.estado == 'disponible').length;
       final importeVendido = decimos
           .where((d) => d.estado == 'vendido' || d.estado == 'cobrado')
-          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+          .fold<double>(0, (total, d) => total + d.precioVenta);
       final importeCobrado = decimos
           .where((d) => d.estado == 'cobrado')
-          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+          .fold<double>(0, (total, d) => total + d.precioVenta);
       final entregadoCofradia = decimos
           .where((d) => d.paidToBrotherhood)
-          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+          .fold<double>(0, (total, d) => total + d.precioVenta);
       final entregadoAdministracion = decimos
           .where((d) => d.paidToAdministration)
-          .fold<double>(0, (sum, d) => sum + d.precioVenta);
+          .fold<double>(0, (total, d) => total + d.precioVenta);
       return {
         'vendedores_pendientes': vendedoresConPendientes,
         'disponibles': disponibles,
@@ -1704,6 +3809,162 @@ class FirestoreService {
       buffer.write(replacements[char] ?? char.toLowerCase());
     }
     return buffer.toString().trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  bool _matchesAutomaticCriterion(
+    Map<String, dynamic> data,
+    Map<String, dynamic> criterio,
+    Cofrade cofrade,
+  ) {
+    final conditionsRaw = criterio['conditions'] ?? criterio['condiciones'];
+    if (conditionsRaw is Iterable) {
+      final conditions = conditionsRaw
+          .whereType<Map>()
+          .map((item) => item.cast<String, dynamic>())
+          .toList();
+      if (conditions.isEmpty) return false;
+      final combinator =
+          '${criterio['combinator'] ?? criterio['combinador'] ?? 'AND'}'
+              .toUpperCase();
+      final results = conditions
+          .map((condition) =>
+              _matchesAutomaticCriterion(data, condition, cofrade))
+          .toList();
+      return combinator == 'OR'
+          ? results.any((result) => result)
+          : results.every((result) => result);
+    }
+    final field = criterio['campo']?.toString() ?? '';
+    final operator = criterio['operador']?.toString() ?? '==';
+    final expected = criterio['valor'];
+    if (field.isEmpty) return false;
+    final actual = data.containsKey(field)
+        ? data[field]
+        : _computedTagFieldValue(field, cofrade);
+    if (actual == null && operator != 'empty') return false;
+    final actualNum = actual is num ? actual : num.tryParse('$actual');
+    final expectedNum = expected is num ? expected : num.tryParse('$expected');
+    switch (operator) {
+      case '==':
+        return '$actual'.toLowerCase() == '$expected'.toLowerCase();
+      case '!=':
+        return '$actual'.toLowerCase() != '$expected'.toLowerCase();
+      case '<':
+        return actualNum != null &&
+            expectedNum != null &&
+            actualNum < expectedNum;
+      case '<=':
+        return actualNum != null &&
+            expectedNum != null &&
+            actualNum <= expectedNum;
+      case '>':
+        return actualNum != null &&
+            expectedNum != null &&
+            actualNum > expectedNum;
+      case '>=':
+        return actualNum != null &&
+            expectedNum != null &&
+            actualNum >= expectedNum;
+      case 'contains':
+        return '$actual'.toLowerCase().contains('$expected'.toLowerCase());
+      case 'empty':
+        return actual == null || '$actual'.trim().isEmpty;
+      case 'not_empty':
+        return actual != null && '$actual'.trim().isNotEmpty;
+      default:
+        return false;
+    }
+  }
+
+  Object? _computedTagFieldValue(String field, Cofrade cofrade) {
+    switch (field) {
+      case 'edad':
+        return cofrade.edad ??
+            _ageFromBirthDateString(cofrade.fechaNacimientoStr);
+      case 'anios_hermandad':
+        return cofrade.anioAlta == null
+            ? null
+            : DateTime.now().year - cofrade.anioAlta!;
+      case 'tiene_datos_obligatorios_pendientes':
+        return cofrade.tieneDatosIncompletos;
+      case 'anio_alta':
+      case 'year_joined':
+        return cofrade.anioAlta;
+      case 'anio_mayordomia':
+      case 'year_mayordomia':
+        return cofrade.anioMayordomia;
+      case 'genero':
+        return cofrade.genero;
+      case 'estado':
+      case 'status':
+        return cofrade.estado;
+      case 'cuota_activa':
+      case 'cuotaActiva':
+        return cofrade.cuotaActiva;
+      case 'gdpr_papel':
+      case 'gdprPapel':
+        return cofrade.gdprPapel;
+      case 'gdpr_digital':
+      case 'gdprDigitalAccepted':
+        return cofrade.gdprDigitalAccepted;
+      case 'requiresDigitalTutor':
+      case 'requiere_tutela_digital':
+        return cofrade.requiresDigitalTutor;
+      case 'tiene_tunica_propia':
+        return cofrade.tieneTunicaPropia;
+      case 'numero':
+        return cofrade.numero;
+      case 'es_baja':
+        return cofrade.isBaja;
+      case 'es_activo':
+        return cofrade.isActivo;
+      case 'tiene_iban':
+        return (cofrade.iban ?? '').trim().isNotEmpty;
+      case 'tiene_email':
+        return cofrade.email.trim().isNotEmpty;
+      case 'tiene_telefono_movil':
+        return cofrade.telefonoMovil.trim().isNotEmpty;
+      case 'hasLoggedIn':
+        return cofrade.rawData['hasLoggedIn'] == true;
+      case 'lastLoginAt':
+        return cofrade.rawData['lastLoginAt'];
+      case 'firstLoginAt':
+        return cofrade.rawData['firstLoginAt'];
+      case 'loginCount':
+        return cofrade.rawData['loginCount'];
+      case 'lastLoginMethod':
+        return cofrade.rawData['lastLoginMethod'];
+      case 'linkedAuthProviders':
+        return cofrade.rawData['linkedAuthProviders'];
+      default:
+        return null;
+    }
+  }
+
+  int? _ageFromBirthDateString(String value) {
+    final parts = value.split('/');
+    if (parts.length != 3) return null;
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null) return null;
+    final now = DateTime.now();
+    var age = now.year - year;
+    if (now.month < month || (now.month == month && now.day < day)) {
+      age--;
+    }
+    return age;
+  }
+
+  int _ageFromDate(DateTime? birth) {
+    if (birth == null) return 99;
+    final now = DateTime.now();
+    var age = now.year - birth.year;
+    if (now.month < birth.month ||
+        (now.month == birth.month && now.day < birth.day)) {
+      age--;
+    }
+    return age;
   }
 
   String _normalizeDni(String value) {

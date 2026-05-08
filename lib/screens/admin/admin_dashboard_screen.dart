@@ -55,7 +55,10 @@ class AdminDashboardScreen extends StatelessWidget {
                   StreamBuilder<List<Cofrade>>(
                     stream: firestoreService.getCofrades(),
                     builder: (context, snapshot) {
-                      final cofrades = snapshot.data ?? [];
+                      final cofrades = (snapshot.data ?? [])
+                          .where((c) =>
+                              !c.esCuentaServicio && !c.id.startsWith('ADM-'))
+                          .toList();
                       final activos = cofrades.where((c) => c.isActivo).length;
                       final pendientes = cofrades
                           .where((c) => c.estado.toLowerCase() == 'pendiente')
@@ -203,11 +206,11 @@ class AdminDashboardScreen extends StatelessWidget {
                           onTap: () => context.go('/admin/convocatorias')),
                       StreamBuilder<int>(
                         stream: firestoreService
-                            .getSugerenciasPendientesCountStream(),
+                            .getPendingConversationsForAdminCountStream(),
                         builder: (context, snap) => _AdminActionCard(
-                          icon: Icons.lightbulb_outline,
-                          title: 'Sugerencias',
-                          subtitle: 'Ver y responder',
+                          icon: Icons.forum_outlined,
+                          title: 'Mensajería',
+                          subtitle: 'Conversaciones y peticiones',
                           badgeCount: snap.data ?? 0,
                           onTap: () => context.go('/admin/sugerencias'),
                         ),

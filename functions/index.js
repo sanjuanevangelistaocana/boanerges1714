@@ -861,13 +861,15 @@ exports.manageFcmTopics = functions
       const after = change.after.data();
 
       // Check if estado or rol changed
-      if (before.estado === after.estado && before.rol === after.rol) {
+      if (before.estado === after.estado && before.rol === after.rol &&
+          before.role === after.role) {
         return null;
       }
 
       console.log(
           `Cofrade ${context.params.cofradeId} status changed: ` +
-        `${before.estado}->${after.estado}, ${before.rol}->${after.rol}`,
+        `${before.estado}->${after.estado}, ` +
+        `${before.rol || before.role}->${after.rol || after.role}`,
       );
 
       // Topic management would need the device FCM token
@@ -897,7 +899,11 @@ exports.syncAdminRole = functions
 
       if (!after || !after.auth_uid) return null;
 
-      if (after.rol === "admin") {
+      const afterRole = String(after.rol || after.role || "").toLowerCase();
+      const afterRoles = Array.isArray(after.roles) ?
+        after.roles.map((item) => String(item).toLowerCase()) : [];
+      if (afterRole === "admin" || afterRole === "superadmin" ||
+          afterRoles.includes("admin") || afterRoles.includes("superadmin")) {
         await db.collection("admins").doc(after.auth_uid).set({
           cofrade_id: context.params.cofradeId,
           updated: admin.firestore.FieldValue.serverTimestamp(),
@@ -909,6 +915,82 @@ exports.syncAdminRole = functions
             .catch(() => {});
       }
       return null;
+    });
+
+/**
+ * Backfill/sync the current user's admin rules document on login.
+ *
+ * Migrated cofrade documents use COF-000xxx IDs, so Firestore rules cannot
+ * authorize admin access with request.auth.uid == resource.id. The app may
+ * still identify the user as admin from cofrades.rol; this callable bridges
+ * that model into admins/{auth_uid}, which rules can check cheaply.
+ */
+exports.ensureAdminRoleForCurrentUser = functions
+    .region("europe-west1")
+    .https.onCall(async (data, context) => {
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
+            "unauthenticated",
+            "Debes iniciar sesión para sincronizar permisos de administración.",
+        );
+      }
+
+      const uid = context.auth.uid;
+      const rawEmail = context.auth.token.email || "";
+      const email = rawEmail.toLowerCase();
+      const matches = new Map();
+
+      const byAuthUid = await db.collection("cofrades")
+          .where("auth_uid", "==", uid)
+          .get();
+      byAuthUid.forEach((doc) => matches.set(doc.id, doc));
+
+      if (email) {
+        const byEmail = await db.collection("cofrades")
+            .where("email", "==", email)
+            .get();
+        byEmail.forEach((doc) => matches.set(doc.id, doc));
+
+        if (rawEmail !== email) {
+          const byRawEmail = await db.collection("cofrades")
+              .where("email", "==", rawEmail)
+              .get();
+          byRawEmail.forEach((doc) => matches.set(doc.id, doc));
+        }
+      }
+
+      let adminDoc = null;
+      for (const doc of matches.values()) {
+        const role = String(doc.data().rol || doc.data().role || "")
+            .toLowerCase();
+        const roles = Array.isArray(doc.data().roles) ?
+          doc.data().roles.map((item) => String(item).toLowerCase()) : [];
+        if (role === "admin" || role === "superadmin" ||
+            roles.includes("admin") || roles.includes("superadmin")) {
+          adminDoc = doc;
+          break;
+        }
+      }
+
+      if (!adminDoc) {
+        await db.collection("admins").doc(uid).delete().catch(() => {});
+        return {
+          isAdmin: false,
+          matchedCofrades: matches.size,
+        };
+      }
+
+      await db.collection("admins").doc(uid).set({
+        cofrade_id: adminDoc.id,
+        source: "ensureAdminRoleForCurrentUser",
+        updated: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+
+      return {
+        isAdmin: true,
+        cofradeId: adminDoc.id,
+        matchedCofrades: matches.size,
+      };
     });
 
 // ============================================================
@@ -953,6 +1035,7 @@ exports.setAdminByNumero = functions
 
         await cofradeRef.update({
           rol: "admin",
+          role: "admin",
           fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
         });
 
