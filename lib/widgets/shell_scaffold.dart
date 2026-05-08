@@ -153,10 +153,6 @@ class ShellScaffold extends StatelessWidget {
             _DrawerItem(
                 icon: Icons.checkroom, label: 'Túnicas', route: '/tunicas'),
             _DrawerItem(
-                icon: Icons.celebration,
-                label: 'Festividad SJE',
-                route: '/festividad'),
-            _DrawerItem(
                 icon: Icons.confirmation_number,
                 label: 'Lotería Navidad',
                 route: '/loteria-disponibilidad'),
@@ -198,10 +194,6 @@ class ShellScaffold extends StatelessWidget {
                   label: 'Mensajería',
                   route: '/admin/sugerencias'),
               _DrawerItem(
-                  icon: Icons.celebration,
-                  label: 'Festividad SJE',
-                  route: '/admin/eventos'),
-              _DrawerItem(
                   icon: Icons.confirmation_number,
                   label: 'Lotería Navidad',
                   route: '/admin/loteria'),
@@ -238,6 +230,7 @@ bool _shouldShowBreadcrumbs(BuildContext context) {
       path.startsWith('/profile') ||
       path.startsWith('/documents') ||
       path.startsWith('/sugerencias') ||
+      path.startsWith('/eventos') ||
       path.startsWith('/cuotas') ||
       path.startsWith('/treasury');
 }
@@ -298,6 +291,9 @@ class _Breadcrumbs extends StatelessWidget {
         '/admin/sugerencias': 'Mensajería',
         '/admin/solicitudes': 'Solicitudes',
         '/admin/documentos': 'Documentos',
+        '/admin/eventos': 'Eventos',
+        '/admin/events': 'Otros eventos',
+        '/admin/festividad': 'Eventos · Festividad 27 de diciembre',
         '/admin/seguridad': 'Seguridad y permisos',
         '/admin/treasury': 'Tesorería',
       };
@@ -313,6 +309,8 @@ class _Breadcrumbs extends StatelessWidget {
       '/dashboard': 'Mi Zona',
       '/profile': 'Perfil',
       '/documents': 'Documentos',
+      '/eventos': 'Eventos',
+      '/festividad': 'Eventos · Festividad 27 de diciembre',
       '/sugerencias': 'Mensajería',
       '/cuotas': 'Mis cuotas',
       '/treasury': 'Tesorería',
@@ -370,8 +368,6 @@ class _PrivateZoneMenu extends StatelessWidget {
             const PopupMenuItem(
                 value: '/sugerencias', child: Text('Mensajería')),
             const PopupMenuItem(value: '/eventos', child: Text('Eventos')),
-            const PopupMenuItem(
-                value: '/festividad', child: Text('Festividad SJE')),
             const PopupMenuItem(
                 value: '/loteria-disponibilidad',
                 child: Text('Lotería Navidad')),

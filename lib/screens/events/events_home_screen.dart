@@ -14,7 +14,7 @@ class EventsHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: EventsService.eventTypes.length,
       child: Column(
         children: [
           Container(
@@ -28,10 +28,10 @@ class EventsHomeScreen extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1050),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
                         Icon(Icons.event_available,
                             color: Colors.white, size: 30),
@@ -55,10 +55,8 @@ class EventsHomeScreen extends StatelessWidget {
                       unselectedLabelColor: Colors.white60,
                       indicatorColor: Colors.white,
                       tabs: [
-                        Tab(text: 'Festividad San Juan Evangelista'),
-                        Tab(text: 'Eventos generales'),
-                        Tab(text: 'Palmas Domingo de Ramos'),
-                        Tab(text: 'Turnos de andas'),
+                        for (final definition in EventsService.eventTypes)
+                          Tab(text: definition.title),
                       ],
                     ),
                   ],
@@ -70,9 +68,10 @@ class EventsHomeScreen extends StatelessWidget {
             child: TabBarView(
               children: [
                 _FestividadEntry(),
-                _GeneralEventsEntry(),
-                _SpecialEventPrivatePanel(type: 'palmas'),
-                _SpecialEventPrivatePanel(type: 'andas'),
+                _ConfigurableEventPrivatePanel(type: 'palmas'),
+                _ConfigurableEventPrivatePanel(type: 'sanjuandereta'),
+                _ConfigurableEventPrivatePanel(type: 'junta_general_ordinaria'),
+                _ConfigurableEventPrivatePanel(type: 'general'),
               ],
             ),
           ),
@@ -90,7 +89,7 @@ class _FestividadEntry extends StatelessWidget {
     return _ModulePadding(
       child: _ActionCard(
         icon: Icons.celebration,
-        title: 'Festividad San Juan Evangelista',
+        title: 'Festividad 27 de diciembre',
         subtitle:
             'Inscripción, acompañantes, menús y estado de tu participación.',
         action: 'Abrir Festividad',
@@ -100,58 +99,31 @@ class _FestividadEntry extends StatelessWidget {
   }
 }
 
-class _GeneralEventsEntry extends StatelessWidget {
-  const _GeneralEventsEntry();
-
-  @override
-  Widget build(BuildContext context) {
-    return _ModulePadding(
-      child: _ActionCard(
-        icon: Icons.event_note,
-        title: 'Eventos generales',
-        subtitle: 'Calendario, actos públicos/privados e inscripciones.',
-        action: 'Ver eventos',
-        onTap: () => context.go('/events'),
-      ),
-    );
-  }
-}
-
-class _SpecialEventPrivatePanel extends StatefulWidget {
+class _ConfigurableEventPrivatePanel extends StatefulWidget {
   final String type;
 
-  const _SpecialEventPrivatePanel({required this.type});
+  const _ConfigurableEventPrivatePanel({required this.type});
 
   @override
-  State<_SpecialEventPrivatePanel> createState() =>
-      _SpecialEventPrivatePanelState();
+  State<_ConfigurableEventPrivatePanel> createState() =>
+      _ConfigurableEventPrivatePanelState();
 }
 
-class _SpecialEventPrivatePanelState extends State<_SpecialEventPrivatePanel> {
-  final _heightController = TextEditingController();
+class _ConfigurableEventPrivatePanelState
+    extends State<_ConfigurableEventPrivatePanel> {
   List<Cofrade> _cofrades = const [];
   Cofrade? _selectedCofrade;
   bool _loadingCofrades = false;
   bool _saving = false;
-
-  bool get _isAndas => widget.type == 'andas';
-
-  @override
-  void dispose() {
-    _heightController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final current = auth.cofrade;
     final events = context.read<EventsService>();
+    final definition = EventsService.definitionFor(widget.type);
     if (current == null) {
       return const Center(child: CircularProgressIndicator());
-    }
-    if (_heightController.text.isEmpty && current.estatura != null) {
-      _heightController.text = '${current.estatura}';
     }
     return _ModulePadding(
       child: StreamBuilder<EventCampaign?>(
@@ -160,7 +132,7 @@ class _SpecialEventPrivatePanelState extends State<_SpecialEventPrivatePanel> {
           final campaign = campaignSnap.data;
           if (campaign == null) {
             return _EmptySpecialCard(
-              title: _isAndas ? 'Turnos de andas' : 'Palmas Domingo de Ramos',
+              title: definition.title,
               message: 'No hay campaña activa en este momento.',
             );
           }
@@ -179,32 +151,26 @@ class _SpecialEventPrivatePanelState extends State<_SpecialEventPrivatePanel> {
                     ...myRegs.map((r) => _RegistrationStatusCard(reg: r)),
                   const SizedBox(height: 16),
                   if (campaign.isOpen)
-                    _isAndas
-                        ? _AndasRegistrationCard(
-                            heightController: _heightController,
-                            saving: _saving,
-                            onRegister: () =>
-                                _registerAndas(events, campaign, current),
-                          )
-                        : _PalmasRegistrationCard(
-                            cofrades: _cofrades,
-                            selected: _selectedCofrade,
-                            loading: _loadingCofrades,
-                            saving: _saving,
-                            onLoadCofrades: _loadCofrades,
-                            onSelected: (value) =>
-                                setState(() => _selectedCofrade = value),
-                            onRegisterSelf: () => _registerPalmas(
-                                events, campaign, current, current),
-                            onRegisterOther: _selectedCofrade == null
-                                ? null
-                                : () => _registerPalmas(
-                                      events,
-                                      campaign,
-                                      _selectedCofrade!,
-                                      current,
-                                    ),
-                          )
+                    _GenericRegistrationCard(
+                      campaign: campaign,
+                      cofrades: _cofrades,
+                      selected: _selectedCofrade,
+                      loading: _loadingCofrades,
+                      saving: _saving,
+                      onLoadCofrades: _loadCofrades,
+                      onSelected: (value) =>
+                          setState(() => _selectedCofrade = value),
+                      onRegisterSelf: () =>
+                          _register(events, campaign, current, current),
+                      onRegisterOther: _selectedCofrade == null
+                          ? null
+                          : () => _register(
+                                events,
+                                campaign,
+                                _selectedCofrade!,
+                                current,
+                              ),
+                    )
                   else
                     const _ClosedCampaignNotice(),
                 ],
@@ -226,7 +192,7 @@ class _SpecialEventPrivatePanelState extends State<_SpecialEventPrivatePanel> {
     }
   }
 
-  Future<void> _registerPalmas(
+  Future<void> _register(
     EventsService events,
     EventCampaign campaign,
     Cofrade cofrade,
@@ -244,37 +210,6 @@ class _SpecialEventPrivatePanelState extends State<_SpecialEventPrivatePanel> {
           SnackBar(content: Text('${cofrade.nombreCompleto} inscrito.')),
         );
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _registerAndas(
-    EventsService events,
-    EventCampaign campaign,
-    Cofrade current,
-  ) async {
-    final height = int.tryParse(_heightController.text.trim());
-    if (height == null || height < 80 || height > 230) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Introduce una altura válida en cm.')),
-      );
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      await events.registerCofrade(
-        campaign: campaign,
-        cofrade: current,
-        addedBy: current,
-        heightCm: height,
-      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -356,47 +291,8 @@ class _RegistrationStatusCard extends StatelessWidget {
   }
 }
 
-class _AndasRegistrationCard extends StatelessWidget {
-  final TextEditingController heightController;
-  final bool saving;
-  final VoidCallback onRegister;
-
-  const _AndasRegistrationCard({
-    required this.heightController,
-    required this.saving,
-    required this.onRegister,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _ActionPanel(
-      title: 'Inscribirme a turnos de andas',
-      child: Column(
-        children: [
-          TextField(
-            controller: heightController,
-            decoration: const InputDecoration(
-              labelText: 'Altura en centímetros',
-              helperText: 'Se guardará en tu perfil para ordenar por altura.',
-            ),
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              onPressed: saving ? null : onRegister,
-              icon: const Icon(Icons.how_to_reg),
-              label: const Text('Inscribirme'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PalmasRegistrationCard extends StatelessWidget {
+class _GenericRegistrationCard extends StatelessWidget {
+  final EventCampaign campaign;
   final List<Cofrade> cofrades;
   final Cofrade? selected;
   final bool loading;
@@ -406,7 +302,8 @@ class _PalmasRegistrationCard extends StatelessWidget {
   final VoidCallback onRegisterSelf;
   final VoidCallback? onRegisterOther;
 
-  const _PalmasRegistrationCard({
+  const _GenericRegistrationCard({
+    required this.campaign,
     required this.cofrades,
     required this.selected,
     required this.loading,
@@ -419,8 +316,11 @@ class _PalmasRegistrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canAddOther = campaign.allowOtherCofrades;
     return _ActionPanel(
-      title: 'Inscripción de palmas',
+      title: campaign.requiresRegistration
+          ? 'Inscripción'
+          : 'Confirmación de asistencia',
       child: Column(
         children: [
           Row(
@@ -429,44 +329,62 @@ class _PalmasRegistrationCard extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: saving ? null : onRegisterSelf,
                   icon: const Icon(Icons.person_add),
-                  label: const Text('Inscribirme'),
+                  label: Text(campaign.requiresRegistration
+                      ? 'Inscribirme'
+                      : 'Confirmar asistencia'),
                 ),
               ),
-              const SizedBox(width: 12),
-              OutlinedButton.icon(
-                onPressed: loading ? null : onLoadCofrades,
-                icon: loading
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search),
-                label: const Text('Cargar cofrades'),
-              ),
+              if (canAddOther) ...[
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: loading ? null : onLoadCofrades,
+                  icon: loading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.search),
+                  label: const Text('Cargar cofrades'),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<Cofrade>(
-            initialValue: selected,
-            decoration: const InputDecoration(labelText: 'Añadir otro cofrade'),
-            items: cofrades
-                .map((c) => DropdownMenuItem(
-                      value: c,
-                      child: Text(c.nombreCompleto),
-                    ))
-                .toList(),
-            onChanged: onSelected,
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              onPressed: saving ? null : onRegisterOther,
-              icon: const Icon(Icons.group_add),
-              label: const Text('Añadir seleccionado'),
+          if (canAddOther) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<Cofrade>(
+              initialValue: selected,
+              decoration:
+                  const InputDecoration(labelText: 'Añadir otro cofrade'),
+              items: cofrades
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c.nombreCompleto),
+                      ))
+                  .toList(),
+              onChanged: onSelected,
             ),
-          ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton.icon(
+                onPressed: saving ? null : onRegisterOther,
+                icon: const Icon(Icons.group_add),
+                label: const Text('Añadir seleccionado'),
+              ),
+            ),
+          ],
+          if (campaign.requiresPayment && campaign.memberPrice > 0) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(
+                avatar: const Icon(Icons.payments_outlined, size: 18),
+                label: Text(
+                    'Importe cofrade: ${campaign.memberPrice.toStringAsFixed(2)} €'),
+              ),
+            ),
+          ],
         ],
       ),
     );

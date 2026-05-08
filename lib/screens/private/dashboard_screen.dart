@@ -426,7 +426,7 @@ class _FestividadBanner extends StatelessWidget {
             border: Border.all(color: AppTheme.accentColor.withAlpha(80)),
           ),
           child: InkWell(
-            onTap: () => context.go('/festividad'),
+            onTap: () => context.go('/eventos'),
             child: Row(
               children: [
                 Container(
@@ -1000,7 +1000,7 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                                   : dias == 1
                                       ? 'Ma\u00f1ana'
                                       : 'En $dias d\u00edas \u00b7 ${DateFormat("dd/MM").format(e.fecha)}',
-                              route: '/events',
+                              route: '/eventos',
                             ));
                           }
                         }
@@ -1541,7 +1541,7 @@ class _QuickActions extends StatelessWidget {
                         icon: Icons.event,
                         label: 'Eventos',
                         subtitle: 'Actividades',
-                        onTap: () => context.go('/events')),
+                        onTap: () => context.go('/eventos')),
                     _ActionCard(
                         icon: Icons.how_to_vote,
                         label: 'Convocatorias',
@@ -1567,11 +1567,6 @@ class _QuickActions extends StatelessWidget {
                         label: 'Tabl\u00f3n',
                         subtitle: 'Anuncios cofrades',
                         onTap: () => context.go('/tablon')),
-                    _ActionCard(
-                        icon: Icons.celebration,
-                        label: 'Festividad',
-                        subtitle: '27 de diciembre',
-                        onTap: () => context.go('/festividad')),
                     _ActionCard(
                         icon: Icons.confirmation_number,
                         label: 'Lotería Navidad',

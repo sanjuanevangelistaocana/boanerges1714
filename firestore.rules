@@ -276,6 +276,7 @@ service cloud.firestore {
           'email_verified',
           'cofrade_field_updated',
           'google_login',
+          'event_registration_created',
           'private_conversation_started',
           'private_conversation_message_sent'
          ] &&

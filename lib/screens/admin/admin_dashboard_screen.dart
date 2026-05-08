@@ -176,8 +176,8 @@ class AdminDashboardScreen extends StatelessWidget {
                       _AdminActionCard(
                           icon: Icons.event_note,
                           title: 'Eventos',
-                          subtitle: 'Crear y editar',
-                          onTap: () => context.go('/admin/events')),
+                          subtitle: 'Festividad, palmas y eventos',
+                          onTap: () => context.go('/admin/eventos')),
                       _AdminActionCard(
                           icon: Icons.article,
                           title: 'Noticias',
@@ -241,11 +241,6 @@ class AdminDashboardScreen extends StatelessWidget {
                           title: 'Documentos',
                           subtitle: 'Docs y revistas',
                           onTap: () => context.go('/admin/documentos')),
-                      _AdminActionCard(
-                          icon: Icons.celebration,
-                          title: 'Festividad SJE',
-                          subtitle: 'Gestión 27 diciembre',
-                          onTap: () => context.go('/admin/festividad')),
                       _AdminActionCard(
                           icon: Icons.confirmation_number,
                           title: 'Lotería Navidad',

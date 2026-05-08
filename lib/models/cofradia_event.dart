@@ -17,6 +17,33 @@ class EventCampaign {
   final bool active;
   final bool published;
   final List<Map<String, dynamic>> turns;
+  final String status;
+  final String location;
+  final DateTime? eventDate;
+  final bool requiresRegistration;
+  final bool allowCompanions;
+  final bool allowExternalGuests;
+  final bool allowOtherCofrades;
+  final int? maxCompanions;
+  final int? capacity;
+  final bool waitlistEnabled;
+  final bool requiresPayment;
+  final bool freeEvent;
+  final double memberPrice;
+  final double guestPrice;
+  final double childPrice;
+  final double protocolPrice;
+  final List<String> paymentMethods;
+  final bool allergiesEnabled;
+  final bool observationsEnabled;
+  final bool showBanner;
+  final String bannerText;
+  final List<Map<String, dynamic>> customFields;
+  final Map<String, dynamic> registrationConfig;
+  final Map<String, dynamic> pricingConfig;
+  final Map<String, dynamic> companionConfig;
+  final Map<String, dynamic> paymentConfig;
+  final Map<String, dynamic> notificationConfig;
   final DateTime? createdAt;
 
   const EventCampaign({
@@ -34,6 +61,33 @@ class EventCampaign {
     this.active = false,
     this.published = false,
     this.turns = const [],
+    this.status = 'draft',
+    this.location = '',
+    this.eventDate,
+    this.requiresRegistration = true,
+    this.allowCompanions = false,
+    this.allowExternalGuests = false,
+    this.allowOtherCofrades = false,
+    this.maxCompanions,
+    this.capacity,
+    this.waitlistEnabled = false,
+    this.requiresPayment = false,
+    this.freeEvent = true,
+    this.memberPrice = 0,
+    this.guestPrice = 0,
+    this.childPrice = 0,
+    this.protocolPrice = 0,
+    this.paymentMethods = const [],
+    this.allergiesEnabled = false,
+    this.observationsEnabled = true,
+    this.showBanner = true,
+    this.bannerText = '',
+    this.customFields = const [],
+    this.registrationConfig = const {},
+    this.pricingConfig = const {},
+    this.companionConfig = const {},
+    this.paymentConfig = const {},
+    this.notificationConfig = const {},
     this.createdAt,
   });
 
@@ -63,6 +117,50 @@ class EventCampaign {
       turns: (data['turns'] as List<dynamic>? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList(),
+      status: data['status'] ?? (data['active'] == true ? 'active' : 'draft'),
+      location: data['location'] ?? data['lugar'] ?? '',
+      eventDate: _date(data['eventDate']) ?? _date(data['processionDate']),
+      requiresRegistration:
+          data['requiresRegistration'] ?? data['requires_registration'] ?? true,
+      allowCompanions:
+          data['allowCompanions'] ?? data['allow_companions'] ?? false,
+      allowExternalGuests:
+          data['allowExternalGuests'] ?? data['allow_external_guests'] ?? false,
+      allowOtherCofrades:
+          data['allowOtherCofrades'] ?? data['allow_other_cofrades'] ?? false,
+      maxCompanions: (data['maxCompanions'] as num?)?.toInt(),
+      capacity: (data['capacity'] as num?)?.toInt(),
+      waitlistEnabled: data['waitlistEnabled'] ?? false,
+      requiresPayment:
+          data['requiresPayment'] ?? data['requires_payment'] ?? false,
+      freeEvent: data['freeEvent'] ?? !(data['requiresPayment'] == true),
+      memberPrice: (data['memberPrice'] as num?)?.toDouble() ??
+          (data['cost'] as num?)?.toDouble() ??
+          0,
+      guestPrice: (data['guestPrice'] as num?)?.toDouble() ?? 0,
+      childPrice: (data['childPrice'] as num?)?.toDouble() ?? 0,
+      protocolPrice: (data['protocolPrice'] as num?)?.toDouble() ?? 0,
+      paymentMethods: (data['paymentMethods'] as List<dynamic>? ?? [])
+          .map((item) => '$item')
+          .toList(),
+      allergiesEnabled: data['allergiesEnabled'] ?? false,
+      observationsEnabled: data['observationsEnabled'] ?? true,
+      showBanner: data['showBanner'] ?? true,
+      bannerText: data['bannerText'] ?? '',
+      customFields: (data['customFields'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      registrationConfig:
+          Map<String, dynamic>.from(data['registrationConfig'] ?? const {}),
+      pricingConfig:
+          Map<String, dynamic>.from(data['pricingConfig'] ?? const {}),
+      companionConfig:
+          Map<String, dynamic>.from(data['companionConfig'] ?? const {}),
+      paymentConfig:
+          Map<String, dynamic>.from(data['paymentConfig'] ?? const {}),
+      notificationConfig:
+          Map<String, dynamic>.from(data['notificationConfig'] ?? const {}),
       createdAt: _date(data['createdAt']),
     );
   }
@@ -83,6 +181,33 @@ class EventCampaign {
       'active': active,
       'published': published,
       'turns': turns,
+      'status': status,
+      'location': location,
+      'eventDate': eventDate != null ? Timestamp.fromDate(eventDate!) : null,
+      'requiresRegistration': requiresRegistration,
+      'allowCompanions': allowCompanions,
+      'allowExternalGuests': allowExternalGuests,
+      'allowOtherCofrades': allowOtherCofrades,
+      'maxCompanions': maxCompanions,
+      'capacity': capacity,
+      'waitlistEnabled': waitlistEnabled,
+      'requiresPayment': requiresPayment,
+      'freeEvent': freeEvent,
+      'memberPrice': memberPrice,
+      'guestPrice': guestPrice,
+      'childPrice': childPrice,
+      'protocolPrice': protocolPrice,
+      'paymentMethods': paymentMethods,
+      'allergiesEnabled': allergiesEnabled,
+      'observationsEnabled': observationsEnabled,
+      'showBanner': showBanner,
+      'bannerText': bannerText,
+      'customFields': customFields,
+      'registrationConfig': registrationConfig,
+      'pricingConfig': pricingConfig,
+      'companionConfig': companionConfig,
+      'paymentConfig': paymentConfig,
+      'notificationConfig': notificationConfig,
       'updatedAt': FieldValue.serverTimestamp(),
       if (id.isEmpty) 'createdAt': FieldValue.serverTimestamp(),
     };
@@ -104,6 +229,10 @@ class EventRegistration {
   final String turnName;
   final String role;
   final int? position;
+  final List<Map<String, dynamic>> participants;
+  final String paymentStatus;
+  final double totalAmount;
+  final Map<String, dynamic> answers;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -122,6 +251,10 @@ class EventRegistration {
     this.turnName = '',
     this.role = 'titular',
     this.position,
+    this.participants = const [],
+    this.paymentStatus = 'not_required',
+    this.totalAmount = 0,
+    this.answers = const {},
     this.createdAt,
     this.updatedAt,
   });
@@ -143,6 +276,14 @@ class EventRegistration {
       turnName: data['turnName'] ?? '',
       role: data['role'] ?? 'titular',
       position: (data['position'] as num?)?.toInt(),
+      participants: (data['participants'] as List<dynamic>? ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
+      paymentStatus:
+          data['paymentStatus'] ?? data['payment_status'] ?? 'not_required',
+      totalAmount: (data['totalAmount'] as num?)?.toDouble() ?? 0,
+      answers: Map<String, dynamic>.from(data['answers'] ?? const {}),
       createdAt: _date(data['createdAt']),
       updatedAt: _date(data['updatedAt']),
     );

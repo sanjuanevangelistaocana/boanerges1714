@@ -11,7 +11,7 @@ class EventsAdminScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: EventsService.eventTypes.length,
       child: Column(
         children: [
           Container(
@@ -25,10 +25,10 @@ class EventsAdminScreen extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1100),
-                child: const Column(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
                         Icon(Icons.event_note, color: Colors.white, size: 30),
                         SizedBox(width: 12),
@@ -51,10 +51,8 @@ class EventsAdminScreen extends StatelessWidget {
                       unselectedLabelColor: Colors.white60,
                       indicatorColor: Colors.white,
                       tabs: [
-                        Tab(text: 'Festividad San Juan Evangelista'),
-                        Tab(text: 'Eventos generales'),
-                        Tab(text: 'Palmas Domingo de Ramos'),
-                        Tab(text: 'Turnos de andas'),
+                        for (final definition in EventsService.eventTypes)
+                          Tab(text: definition.title),
                       ],
                     ),
                   ],
@@ -67,20 +65,15 @@ class EventsAdminScreen extends StatelessWidget {
               children: [
                 _AdminEntryCard(
                   icon: Icons.celebration,
-                  title: 'Festividad San Juan Evangelista',
+                  title: 'Festividad 27 de diciembre',
                   subtitle:
                       'Ediciones, menús, inscripciones, pagos e informe de la festividad.',
                   route: '/admin/festividad',
                 ),
-                _AdminEntryCard(
-                  icon: Icons.event_available,
-                  title: 'Eventos generales',
-                  subtitle:
-                      'Crear eventos públicos o privados, controlar inscritos y adjuntos.',
-                  route: '/admin/events',
-                ),
-                _SpecialCampaignAdmin(type: 'palmas'),
-                _SpecialCampaignAdmin(type: 'andas'),
+                _ConfigurableCampaignAdmin(type: 'palmas'),
+                _ConfigurableCampaignAdmin(type: 'sanjuandereta'),
+                _ConfigurableCampaignAdmin(type: 'junta_general_ordinaria'),
+                _ConfigurableCampaignAdmin(type: 'general'),
               ],
             ),
           ),
@@ -131,16 +124,15 @@ class _AdminEntryCard extends StatelessWidget {
   }
 }
 
-class _SpecialCampaignAdmin extends StatelessWidget {
+class _ConfigurableCampaignAdmin extends StatelessWidget {
   final String type;
 
-  const _SpecialCampaignAdmin({required this.type});
-
-  bool get _isAndas => type == 'andas';
+  const _ConfigurableCampaignAdmin({required this.type});
 
   @override
   Widget build(BuildContext context) {
     final service = context.read<EventsService>();
+    final definition = EventsService.definitionFor(type);
     return _AdminPadding(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,7 +141,7 @@ class _SpecialCampaignAdmin extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _isAndas ? 'Turnos de andas' : 'Palmas Domingo de Ramos',
+                  definition.title,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
@@ -196,43 +188,47 @@ class _SpecialCampaignAdmin extends StatelessWidget {
     EventCampaign? campaign,
   ]) {
     final year = DateTime.now().year;
+    final definition = EventsService.definitionFor(type);
     final nameController = TextEditingController(
-      text: campaign?.name ??
-          (_isAndas
-              ? 'Turnos de andas $year'
-              : 'Palmas Domingo de Ramos $year'),
+      text: campaign?.name ?? '${definition.title} $year',
     );
-    final descriptionController =
-        TextEditingController(text: campaign?.description ?? '');
-    final phoneController =
-        TextEditingController(text: campaign?.contactPhone ?? '');
-    final rulesController = TextEditingController(text: campaign?.rules ?? '');
-    final costController =
-        TextEditingController(text: (campaign?.cost ?? 0).toStringAsFixed(2));
+    final descriptionController = TextEditingController(
+        text: campaign?.description ?? definition.description);
+    final locationController =
+        TextEditingController(text: campaign?.location ?? '');
+    final bannerController =
+        TextEditingController(text: campaign?.bannerText ?? '');
+    final costController = TextEditingController(
+        text: (campaign?.memberPrice ?? 0).toStringAsFixed(2));
+    final guestCostController = TextEditingController(
+        text: (campaign?.guestPrice ?? 0).toStringAsFixed(2));
     var selectedYear = campaign?.year ?? year;
     var active = campaign?.active ?? false;
     var published = campaign?.published ?? false;
+    var status = campaign?.status ?? (active ? 'active' : 'draft');
     var startDate = campaign?.startDate ?? DateTime(selectedYear, 1, 1);
     var endDate = campaign?.endDate ?? DateTime(selectedYear, 12, 31);
-    var processionDate =
-        campaign?.processionDate ?? DateTime(selectedYear, 3, 30);
-    var turns = List<Map<String, dynamic>>.from(campaign?.turns ??
-        (_isAndas
-            ? [
-                {
-                  'id': 'turno_1',
-                  'name': 'Iglesia -> Plaza',
-                  'from': 'Iglesia',
-                  'to': 'Plaza'
-                },
-                {
-                  'id': 'turno_2',
-                  'name': 'Plaza -> Iglesia',
-                  'from': 'Plaza',
-                  'to': 'Iglesia'
-                },
-              ]
-            : const []));
+    var eventDate = campaign?.eventDate ?? DateTime(selectedYear, 12, 27);
+    var requiresRegistration = campaign?.requiresRegistration ?? true;
+    var allowCompanions = campaign?.allowCompanions ??
+        (definition.defaults['allowCompanions'] == true);
+    var allowExternalGuests = campaign?.allowExternalGuests ??
+        (definition.defaults['allowExternalGuests'] == true);
+    var allowOtherCofrades = campaign?.allowOtherCofrades ??
+        (definition.defaults['allowOtherCofrades'] == true);
+    var requiresPayment = campaign?.requiresPayment ??
+        (definition.defaults['requiresPayment'] == true);
+    var freeEvent = campaign?.freeEvent ?? !requiresPayment;
+    var showBanner = campaign?.showBanner ?? true;
+    var allergiesEnabled = campaign?.allergiesEnabled ?? false;
+    var observationsEnabled = campaign?.observationsEnabled ?? true;
+    var waitlistEnabled = campaign?.waitlistEnabled ?? false;
+    final capacityController = TextEditingController(
+      text: campaign?.capacity == null ? '' : '${campaign!.capacity}',
+    );
+    final maxCompanionsController = TextEditingController(
+      text: campaign?.maxCompanions == null ? '' : '${campaign!.maxCompanions}',
+    );
 
     showDialog(
       context: context,
@@ -256,6 +252,11 @@ class _SpecialCampaignAdmin extends StatelessWidget {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 12),
+                  TextField(
+                    controller: locationController,
+                    decoration: const InputDecoration(labelText: 'Lugar'),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -274,7 +275,19 @@ class _SpecialCampaignAdmin extends StatelessWidget {
                         child: TextField(
                           controller: costController,
                           decoration: const InputDecoration(
-                            labelText: 'Coste opcional',
+                            labelText: 'Precio cofrade',
+                            suffixText: '€',
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: guestCostController,
+                          decoration: const InputDecoration(
+                            labelText: 'Precio invitado',
                             suffixText: '€',
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
@@ -285,70 +298,142 @@ class _SpecialCampaignAdmin extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _DateTile(
-                    label: 'Inicio inscripciones',
+                    label: 'Fecha del evento',
+                    date: eventDate,
+                    onPick: (date) => setLocalState(() => eventDate = date),
+                  ),
+                  _DateTile(
+                    label: 'Apertura inscripción',
                     date: startDate,
                     onPick: (date) => setLocalState(() => startDate = date),
                   ),
                   _DateTile(
-                    label: 'Fin inscripciones',
+                    label: 'Cierre inscripción',
                     date: endDate,
                     onPick: (date) => setLocalState(() => endDate = date),
                   ),
-                  if (_isAndas) ...[
-                    _DateTile(
-                      label: 'Fecha procesión',
-                      date: processionDate,
-                      onPick: (date) =>
-                          setLocalState(() => processionDate = date),
-                    ),
-                    TextField(
-                      controller: phoneController,
-                      decoration:
-                          const InputDecoration(labelText: 'Teléfono contacto'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: rulesController,
-                      decoration: const InputDecoration(labelText: 'Normas'),
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Turnos',
-                          style: Theme.of(context).textTheme.titleMedium),
-                    ),
-                    ...turns.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final turn = entry.value;
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('${turn['name'] ?? ''}'),
-                        subtitle: Text(
-                            '${turn['from'] ?? ''} -> ${turn['to'] ?? ''}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () =>
-                              setLocalState(() => turns.removeAt(index)),
-                        ),
-                      );
-                    }),
-                    OutlinedButton.icon(
-                      onPressed: () => setLocalState(() => turns.add({
-                            'id': 'turno_${turns.length + 1}',
-                            'name': 'Turno ${turns.length + 1}',
-                            'from': '',
-                            'to': '',
-                          })),
-                      icon: const Icon(Icons.add),
-                      label: const Text('Añadir turno'),
-                    ),
-                  ],
+                  const Divider(height: 28),
+                  DropdownButtonFormField<String>(
+                    initialValue: status,
+                    decoration: const InputDecoration(labelText: 'Estado'),
+                    items: const [
+                      DropdownMenuItem(value: 'draft', child: Text('Borrador')),
+                      DropdownMenuItem(value: 'active', child: Text('Activo')),
+                      DropdownMenuItem(value: 'closed', child: Text('Cerrado')),
+                      DropdownMenuItem(
+                          value: 'archived', child: Text('Archivado')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setLocalState(() {
+                          status = value;
+                          active = value == 'active';
+                        });
+                      }
+                    },
+                  ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Campaña activa'),
-                    value: active,
-                    onChanged: (value) => setLocalState(() => active = value),
+                    title: const Text('Requiere inscripción/confirmación'),
+                    value: requiresRegistration,
+                    onChanged: (value) =>
+                        setLocalState(() => requiresRegistration = value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Permitir acompañantes'),
+                    value: allowCompanions,
+                    onChanged: (value) =>
+                        setLocalState(() => allowCompanions = value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Permitir invitados externos'),
+                    value: allowExternalGuests,
+                    onChanged: (value) =>
+                        setLocalState(() => allowExternalGuests = value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Permitir añadir otros cofrades'),
+                    value: allowOtherCofrades,
+                    onChanged: (value) =>
+                        setLocalState(() => allowOtherCofrades = value),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: capacityController,
+                          decoration: const InputDecoration(
+                              labelText: 'Capacidad máxima'),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: maxCompanionsController,
+                          decoration: const InputDecoration(
+                              labelText: 'Máx. acompañantes'),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Lista de espera preparada'),
+                    value: waitlistEnabled,
+                    onChanged: (value) =>
+                        setLocalState(() => waitlistEnabled = value),
+                  ),
+                  const Divider(height: 28),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Evento gratuito'),
+                    value: freeEvent,
+                    onChanged: (value) => setLocalState(() {
+                      freeEvent = value;
+                      requiresPayment = !value;
+                    }),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Requiere pago'),
+                    value: requiresPayment,
+                    onChanged: (value) => setLocalState(() {
+                      requiresPayment = value;
+                      freeEvent = !value;
+                    }),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Alergias/intolerancias'),
+                    value: allergiesEnabled,
+                    onChanged: (value) =>
+                        setLocalState(() => allergiesEnabled = value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Observaciones'),
+                    value: observationsEnabled,
+                    onChanged: (value) =>
+                        setLocalState(() => observationsEnabled = value),
+                  ),
+                  const Divider(height: 28),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Mostrar banner en Novedades'),
+                    value: showBanner,
+                    onChanged: (value) =>
+                        setLocalState(() => showBanner = value),
+                  ),
+                  TextField(
+                    controller: bannerController,
+                    decoration:
+                        const InputDecoration(labelText: 'Texto del banner'),
+                    maxLines: 2,
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -376,15 +461,58 @@ class _SpecialCampaignAdmin extends StatelessWidget {
                   description: descriptionController.text.trim(),
                   startDate: startDate,
                   endDate: endDate,
-                  processionDate: _isAndas ? processionDate : null,
-                  contactPhone: phoneController.text.trim(),
-                  rules: rulesController.text.trim(),
+                  eventDate: eventDate,
+                  location: locationController.text.trim(),
                   cost: double.tryParse(
                           costController.text.replaceAll(',', '.')) ??
                       0,
                   active: active,
                   published: published,
-                  turns: turns,
+                  status: status,
+                  requiresRegistration: requiresRegistration,
+                  allowCompanions: allowCompanions,
+                  allowExternalGuests: allowExternalGuests,
+                  allowOtherCofrades: allowOtherCofrades,
+                  maxCompanions: int.tryParse(maxCompanionsController.text),
+                  capacity: int.tryParse(capacityController.text),
+                  waitlistEnabled: waitlistEnabled,
+                  requiresPayment: requiresPayment,
+                  freeEvent: freeEvent,
+                  memberPrice: double.tryParse(
+                          costController.text.replaceAll(',', '.')) ??
+                      0,
+                  guestPrice: double.tryParse(
+                          guestCostController.text.replaceAll(',', '.')) ??
+                      0,
+                  allergiesEnabled: allergiesEnabled,
+                  observationsEnabled: observationsEnabled,
+                  showBanner: showBanner,
+                  bannerText: bannerController.text.trim(),
+                  registrationConfig: {
+                    'requiresRegistration': requiresRegistration,
+                    'allowEdit': true,
+                    'allowCancel': true,
+                  },
+                  companionConfig: {
+                    'allowCompanions': allowCompanions,
+                    'allowExternalGuests': allowExternalGuests,
+                    'allowOtherCofrades': allowOtherCofrades,
+                    'maxCompanions': int.tryParse(maxCompanionsController.text),
+                  },
+                  pricingConfig: {
+                    'requiresPayment': requiresPayment,
+                    'freeEvent': freeEvent,
+                    'memberPrice': double.tryParse(
+                            costController.text.replaceAll(',', '.')) ??
+                        0,
+                    'guestPrice': double.tryParse(
+                            guestCostController.text.replaceAll(',', '.')) ??
+                        0,
+                  },
+                  notificationConfig: {
+                    'showBanner': showBanner,
+                    'bannerText': bannerController.text.trim(),
+                  },
                 ));
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -474,19 +602,22 @@ class _CampaignAdminCard extends StatelessWidget {
                               }
                             },
                           ),
-                          if (campaign.type == 'andas')
+                          if (campaign.requiresPayment)
                             DropdownButton<String>(
-                              value: reg.role,
+                              value: reg.paymentStatus,
                               items: const [
                                 DropdownMenuItem(
-                                    value: 'titular', child: Text('Titular')),
+                                    value: 'pending',
+                                    child: Text('Pago pendiente')),
                                 DropdownMenuItem(
-                                    value: 'reserva', child: Text('Reserva')),
+                                    value: 'paid', child: Text('Pagado')),
+                                DropdownMenuItem(
+                                    value: 'refunded', child: Text('Devuelto')),
                               ],
                               onChanged: (value) {
                                 if (value != null) {
                                   service.updateRegistration(
-                                      reg.id, {'role': value});
+                                      reg.id, {'paymentStatus': value});
                                 }
                               },
                             ),
