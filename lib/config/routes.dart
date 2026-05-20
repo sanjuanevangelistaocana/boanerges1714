@@ -63,6 +63,8 @@ import 'package:boanerges1714/screens/treasury/treasury_module_screens.dart';
 import 'package:boanerges1714/screens/treasury/treasury_invoice_detail_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
+import 'package:boanerges1714/screens/admin/manage_encuestas_screen.dart';
+import 'package:boanerges1714/screens/private/encuestas_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -224,10 +226,10 @@ GoRouter createRouter(AuthService authService) {
               builder: (context, state) => const ManageConvocatoriasScreen()),
           GoRoute(
               path: '/admin/encuestas',
-              builder: (context, state) => const ManageConvocatoriasScreen()),
+              builder: (context, state) => const ManageEncuestasScreen()),
           GoRoute(
               path: '/encuestas',
-              builder: (context, state) => const ConvocatoriasScreen()),
+              builder: (context, state) => const EncuestasScreen()),
           GoRoute(
               path: '/convocatorias',
               builder: (context, state) => const ConvocatoriasScreen()),
