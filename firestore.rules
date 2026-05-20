@@ -297,6 +297,21 @@ service cloud.firestore {
     match /event_campaigns/{campaignId} {
       allow read: if isAuth();
       allow create, update, delete: if isAdmin();
+
+      match /attachments/{attachmentId} {
+        allow read: if isAdmin() ||
+          (isAuth() &&
+           resource.data.visibleToUsers == true &&
+           get(/databases/$(database)/documents/event_campaigns/$(campaignId)).data.deleted != true &&
+           get(/databases/$(database)/documents/event_campaigns/$(campaignId)).data.status in ['published', 'open', 'closed', 'finished']);
+        allow create, update, delete: if isAdmin();
+      }
+
+      match /popup_views/{cofradeId} {
+        allow read: if isAdmin() || (isAuth() && isLinkedCofrade(cofradeId));
+        allow create, update: if isAdmin() || (isAuth() && isLinkedCofrade(cofradeId));
+        allow delete: if isAdmin();
+      }
     }
 
     match /event_registrations/{registrationId} {
@@ -308,8 +323,10 @@ service cloud.firestore {
 
     // Noticias collection
     match /noticias/{noticiaId} {
-      // Published news are readable by anyone; admins see all
-      allow get: if resource.data.publicado == true || isAdmin();
+      // Public news are readable by anyone. Cofrade-only news require auth.
+      allow get: if isAdmin() ||
+        (resource.data.publicado == true &&
+         (resource.data.solo_cofrades != true || isAuth()));
       allow list: if true;
 
       // Only admins can manage news
@@ -628,19 +645,26 @@ service cloud.firestore {
 
     // Convocatorias collection
     match /convocatorias/{convocatoriaId} {
-      // Authenticated users can read convocatorias
+      // Módulo visible como Encuestas. Se mantiene colección por compatibilidad.
       allow read: if isAuth();
 
-      // Only admins can create, update, delete convocatorias
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isAuth() &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['total_respuestas', 'result_counts']));
 
       // Respuestas subcollection
       match /respuestas/{respuestaId} {
-        // Authenticated users can read all responses
-        allow read: if isAuth();
+        allow read: if isAdmin() ||
+          (isAuth() && (respuestaId == request.auth.uid || isLinkedCofrade(respuestaId)));
 
-        // Authenticated users can create/update their own response
-        allow create, update: if isAuth();
+        allow create, update: if isAuth() &&
+          (respuestaId == request.auth.uid ||
+           request.resource.data.cofradeId == request.auth.uid ||
+           request.resource.data.cofrade_id == request.auth.uid ||
+           isLinkedCofrade(request.resource.data.cofradeId) ||
+           isLinkedCofrade(request.resource.data.cofrade_id));
 
         // Only admins can delete responses
         allow delete: if isAdmin();

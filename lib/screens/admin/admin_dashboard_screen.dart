@@ -141,7 +141,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 28),
-                  // Convocatorias drilldown
+                  // Encuestas drilldown
                   _ConvocatoriasDrilldown(firestoreService: firestoreService),
                   const SizedBox(height: 28),
                   // Quick actions
@@ -201,9 +201,9 @@ class AdminDashboardScreen extends StatelessWidget {
                       ),
                       _AdminActionCard(
                           icon: Icons.how_to_vote,
-                          title: 'Consultas',
+                          title: 'Encuestas',
                           subtitle: 'Crear y gestionar',
-                          onTap: () => context.go('/admin/convocatorias')),
+                          onTap: () => context.go('/admin/encuestas')),
                       StreamBuilder<int>(
                         stream: firestoreService
                             .getPendingConversationsForAdminCountStream(),
@@ -324,7 +324,7 @@ class _ConvocatoriasDrilldownState extends State<_ConvocatoriasDrilldown> {
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(width: 10),
             Expanded(
-                child: Text('Resumen de Consultas y Encuestas',
+                child: Text('Resumen de Encuestas',
                     style: Theme.of(context).textTheme.headlineSmall)),
           ],
         ),
@@ -349,7 +349,7 @@ class _ConvocatoriasDrilldownState extends State<_ConvocatoriasDrilldown> {
                         side: BorderSide(color: Colors.grey.shade200)),
                     child: const Padding(
                         padding: EdgeInsets.all(20),
-                        child: Text('No hay consultas creadas.')),
+                        child: Text('No hay encuestas creadas.')),
                   );
                 }
 
@@ -472,7 +472,7 @@ class _ConvocatoriaDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final opciones = convocatoria.opciones;
+    final opciones = convocatoria.surveyOptions;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -501,7 +501,10 @@ class _ConvocatoriaDetail extends StatelessWidget {
 
               final conteo = <String, int>{};
               for (final r in respuestas) {
-                conteo[r.respuesta] = (conteo[r.respuesta] ?? 0) + 1;
+                final key = r.selectedOptionId.isNotEmpty
+                    ? r.selectedOptionId
+                    : r.selectedOptionText;
+                conteo[key] = (conteo[key] ?? 0) + 1;
               }
 
               return Column(
@@ -509,7 +512,7 @@ class _ConvocatoriaDetail extends StatelessWidget {
                   ...opciones.asMap().entries.map((entry) {
                     final idx = entry.key;
                     final opcion = entry.value;
-                    final count = conteo[opcion] ?? 0;
+                    final count = conteo[opcion.id] ?? conteo[opcion.text] ?? 0;
                     final pct = total > 0 ? count / total : 0.0;
                     final colors = [
                       AppTheme.accentColor,
@@ -527,7 +530,7 @@ class _ConvocatoriaDetail extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(opcion,
+                              Text(opcion.text,
                                   style: const TextStyle(fontSize: 13)),
                               Text(
                                   '$count/$total (${(pct * 100).toStringAsFixed(0)}%)',

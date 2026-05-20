@@ -2328,6 +2328,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
 
   void _showFieldsConfig(BuildContext context) {
     final fs = context.read<FirestoreService>();
+    unawaited(fs.seedDefaultCofradeFieldsConfig());
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -3043,6 +3044,106 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     );
   }
 
+  Future<void> _showChangeCofradeNumberDialog(
+    Cofrade cofrade, {
+    required ValueChanged<int> onChanged,
+  }) async {
+    final numberController =
+        TextEditingController(text: cofrade.numero?.toString() ?? '');
+    final reasonController = TextEditingController();
+    final actor = context.read<AuthService>().cofrade;
+    final firestore = context.read<FirestoreService>();
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Modificar n\u00famero de cofrade'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: const Text(
+                  'Modificar el n\u00famero de cofrade puede afectar trazabilidad, documentos hist\u00f3ricos y referencias internas.',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('Valor actual: ${cofrade.numero ?? "-"}'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: numberController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Nuevo n\u00famero de cofrade',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: reasonController,
+                minLines: 3,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo obligatorio',
+                  hintText:
+                      'Error hist\u00f3rico, duplicidad, migraci\u00f3n, incidencia administrativa...',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              final parsed = int.tryParse(numberController.text.trim());
+              final reason = reasonController.text.trim();
+              if (parsed == null || parsed <= 0 || reason.isEmpty) return;
+              Navigator.pop(ctx, {'number': parsed, 'reason': reason});
+            },
+            icon: const Icon(Icons.warning_amber),
+            label: const Text('Confirmar cambio sensible'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    try {
+      final newNumber = result['number'] as int;
+      await firestore.changeCofradeNumber(
+        cofrade: cofrade,
+        newNumber: newNumber,
+        reason: '${result['reason']}',
+        changedBy: actor?.id ?? 'admin',
+        changedByRole: actor?.rol ?? 'admin',
+      );
+      onChanged(newNumber);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('N\u00famero de cofrade actualizado.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'No se pudo modificar el n\u00famero: ${e.toString().replaceFirst('Exception: ', '')}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Widget _buildAdminGdprDocumentationBlock(Cofrade cofrade) {
     final fs = context.read<FirestoreService>();
     final actor = context.read<AuthService>().cofrade;
@@ -3452,11 +3553,37 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                           fontSize: 14,
                           color: AppTheme.primaryColor)),
                   const SizedBox(height: 8),
-                  TextField(
-                      controller: numeroC,
-                      decoration: const InputDecoration(
-                          labelText: 'N\u00famero de cofrade'),
-                      keyboardType: TextInputType.number),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.lock_outline,
+                            color: AppTheme.primaryColor),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'N\u00famero de cofrade: ${numeroC.text.isEmpty ? "-" : numeroC.text}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _showChangeCofradeNumberDialog(
+                            cofrade,
+                            onChanged: (newNumber) => setDialogState(
+                              () => numeroC.text = '$newNumber',
+                            ),
+                          ),
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Modificar n\u00famero de cofrade'),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   TextField(
                       controller: nombreC,
@@ -3829,7 +3956,6 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                     'anio_mayordomia':
                         int.tryParse(anioMayordomiaC.text.trim()),
                     'causa_baja': causaBajaC.text.trim(),
-                    'numero': int.tryParse(numeroC.text.trim()),
                     'iban': ibanC.text.trim(),
                     'titular_iban': titularIbanC.text.trim(),
                     'tiene_cuota': tieneCuota,

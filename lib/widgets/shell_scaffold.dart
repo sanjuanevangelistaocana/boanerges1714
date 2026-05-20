@@ -142,8 +142,8 @@ class ShellScaffold extends StatelessWidget {
                 route: '/eventos'),
             _DrawerItem(
                 icon: Icons.how_to_vote,
-                label: 'Consultas',
-                route: '/convocatorias'),
+                label: 'Encuestas',
+                route: '/encuestas'),
             _DrawerItem(
                 icon: Icons.lightbulb_outline,
                 label: 'Mensajería',
@@ -294,14 +294,25 @@ class _Breadcrumbs extends StatelessWidget {
         '/admin/eventos': 'Eventos',
         '/admin/events': 'Otros eventos',
         '/admin/festividad': 'Eventos · Festividad 27 de diciembre',
+        '/admin/festividad/inscripciones': 'Inscripciones',
+        '/admin/festividad/informe': 'Informe',
+        '/admin/festividad/menus': 'Menús',
         '/admin/seguridad': 'Seguridad y permisos',
         '/admin/treasury': 'Tesorería',
       };
       final match = adminLabels.entries
           .where((entry) => path.startsWith(entry.key))
-          .toList();
+          .toList()
+        ..sort((a, b) => a.key.length.compareTo(b.key.length));
       if (match.isNotEmpty) {
-        items.add(_BreadcrumbItem(match.first.value, match.first.key));
+        final base = adminLabels['/admin/festividad'];
+        if (path.startsWith('/admin/festividad/') && base != null) {
+          items.add(_BreadcrumbItem(base, '/admin/festividad'));
+        }
+        final selected = match.last;
+        if (items.every((item) => item.path != selected.key)) {
+          items.add(_BreadcrumbItem(selected.value, selected.key));
+        }
       }
       return items;
     }
@@ -311,15 +322,25 @@ class _Breadcrumbs extends StatelessWidget {
       '/documents': 'Documentos',
       '/eventos': 'Eventos',
       '/festividad': 'Eventos · Festividad 27 de diciembre',
+      '/festividad/inscripcion': 'Mi inscripción',
       '/sugerencias': 'Mensajería',
       '/cuotas': 'Mis cuotas',
       '/treasury': 'Tesorería',
     };
     final match = privateLabels.entries
         .where((entry) => path.startsWith(entry.key))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.key.length.compareTo(b.key.length));
     if (match.isNotEmpty) {
-      items.add(_BreadcrumbItem(match.first.value, match.first.key));
+      if (path.startsWith('/festividad/') &&
+          privateLabels['/festividad'] != null) {
+        items
+            .add(_BreadcrumbItem(privateLabels['/festividad']!, '/festividad'));
+      }
+      final selected = match.last;
+      if (items.every((item) => item.path != selected.key)) {
+        items.add(_BreadcrumbItem(selected.value, selected.key));
+      }
     }
     return items;
   }

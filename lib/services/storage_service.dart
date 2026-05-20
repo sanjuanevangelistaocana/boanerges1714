@@ -12,6 +12,7 @@ class StorageService {
     String? contentType,
     int maxSizeBytes = 20 * 1024 * 1024,
     Set<String>? allowedExtensions,
+    Map<String, String>? customMetadata,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -44,6 +45,7 @@ class StorageService {
       customMetadata: {
         'uploadedBy': user.uid,
         'originalName': fileName,
+        ...?customMetadata,
       },
     );
 

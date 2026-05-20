@@ -83,6 +83,7 @@ GoRouter createRouter(AuthService authService) {
         '/cuotas',
         '/documents',
         '/eventos',
+        '/encuestas',
         '/convocatorias',
         '/sugerencias',
         '/tunicas',
@@ -221,6 +222,12 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/admin/convocatorias',
               builder: (context, state) => const ManageConvocatoriasScreen()),
+          GoRoute(
+              path: '/admin/encuestas',
+              builder: (context, state) => const ManageConvocatoriasScreen()),
+          GoRoute(
+              path: '/encuestas',
+              builder: (context, state) => const ConvocatoriasScreen()),
           GoRoute(
               path: '/convocatorias',
               builder: (context, state) => const ConvocatoriasScreen()),

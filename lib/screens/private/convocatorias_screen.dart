@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/services/auth_service.dart';
@@ -12,19 +13,18 @@ class ConvocatoriasScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firestoreService = context.read<FirestoreService>();
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
+        constraints: const BoxConstraints(maxWidth: 960),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Consultas y Encuestas',
+            Text('Encuestas',
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
             const Text(
-              'Responde a las consultas activas de la cofradía.',
+              'Responde con un clic a las encuestas activas de la Cofradía.',
               style: TextStyle(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 24),
@@ -34,17 +34,23 @@ class ConvocatoriasScreen extends StatelessWidget {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final convocatorias = snapshot.data ?? [];
-                if (convocatorias.isEmpty) {
-                  return const Card(
-                    child: Padding(
+                final encuestas = snapshot.data ?? [];
+                if (encuestas.isEmpty) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.shade200),
+                    ),
+                    child: const Padding(
                       padding: EdgeInsets.all(32),
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(Icons.inbox, size: 48, color: Colors.grey),
+                            Icon(Icons.poll_outlined,
+                                size: 56, color: Colors.grey),
                             SizedBox(height: 12),
-                            Text('No hay consultas activas.',
+                            Text('No hay encuestas activas en este momento.',
                                 style: TextStyle(color: Colors.grey)),
                           ],
                         ),
@@ -53,8 +59,8 @@ class ConvocatoriasScreen extends StatelessWidget {
                   );
                 }
                 return Column(
-                  children: convocatorias
-                      .map((c) => _ConvocatoriaCard(convocatoria: c))
+                  children: encuestas
+                      .map((survey) => _SurveyCard(survey: survey))
                       .toList(),
                 );
               },
@@ -66,234 +72,341 @@ class ConvocatoriasScreen extends StatelessWidget {
   }
 }
 
-class _ConvocatoriaCard extends StatefulWidget {
-  final Convocatoria convocatoria;
+class _SurveyCard extends StatefulWidget {
+  final Convocatoria survey;
 
-  const _ConvocatoriaCard({required this.convocatoria});
+  const _SurveyCard({required this.survey});
 
   @override
-  State<_ConvocatoriaCard> createState() => _ConvocatoriaCardState();
+  State<_SurveyCard> createState() => _SurveyCardState();
 }
 
-class _ConvocatoriaCardState extends State<_ConvocatoriaCard> {
-  String? _selectedOption;
-  final _comentarioController = TextEditingController();
-  bool _isSending = false;
-  bool _alreadyResponded = false;
-  String? _previousResponse;
+class _SurveyCardState extends State<_SurveyCard> {
+  RespuestaConvocatoria? _myResponse;
+  bool _loading = true;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _loadMiRespuesta();
-  }
-
-  Future<void> _loadMiRespuesta() async {
-    final cofrade = context.read<AuthService>().cofrade;
-    if (cofrade == null) return;
-    final respuesta = await context
-        .read<FirestoreService>()
-        .getMiRespuesta(widget.convocatoria.id, cofrade.id);
-    if (respuesta != null && mounted) {
-      setState(() {
-        _alreadyResponded = true;
-        _previousResponse = respuesta.respuesta;
-        _selectedOption = respuesta.respuesta;
-        _comentarioController.text = respuesta.comentario ?? '';
-      });
-    }
+    _loadMyResponse();
   }
 
   @override
-  void dispose() {
-    _comentarioController.dispose();
-    super.dispose();
+  void didUpdateWidget(covariant _SurveyCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.survey.id != widget.survey.id) {
+      _loadMyResponse();
+    }
+  }
+
+  Future<void> _loadMyResponse() async {
+    final cofrade = context.read<AuthService>().cofrade;
+    if (cofrade == null) return;
+    setState(() => _loading = true);
+    final response = await context
+        .read<FirestoreService>()
+        .getMiRespuesta(widget.survey.id, cofrade.id);
+    if (!mounted) return;
+    setState(() {
+      _myResponse = response;
+      _loading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.convocatoria;
-    final dateFormat = DateFormat('dd/MM/yyyy', 'es');
-    final isExpired = !c.isVigente;
-
+    final survey = widget.survey;
+    final fmt = DateFormat('dd/MM/yyyy');
+    final selectedId = _myResponse?.selectedOptionId;
+    final selectedText =
+        _myResponse?.selectedOptionText ?? _myResponse?.respuesta;
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _tipoColor(c.tipo).withAlpha(25),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    c.tipoLabel,
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: _tipoColor(c.tipo)),
-                  ),
-                ),
-                const Spacer(),
-                if (isExpired)
-                  const Chip(
-                    label: Text('Cerrada',
-                        style: TextStyle(fontSize: 12, color: Colors.white)),
-                    backgroundColor: Colors.grey,
-                    padding: EdgeInsets.zero,
-                  ),
-              ],
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 18),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if ((survey.coverImageUrl ?? '').isNotEmpty)
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(14)),
+              child: Image.network(
+                survey.coverImageUrl!,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+              ),
+            )
+          else
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withAlpha(12),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(14)),
+              ),
+              child: const Center(
+                child: Icon(Icons.poll_outlined,
+                    color: AppTheme.primaryColor, size: 46),
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(c.titulo,
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(c.descripcion),
-            const SizedBox(height: 12),
-            Row(
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.event, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('Evento: ${dateFormat.format(c.fechaEvento)}',
-                    style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                const SizedBox(width: 16),
-                const Icon(Icons.timer, size: 16, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('Límite: ${dateFormat.format(c.fechaLimite)}',
-                    style: const TextStyle(fontSize: 13, color: Colors.grey)),
-              ],
-            ),
-            if (_alreadyResponded) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    const Icon(Icons.check_circle,
-                        color: Colors.green, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Tu respuesta: $_previousResponse',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green)),
+                    _StatusChip(
+                      label: _myResponse == null ? 'Pendiente' : 'Respondida',
+                      color: _myResponse == null
+                          ? Colors.orange.shade700
+                          : Colors.green.shade700,
+                    ),
+                    _StatusChip(
+                      label: 'Límite ${fmt.format(survey.fechaLimite)}',
+                      color: AppTheme.primaryColor,
+                    ),
+                    if (survey.adjuntos.isNotEmpty)
+                      _StatusChip(
+                        label: '${survey.adjuntos.length} adjunto(s)',
+                        color: AppTheme.textSecondary,
+                      ),
                   ],
                 ),
-              ),
-            ],
-            if (!isExpired) ...[
-              const Divider(height: 24),
-              const Text('Tu respuesta:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: c.opciones.map((opcion) {
-                  final isSelected = _selectedOption == opcion;
-                  return ChoiceChip(
-                    label: Text(opcion),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() => _selectedOption = selected ? opcion : null);
+                const SizedBox(height: 12),
+                Text(survey.titulo,
+                    style: const TextStyle(
+                        fontSize: 21, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text(survey.descripcion,
+                    style: const TextStyle(color: AppTheme.textSecondary)),
+                if (survey.adjuntos.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final adj in survey.adjuntos)
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            final url = adj['url'];
+                            if (url != null && url.isNotEmpty) {
+                              launchUrl(Uri.parse(url),
+                                  mode: LaunchMode.externalApplication);
+                            }
+                          },
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          label: const Text('Descargar PDF'),
+                        ),
+                    ],
+                  ),
+                ],
+                const Divider(height: 28),
+                if (_loading)
+                  const LinearProgressIndicator()
+                else ...[
+                  const Text('Elige una opción',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final option in survey.surveyOptions)
+                        ChoiceChip(
+                          label: Text(option.text),
+                          selected: selectedId == option.id ||
+                              ((selectedId == null || selectedId.isEmpty) &&
+                                  selectedText == option.text),
+                          onSelected:
+                              _saving ? null : (_) => _saveResponse(option),
+                          selectedColor: AppTheme.primaryColor.withAlpha(38),
+                          labelStyle: TextStyle(
+                            color: selectedId == option.id ||
+                                    ((selectedId == null ||
+                                            selectedId.isEmpty) &&
+                                        selectedText == option.text)
+                                ? AppTheme.primaryColor
+                                : AppTheme.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (_myResponse != null) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.check_circle,
+                            color: Colors.green, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          _saving
+                              ? 'Guardando respuesta...'
+                              : 'Respuesta registrada correctamente.',
+                          style: const TextStyle(
+                              color: Colors.green, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+                if (survey.mostrarResultados) ...[
+                  const Divider(height: 28),
+                  const Text('Resultados actuales de la encuesta',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  FutureBuilder<Map<String, int>>(
+                    future: context
+                        .read<FirestoreService>()
+                        .getSurveyResults(survey.id),
+                    builder: (context, resultSnap) {
+                      final counts = resultSnap.data ?? const <String, int>{};
+                      final total = counts.values.fold<int>(0, (a, b) => a + b);
+                      return Column(
+                        children: [
+                          for (final option in survey.surveyOptions)
+                            _ResultBar(
+                              label: option.text,
+                              count:
+                                  counts[option.id] ?? counts[option.text] ?? 0,
+                              total: total,
+                            ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text('Total respuestas: $total',
+                                style: const TextStyle(
+                                    color: AppTheme.textSecondary)),
+                          ),
+                        ],
+                      );
                     },
-                    selectedColor: AppTheme.primaryColor.withAlpha(50),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _comentarioController,
-                decoration: const InputDecoration(
-                  labelText: 'Comentario (opcional)',
-                  hintText: 'Ej: Llego un poco tarde...',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: _selectedOption == null || _isSending
-                      ? null
-                      : _enviarRespuesta,
-                  icon: _isSending
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.send, size: 18),
-                  label: Text(
-                      _alreadyResponded ? 'Actualizar respuesta' : 'Responder'),
-                ),
-              ),
-            ],
-          ],
-        ),
+                  ),
+                ] else if (_myResponse != null) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Los resultados de esta encuesta no están visibles para los cofrades.',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Color _tipoColor(String tipo) {
-    switch (tipo) {
-      case 'procesion':
-        return Colors.purple;
-      case 'evento':
-        return Colors.blue;
-      case 'consulta':
-        return Colors.orange;
-      default:
-        return AppTheme.primaryColor;
+  Future<void> _saveResponse(SurveyOption option) async {
+    final current = _myResponse;
+    if (current?.selectedOptionId == option.id ||
+        (current?.selectedOptionId.isEmpty == true &&
+            current?.selectedOptionText == option.text)) {
+      return;
     }
-  }
-
-  Future<void> _enviarRespuesta() async {
-    if (_selectedOption == null) return;
-    setState(() => _isSending = true);
-
+    final cofrade = context.read<AuthService>().cofrade;
+    if (cofrade == null) return;
+    setState(() => _saving = true);
     try {
-      final cofrade = context.read<AuthService>().cofrade;
-      if (cofrade == null) return;
-
       await context.read<FirestoreService>().responderConvocatoria(
-            convocatoriaId: widget.convocatoria.id,
+            convocatoriaId: widget.survey.id,
             cofradeId: cofrade.id,
             cofradeNombre: cofrade.nombreCompleto,
-            respuesta: _selectedOption!,
-            comentario: _comentarioController.text.trim().isEmpty
-                ? null
-                : _comentarioController.text.trim(),
+            selectedOptionId: option.id,
+            respuesta: option.text,
           );
-
-      if (mounted) {
-        setState(() {
-          _alreadyResponded = true;
-          _previousResponse = _selectedOption;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Respuesta enviada correctamente.')),
+      if (!mounted) return;
+      setState(() {
+        _myResponse = RespuestaConvocatoria(
+          id: cofrade.id,
+          cofradeId: cofrade.id,
+          cofradeNombre: cofrade.nombreCompleto,
+          respuesta: option.text,
+          selectedOptionId: option.id,
+          selectedOptionText: option.text,
+          fechaRespuesta: current?.fechaRespuesta ?? DateTime.now(),
+          updatedAt: DateTime.now(),
         );
-      }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(current == null
+              ? 'Respuesta registrada correctamente.'
+              : 'Respuesta actualizada.'),
+        ),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo guardar la respuesta: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      if (mounted) setState(() => _isSending = false);
+      if (mounted) setState(() => _saving = false);
     }
+  }
+}
+
+class _ResultBar extends StatelessWidget {
+  final String label;
+  final int count;
+  final int total;
+
+  const _ResultBar({
+    required this.label,
+    required this.count,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total == 0 ? 0.0 : count / total;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(label)),
+              Text('$count · ${(pct * 100).toStringAsFixed(0)}%'),
+            ],
+          ),
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: pct,
+            minHeight: 8,
+            backgroundColor: Colors.grey.shade200,
+            color: AppTheme.primaryColor,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _StatusChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text(label, style: const TextStyle(color: Colors.white)),
+      backgroundColor: color,
+      visualDensity: VisualDensity.compact,
+    );
   }
 }

@@ -188,6 +188,67 @@ class FirestoreService {
     );
   }
 
+  Future<void> changeCofradeNumber({
+    required Cofrade cofrade,
+    required int newNumber,
+    required String reason,
+    required String changedBy,
+    required String changedByRole,
+  }) async {
+    if (newNumber <= 0) {
+      throw Exception('El número de cofrade debe ser mayor que cero.');
+    }
+    final cleanReason = reason.trim();
+    if (cleanReason.isEmpty) {
+      throw Exception('Indica el motivo de la modificación.');
+    }
+    final duplicated = await _db
+        .collection('cofrades')
+        .where('numero', isEqualTo: newNumber)
+        .limit(2)
+        .get();
+    QueryDocumentSnapshot<Map<String, dynamic>>? conflict;
+    for (final doc in duplicated.docs) {
+      if (doc.id != cofrade.id) {
+        conflict = doc;
+        break;
+      }
+    }
+    if (conflict != null) {
+      throw Exception('Ya existe otro cofrade con el número $newNumber.');
+    }
+    final oldNumber = cofrade.numero;
+    if (oldNumber == newNumber) return;
+    await updateCofrade(
+      cofrade.id,
+      {
+        'numero': newNumber,
+        'numero_anterior': oldNumber,
+        'numberChangedAt': FieldValue.serverTimestamp(),
+        'numberChangedBy': changedBy,
+        'numberChangeReason': cleanReason,
+      },
+      changedBy: changedBy,
+      changedByRole: changedByRole,
+      markPendingReview: false,
+    );
+    await createAuditLog(
+      action: 'cofrade_number_changed',
+      targetId: cofrade.id,
+      targetType: 'cofrade',
+      targetNombre: cofrade.nombreCompleto,
+      changedBy: changedBy,
+      oldValue: {'numero': oldNumber},
+      newValue: {'numero': newNumber},
+      metadata: {
+        'changedByRole': changedByRole,
+        'reason': cleanReason,
+        'source': 'admin_panel',
+        'requiresTraceabilityReview': true,
+      },
+    );
+  }
+
   Future<void> setAdminRole(
     Cofrade cofrade, {
     required bool enabled,
@@ -810,6 +871,8 @@ class FirestoreService {
     for (final doc in cofradesSnap.docs) {
       detected.addAll(doc.data().keys);
     }
+    final existingSnap = await _db.collection('cofrade_fields_config').get();
+    final existingKeys = existingSnap.docs.map((doc) => doc.id).toSet();
     final fields = <List<Object>>[
       ['nombre', 'Nombre', 'string', true],
       ['apellidos', 'Apellidos', 'string', true],
@@ -855,6 +918,7 @@ class FirestoreService {
     for (var i = 0; i < fields.length; i++) {
       final field = fields[i];
       final key = field[0] as String;
+      if (existingKeys.contains(key)) continue;
       final ref = _db.collection('cofrade_fields_config').doc(key);
       batch.set(
         ref,
@@ -2138,10 +2202,16 @@ class FirestoreService {
   }
 
   // --- Noticias ---
-  Stream<List<Noticia>> getNoticias({bool soloPublicadas = true}) {
+  Stream<List<Noticia>> getNoticias({
+    bool soloPublicadas = true,
+    bool incluirSoloCofrades = false,
+  }) {
     Query query = _db.collection('noticias');
     if (soloPublicadas) {
       query = query.where('publicado', isEqualTo: true);
+    }
+    if (!incluirSoloCofrades) {
+      query = query.where('solo_cofrades', isEqualTo: false);
     }
     query = query.orderBy('fecha', descending: true);
     return query.snapshots().map((snapshot) =>
@@ -2167,7 +2237,18 @@ class FirestoreService {
   }
 
   Future<void> createNoticia(Noticia noticia) async {
-    await _db.collection('noticias').add(noticia.toFirestore());
+    final doc = await _db.collection('noticias').add(noticia.toFirestore());
+    if (noticia.publicado) {
+      await _db.collection('novedades').add({
+        'tipo': 'noticia',
+        'titulo': noticia.titulo,
+        'descripcion': noticia.contenido,
+        'referencia_id': 'noticia_${doc.id}',
+        'ruta': '/news',
+        'visible_para': noticia.soloCofrades ? 'cofrades' : 'todos',
+        'created_at': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   Future<void> updateNoticia(String id, Map<String, dynamic> data) async {
@@ -2176,6 +2257,45 @@ class FirestoreService {
 
   Future<void> deleteNoticia(String id) async {
     await _db.collection('noticias').doc(id).delete();
+  }
+
+  Future<Set<String>> getNewsReadIds(String cofradeId) async {
+    final doc = await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('preferencias')
+        .doc('noticias_leidas')
+        .get();
+    final list = doc.data()?['ids'] as List<dynamic>? ?? const [];
+    return list.map((item) => '$item').toSet();
+  }
+
+  Future<void> markNewsRead(String cofradeId, String noticiaId) async {
+    await _db
+        .collection('cofrades')
+        .doc(cofradeId)
+        .collection('preferencias')
+        .doc('noticias_leidas')
+        .set({
+      'ids': FieldValue.arrayUnion([noticiaId]),
+      'ultima_actualizacion': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await marcarNovedadLeida(cofradeId, 'noticia_$noticiaId');
+  }
+
+  Future<Noticia?> getLatestUnreadNewsForCofrade(String cofradeId) async {
+    final read = await getNewsReadIds(cofradeId);
+    final snapshot = await _db
+        .collection('noticias')
+        .where('publicado', isEqualTo: true)
+        .orderBy('fecha', descending: true)
+        .limit(8)
+        .get();
+    for (final doc in snapshot.docs) {
+      if (read.contains(doc.id)) continue;
+      return Noticia.fromFirestore(doc);
+    }
+    return null;
   }
 
   // --- Cuotas ---
@@ -2385,50 +2505,51 @@ class FirestoreService {
 
   // --- Convocatorias ---
   Stream<List<Convocatoria>> getConvocatorias({bool soloActivas = false}) {
-    Query query = _db
-        .collection('convocatorias')
-        .orderBy('fecha_evento', descending: true);
-    if (soloActivas) {
-      query = query.where('activa', isEqualTo: true);
-    }
-    return query.snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) => Convocatoria.fromFirestore(doc)).toList());
+    return _db.collection('convocatorias').snapshots().map((snapshot) {
+      final encuestas = snapshot.docs
+          .map((doc) => Convocatoria.fromFirestore(doc))
+          .where((e) {
+        if (!soloActivas) return true;
+        return e.status == 'active' && e.activa;
+      }).toList()
+        ..sort((a, b) => b.fechaLimite.compareTo(a.fechaLimite));
+      return encuestas;
+    });
   }
 
   Stream<List<Convocatoria>> getAllConvocatorias() {
-    return _db
-        .collection('convocatorias')
-        .orderBy('fecha_evento', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Convocatoria.fromFirestore(doc))
-            .toList());
+    return getConvocatorias();
   }
 
   Stream<List<Convocatoria>> getConvocatoriasActivas() {
-    return _db
-        .collection('convocatorias')
-        .where('activa', isEqualTo: true)
-        .orderBy('fecha_evento')
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Convocatoria.fromFirestore(doc))
-            .toList());
+    return _db.collection('convocatorias').snapshots().map((snapshot) {
+      final encuestas = snapshot.docs
+          .map((doc) => Convocatoria.fromFirestore(doc))
+          .where((e) => e.status == 'active' && e.activa && e.isVigente)
+          .toList()
+        ..sort((a, b) => a.fechaLimite.compareTo(b.fechaLimite));
+      return encuestas;
+    });
   }
 
   Future<void> createConvocatoria(Convocatoria convocatoria) async {
-    final docRef =
-        await _db.collection('convocatorias').add(convocatoria.toFirestore());
+    final docRef = convocatoria.id.isNotEmpty
+        ? _db.collection('convocatorias').doc(convocatoria.id)
+        : _db.collection('convocatorias').doc();
+    await docRef.set(convocatoria.toFirestore());
     await crearNovedad(
-      tipo: 'convocatoria',
+      tipo: 'encuesta',
       titulo: convocatoria.titulo,
-      descripcion: 'Nueva convocatoria: ${convocatoria.titulo}',
+      descripcion: 'Nueva encuesta: ${convocatoria.titulo}',
       referenciaId: docRef.id,
-      ruta: '/convocatorias',
+      ruta: '/encuestas',
     );
   }
 
   Future<void> updateConvocatoria(String id, Map<String, dynamic> data) async {
+    if (data['status'] != null) {
+      data['activa'] = data['status'] == 'active';
+    }
     await _db.collection('convocatorias').doc(id).update(data);
   }
 
@@ -2451,17 +2572,43 @@ class FirestoreService {
 
   Future<RespuestaConvocatoria?> getMiRespuesta(
       String convocatoriaId, String cofradeId) async {
-    final snapshot = await _db
+    final doc = await _db
         .collection('convocatorias')
         .doc(convocatoriaId)
         .collection('respuestas')
-        .where('cofrade_id', isEqualTo: cofradeId)
-        .limit(1)
+        .doc(cofradeId)
         .get();
-    if (snapshot.docs.isNotEmpty) {
-      return RespuestaConvocatoria.fromFirestore(snapshot.docs.first);
-    }
+    if (doc.exists) return RespuestaConvocatoria.fromFirestore(doc);
     return null;
+  }
+
+  Future<Map<String, int>> getSurveyResults(String convocatoriaId) async {
+    final surveyDoc =
+        await _db.collection('convocatorias').doc(convocatoriaId).get();
+    final aggregate = surveyDoc.data()?['result_counts'];
+    if (aggregate is Map && aggregate.isNotEmpty) {
+      return aggregate
+          .map((key, value) => MapEntry('$key', (value as num?)?.toInt() ?? 0));
+    }
+
+    final result = <String, int>{};
+    try {
+      final snapshot = await _db
+          .collection('convocatorias')
+          .doc(convocatoriaId)
+          .collection('respuestas')
+          .get();
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final key = '${data['selectedOptionId'] ?? data['respuesta'] ?? ''}';
+        if (key.isEmpty) continue;
+        result[key] = (result[key] ?? 0) + 1;
+      }
+    } on FirebaseException catch (e) {
+      debugPrint(
+          '[Encuestas] No se pudieron leer respuestas individuales para resultados: ${e.code}');
+    }
+    return result;
   }
 
   // --- Evangelio del Día ---
@@ -2943,36 +3090,61 @@ class FirestoreService {
     required String cofradeId,
     required String cofradeNombre,
     required String respuesta,
+    String? selectedOptionId,
     String? comentario,
   }) async {
-    final existing = await _db
-        .collection('convocatorias')
-        .doc(convocatoriaId)
-        .collection('respuestas')
-        .where('cofrade_id', isEqualTo: cofradeId)
-        .limit(1)
-        .get();
+    final surveyRef = _db.collection('convocatorias').doc(convocatoriaId);
+    final responseRef = surveyRef.collection('respuestas').doc(cofradeId);
+    final newKey = selectedOptionId ?? respuesta;
 
-    final data = {
-      'cofrade_id': cofradeId,
-      'cofrade_nombre': cofradeNombre,
-      'respuesta': respuesta,
-      'comentario': comentario,
-      'fecha_respuesta': FieldValue.serverTimestamp(),
-    };
+    await _db.runTransaction((transaction) async {
+      final surveySnap = await transaction.get(surveyRef);
+      final responseSnap = await transaction.get(responseRef);
+      final rawCounts = surveySnap.data()?['result_counts'];
+      final counts = rawCounts is Map
+          ? rawCounts.map(
+              (key, value) => MapEntry('$key', (value as num?)?.toInt() ?? 0))
+          : <String, int>{};
+      final existingData = responseSnap.data();
+      final oldKey = existingData == null
+          ? null
+          : '${existingData['selectedOptionId'] ?? existingData['respuesta'] ?? ''}';
 
-    if (existing.docs.isNotEmpty) {
-      await existing.docs.first.reference.update(data);
-    } else {
-      await _db
-          .collection('convocatorias')
-          .doc(convocatoriaId)
-          .collection('respuestas')
-          .add(data);
-      await _db.collection('convocatorias').doc(convocatoriaId).update({
-        'total_respuestas': FieldValue.increment(1),
-      });
-    }
+      final data = {
+        'surveyId': convocatoriaId,
+        'cofrade_id': cofradeId,
+        'cofradeId': cofradeId,
+        'cofrade_nombre': cofradeNombre,
+        'respuesta': respuesta,
+        'selectedOptionId': newKey,
+        'selectedOptionText': respuesta,
+        'comentario': comentario,
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (!responseSnap.exists)
+          'fecha_respuesta': FieldValue.serverTimestamp(),
+        if (!responseSnap.exists) 'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      transaction.set(responseRef, data, SetOptions(merge: true));
+      if (!responseSnap.exists) {
+        counts[newKey] = (counts[newKey] ?? 0) + 1;
+        transaction.update(surveyRef, {
+          'total_respuestas': FieldValue.increment(1),
+          'result_counts': counts,
+        });
+      } else if (oldKey != newKey) {
+        if (oldKey != null && oldKey.isNotEmpty) {
+          final nextOldValue = (counts[oldKey] ?? 0) - 1;
+          if (nextOldValue <= 0) {
+            counts.remove(oldKey);
+          } else {
+            counts[oldKey] = nextOldValue;
+          }
+        }
+        counts[newKey] = (counts[newKey] ?? 0) + 1;
+        transaction.update(surveyRef, {'result_counts': counts});
+      }
+    });
   }
 
   // =============================================
@@ -2981,15 +3153,15 @@ class FirestoreService {
 
   // --- Ediciones del evento ---
   Stream<List<Map<String, dynamic>>> getFestividadEdiciones() {
-    return _db
-        .collection('festividad_sje')
-        .orderBy('anio', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map((d) {
-              final data = d.data();
-              data['id'] = d.id;
-              return data;
-            }).toList());
+    return _db.collection('festividad_sje').snapshots().map((s) {
+      final ediciones = s.docs.map((d) {
+        final data = d.data();
+        data['id'] = d.id;
+        return data;
+      }).toList()
+        ..sort(_compareFestividadEdicionesForPrivate);
+      return ediciones;
+    });
   }
 
   Future<Map<String, dynamic>?> getFestividadEdicionActiva() async {
@@ -3006,17 +3178,67 @@ class FirestoreService {
   }
 
   Stream<Map<String, dynamic>?> getFestividadEdicionActivaStream() {
-    return _db
-        .collection('festividad_sje')
-        .orderBy('anio', descending: true)
-        .limit(1)
-        .snapshots()
-        .map((s) {
+    return _db.collection('festividad_sje').snapshots().map((s) {
       if (s.docs.isEmpty) return null;
-      final data = s.docs.first.data();
-      data['id'] = s.docs.first.id;
+      final ediciones = s.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList()
+        ..sort(_compareFestividadEdicionesForPrivate);
+      final data = ediciones.first;
       return data;
     });
+  }
+
+  Stream<List<Map<String, dynamic>>> getFestividadEdicionesOrdenadasStream() {
+    return _db.collection('festividad_sje').snapshots().map((s) {
+      final ediciones = s.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList()
+        ..sort(_compareFestividadEdicionesForPrivate);
+      return ediciones;
+    });
+  }
+
+  int _compareFestividadEdicionesForPrivate(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+  ) {
+    final p = _festividadPriority(a).compareTo(_festividadPriority(b));
+    if (p != 0) return p;
+    final ay = (a['anio'] as num?)?.toInt() ?? 0;
+    final by = (b['anio'] as num?)?.toInt() ?? 0;
+    if (by.compareTo(ay) != 0) return by.compareTo(ay);
+    final ad = (a['fecha'] as Timestamp?)?.toDate() ?? DateTime(1900);
+    final bd = (b['fecha'] as Timestamp?)?.toDate() ?? DateTime(1900);
+    return bd.compareTo(ad);
+  }
+
+  int _festividadPriority(Map<String, dynamic> edicion) {
+    final estado = '${edicion['estado'] ?? ''}'.toLowerCase();
+    final now = DateTime.now();
+    final limite = (edicion['fecha_limite'] as Timestamp?)?.toDate();
+    final fecha = (edicion['fecha'] as Timestamp?)?.toDate();
+    final today = DateTime(now.year, now.month, now.day);
+    final eventDay =
+        fecha == null ? null : DateTime(fecha.year, fecha.month, fecha.day);
+    final afterEventDay = eventDay != null && today.isAfter(eventDay);
+    if (afterEventDay &&
+        const {'abierto', 'activo', 'publicado'}.contains(estado)) {
+      return 4;
+    }
+    final inscripcionDisponible =
+        estado == 'abierto' && (limite == null || !now.isAfter(limite));
+    if (inscripcionDisponible) return 0;
+    if (estado == 'abierto' || estado == 'activo') return 1;
+    if (estado == 'publicado') return 2;
+    if (estado == 'cerrado') return 3;
+    if (estado == 'finalizado') return 4;
+    if (estado == 'archivado') return 5;
+    return 6;
   }
 
   Future<Map<String, dynamic>?> getFestividadEdicion(String id) async {
@@ -3126,7 +3348,6 @@ class FirestoreService {
         .doc(edicionId)
         .collection('inscripciones')
         .where('cofrade_id', isEqualTo: cofradeId)
-        .where('estado', whereIn: ['pendiente', 'confirmada'])
         .limit(1)
         .get();
     if (snap.docs.isEmpty) return null;
@@ -3144,7 +3365,7 @@ class FirestoreService {
         .collection('festividad_sje')
         .doc(edicionId)
         .collection('inscripciones')
-        .where('estado', whereIn: ['pendiente', 'confirmada']).get();
+        .get();
     for (final doc in allInsc.docs) {
       final asistentes = List<Map<String, dynamic>>.from(
           (doc.data()['asistentes'] as List<dynamic>?) ?? []);
@@ -3215,13 +3436,102 @@ class FirestoreService {
 
   Future<void> updateFestividadInscripcion(
       String edicionId, String inscId, Map<String, dynamic> data) async {
-    data['updated_at'] = FieldValue.serverTimestamp();
-    await _db
+    final ref = _db
         .collection('festividad_sje')
         .doc(edicionId)
         .collection('inscripciones')
-        .doc(inscId)
-        .update(data);
+        .doc(inscId);
+    final beforeSnap = await ref.get();
+    final before = beforeSnap.data() ?? const <String, dynamic>{};
+    data['updated_at'] = FieldValue.serverTimestamp();
+    await ref.update(data);
+    await _notifyFestividadInscripcionChange(
+      edicionId: edicionId,
+      inscripcionId: inscId,
+      before: before,
+      after: {...before, ...data},
+    );
+  }
+
+  Future<void> _notifyFestividadInscripcionChange({
+    required String edicionId,
+    required String inscripcionId,
+    required Map<String, dynamic> before,
+    required Map<String, dynamic> after,
+  }) async {
+    final changes = <String, Map<String, dynamic>>{};
+    if (before['estado'] != after['estado'] && after['estado'] != null) {
+      changes['estado'] = {'old': before['estado'], 'new': after['estado']};
+    }
+    final oldPay = before['payment_status'] ?? before['estado_pago'];
+    final newPay = after['payment_status'] ?? after['estado_pago'];
+    if (oldPay != newPay && newPay != null) {
+      changes['payment_status'] = {'old': oldPay, 'new': newPay};
+    }
+    final oldPaid = before['paid_amount'] ?? before['paidAmount'];
+    final newPaid = after['paid_amount'] ?? after['paidAmount'];
+    if (oldPaid != newPaid && newPaid != null) {
+      changes['paid_amount'] = {'old': oldPaid, 'new': newPaid};
+    }
+    final oldPending = before['pending_amount'] ?? before['pendingAmount'];
+    final newPending = after['pending_amount'] ?? after['pendingAmount'];
+    if (oldPending != newPending && newPending != null) {
+      changes['pending_amount'] = {'old': oldPending, 'new': newPending};
+    }
+    if (changes.isEmpty) return;
+    final edicion = await getFestividadEdicion(edicionId);
+    final nombre = edicion?['nombre'] ?? 'Festividad San Juan Evangelista';
+    final notified = _festividadParticipantIds(after);
+    for (final cofradeId in notified) {
+      final payment = changes.containsKey('payment_status') ||
+          changes.containsKey('paid_amount') ||
+          changes.containsKey('pending_amount');
+      await crearNovedad(
+        tipo: 'festividad',
+        titulo:
+            payment ? 'Pago actualizado: $nombre' : 'Inscripción actualizada',
+        descripcion: payment
+            ? 'El estado de pago de tu inscripción a $nombre ha cambiado a $newPay.'
+            : 'Tu inscripción a $nombre ha cambiado a ${after['estado']}.',
+        referenciaId:
+            'festividad_change_${inscripcionId}_${cofradeId}_${DateTime.now().millisecondsSinceEpoch}',
+        ruta: '/festividad',
+        visiblePara: 'cofrade',
+        cofradeId: cofradeId,
+      );
+    }
+    try {
+      await createAuditLog(
+        action: 'festividad_registration_changed',
+        targetId: inscripcionId,
+        targetType: 'festividad_inscripcion',
+        targetNombre: nombre,
+        changedBy: 'system',
+        oldValue: changes.map((key, value) => MapEntry(key, value['old'])),
+        newValue: changes.map((key, value) => MapEntry(key, value['new'])),
+        metadata: {
+          'edicionId': edicionId,
+          'notifiedCofradeIds': notified.toList(),
+        },
+      );
+    } catch (_) {
+      // La inscripción ya se ha guardado. Si las reglas impiden auditar desde
+      // un flujo privado, no bloqueamos al cofrade.
+    }
+  }
+
+  Set<String> _festividadParticipantIds(Map<String, dynamic> inscripcion) {
+    final ids = <String>{};
+    final titular = '${inscripcion['cofrade_id'] ?? ''}';
+    if (titular.isNotEmpty) ids.add(titular);
+    final asistentes = inscripcion['asistentes'];
+    if (asistentes is Iterable) {
+      for (final asistente in asistentes.whereType<Map>()) {
+        final id = '${asistente['cofrade_id'] ?? ''}';
+        if (id.isNotEmpty) ids.add(id);
+      }
+    }
+    return ids;
   }
 
   Future<void> deleteFestividadInscripcion(
@@ -3750,7 +4060,10 @@ class FirestoreService {
     if (trimmed.isEmpty) return all;
     return all.where((c) {
       final searchable = _normalizeSearchText(
-        '${c.nombre} ${c.apellidos} ${c.apellidos} ${c.nombre} ${c.numero ?? ''}',
+        '${c.nombre} ${c.apellidos} ${c.apellidos} ${c.nombre} '
+        '${c.numero ?? ''} ${c.dni ?? ''} ${c.telefonoMovil} '
+        '${c.telefonoFijo} ${c.telefonoSecundario ?? ''} ${c.email} '
+        '${c.emailSecundario ?? ''}',
       );
       return searchable.contains(trimmed);
     }).toList();
