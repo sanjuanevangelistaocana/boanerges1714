@@ -194,6 +194,20 @@ class Noticia {
   }
 
   // ---------------------------------------------------------------------------
+  // Legacy getters (backward-compatibility with code referencing old field names)
+  // ---------------------------------------------------------------------------
+
+  String get titulo => title;
+  String get contenido => content;
+  DateTime get fecha => createdAt;
+  bool get publicado => status == NoticiaStatus.published;
+  bool get soloCofrades =>
+      visibility == NoticiaVisibility.privada ||
+      visibility == NoticiaVisibility.segmentada;
+  List<Map<String, String>> get adjuntos => attachments;
+  String? get imagenUrl => coverImageUrl;
+
+  // ---------------------------------------------------------------------------
   // Default categories
   // ---------------------------------------------------------------------------
 
