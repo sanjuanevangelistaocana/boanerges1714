@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:boanerges1714/models/encuesta.dart';
@@ -8,6 +6,7 @@ import 'package:boanerges1714/models/tag_config.dart';
 
 class EncuestaService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static const _collection = 'convocatorias';
 
   // ---------------------------------------------------------------------------
   // CRUD
@@ -15,8 +14,7 @@ class EncuestaService {
 
   Stream<List<Encuesta>> getAllEncuestas() {
     return _db
-        .collection('encuestas')
-        .orderBy('fechaCreacion', descending: true)
+        .collection(_collection)
         .snapshots()
         .map((snap) {
       final list = <Encuesta>[];
@@ -27,14 +25,15 @@ class EncuestaService {
           debugPrint('[EncuestaService] parse error ${doc.id}: $e');
         }
       }
+      list.sort((a, b) => b.fechaCreacion.compareTo(a.fechaCreacion));
       return list;
     });
   }
 
   Stream<List<Encuesta>> getEncuestasActivas() {
+    // Don't filter by 'estado' field — old docs use 'activa' bool + 'status' string
     return _db
-        .collection('encuestas')
-        .where('estado', isEqualTo: EncuestaEstado.activa.name)
+        .collection(_collection)
         .snapshots()
         .map((snap) {
       final now = DateTime.now();
@@ -66,35 +65,35 @@ class EncuestaService {
   }
 
   Future<Encuesta?> getEncuesta(String id) async {
-    final doc = await _db.collection('encuestas').doc(id).get();
+    final doc = await _db.collection(_collection).doc(id).get();
     if (!doc.exists) return null;
     return Encuesta.fromFirestore(doc);
   }
 
   Future<void> createEncuesta(Encuesta encuesta) async {
     final ref = encuesta.id.isNotEmpty
-        ? _db.collection('encuestas').doc(encuesta.id)
-        : _db.collection('encuestas').doc();
+        ? _db.collection(_collection).doc(encuesta.id)
+        : _db.collection(_collection).doc();
     await ref.set(encuesta.toFirestore());
   }
 
   Future<void> updateEncuesta(String id, Map<String, dynamic> data) async {
-    await _db.collection('encuestas').doc(id).update(data);
+    await _db.collection(_collection).doc(id).update(data);
   }
 
   Future<void> deleteEncuesta(String id) async {
     final respSnap =
-        await _db.collection('encuestas').doc(id).collection('respuestas').get();
+        await _db.collection(_collection).doc(id).collection('respuestas').get();
     final batch = _db.batch();
     for (final doc in respSnap.docs) {
       batch.delete(doc.reference);
     }
     final votersSnap =
-        await _db.collection('encuestas').doc(id).collection('voters').get();
+        await _db.collection(_collection).doc(id).collection('voters').get();
     for (final doc in votersSnap.docs) {
       batch.delete(doc.reference);
     }
-    batch.delete(_db.collection('encuestas').doc(id));
+    batch.delete(_db.collection(_collection).doc(id));
     await batch.commit();
   }
 
@@ -116,7 +115,7 @@ class EncuestaService {
       timestamp: DateTime.now(),
       details: details,
     );
-    await _db.collection('encuestas').doc(encuestaId).update({
+    await _db.collection(_collection).doc(encuestaId).update({
       'auditLog': FieldValue.arrayUnion([entry.toMap()]),
     });
   }
@@ -127,13 +126,17 @@ class EncuestaService {
 
   Stream<List<RespuestaEncuesta>> getRespuestas(String encuestaId) {
     return _db
-        .collection('encuestas')
+        .collection(_collection)
         .doc(encuestaId)
         .collection('respuestas')
-        .orderBy('fechaRespuesta', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => RespuestaEncuesta.fromFirestore(d)).toList());
+        .map((snap) {
+          final list = snap.docs
+              .map((d) => RespuestaEncuesta.fromFirestore(d))
+              .toList();
+          list.sort((a, b) => b.fechaRespuesta.compareTo(a.fechaRespuesta));
+          return list;
+        });
   }
 
   Future<RespuestaEncuesta?> getMiRespuesta(
@@ -146,7 +149,7 @@ class EncuestaService {
     if (encuesta.esAnonima) {
       // Check 'voters' to see if cofrade already voted
       final voterDoc = await _db
-          .collection('encuestas')
+          .collection(_collection)
           .doc(encuestaId)
           .collection('voters')
           .doc(cofradeId)
@@ -171,7 +174,7 @@ class EncuestaService {
       );
     } else {
       final doc = await _db
-          .collection('encuestas')
+          .collection(_collection)
           .doc(encuestaId)
           .collection('respuestas')
           .doc(cofradeId)
@@ -194,7 +197,7 @@ class EncuestaService {
 
     if (encuesta.esAnonima) {
       final voterRef = _db
-          .collection('encuestas')
+          .collection(_collection)
           .doc(encuestaId)
           .collection('voters')
           .doc(cofrade.id);
@@ -223,12 +226,12 @@ class EncuestaService {
       if (!isUpdate) {
         // Add anonymous response doc with auto-ID (no cofrade info)
         final anonRef = _db
-            .collection('encuestas')
+            .collection(_collection)
             .doc(encuestaId)
             .collection('respuestas')
             .doc();
         batch.set(anonRef, respuesta.toFirestore(anonymous: true));
-        batch.update(_db.collection('encuestas').doc(encuestaId), {
+        batch.update(_db.collection(_collection).doc(encuestaId), {
           'totalRespuestas': FieldValue.increment(1),
         });
       }
@@ -236,7 +239,7 @@ class EncuestaService {
       await batch.commit();
     } else {
       final ref = _db
-          .collection('encuestas')
+          .collection(_collection)
           .doc(encuestaId)
           .collection('respuestas')
           .doc(cofrade.id);
@@ -246,7 +249,7 @@ class EncuestaService {
       await ref.set(respuesta.toFirestore());
 
       if (!isUpdate) {
-        await _db.collection('encuestas').doc(encuestaId).update({
+        await _db.collection(_collection).doc(encuestaId).update({
           'totalRespuestas': FieldValue.increment(1),
         });
       }
@@ -262,7 +265,7 @@ class EncuestaService {
     final result = <String, int>{};
     try {
       final snap = await _db
-          .collection('encuestas')
+          .collection(_collection)
           .doc(encuestaId)
           .collection('respuestas')
           .get();
@@ -301,7 +304,7 @@ class EncuestaService {
     final list = <String>[];
     try {
       final snap = await _db
-          .collection('encuestas')
+          .collection(_collection)
           .doc(encuestaId)
           .collection('respuestas')
           .get();
@@ -342,11 +345,12 @@ class EncuestaService {
   Future<int> activateScheduledSurveys() async {
     final now = DateTime.now();
     final snap = await _db
-        .collection('encuestas')
-        .where('estado', isEqualTo: EncuestaEstado.programada.name)
+        .collection(_collection)
         .get();
     int activated = 0;
     for (final doc in snap.docs) {
+      final estado = doc.data()['estado'] ?? '';
+      if (estado != EncuestaEstado.programada.name) continue;
       final pubDate = (doc.data()['fechaPublicacion'] as Timestamp?)?.toDate();
       if (pubDate != null && now.isAfter(pubDate)) {
         await doc.reference.update({
@@ -363,12 +367,15 @@ class EncuestaService {
   Future<int> closeExpiredSurveys() async {
     final now = DateTime.now();
     final snap = await _db
-        .collection('encuestas')
-        .where('estado', isEqualTo: EncuestaEstado.activa.name)
+        .collection(_collection)
         .get();
     int closed = 0;
     for (final doc in snap.docs) {
-      final limit = (doc.data()['fechaLimite'] as Timestamp?)?.toDate();
+      final data = doc.data();
+      final isActive = data['activa'] == true ||
+          data['estado'] == EncuestaEstado.activa.name;
+      if (!isActive) continue;
+      final limit = (data['fechaLimite'] ?? data['fecha_limite'] as Timestamp?)?.toDate();
       if (limit != null && now.isAfter(limit)) {
         await doc.reference.update({
           'estado': EncuestaEstado.cerrada.name,
@@ -387,7 +394,7 @@ class EncuestaService {
   /// Generate CSV content string for an encuesta's responses
   Future<String> exportCsv(Encuesta encuesta) async {
     final respuestas = await _db
-        .collection('encuestas')
+        .collection(_collection)
         .doc(encuesta.id)
         .collection('respuestas')
         .get();
@@ -481,7 +488,7 @@ class EncuestaService {
   /// Returns aggregated participation metrics across all surveys
   Future<Map<String, dynamic>> getDashboardMetrics(
       List<Cofrade> cofrades) async {
-    final allSnap = await _db.collection('encuestas').get();
+    final allSnap = await _db.collection(_collection).get();
     final encuestas =
         allSnap.docs.map((d) => Encuesta.fromFirestore(d)).toList();
 

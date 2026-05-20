@@ -218,18 +218,47 @@ class Encuesta {
   factory Encuesta.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
+    // Parse options — handle both new format (list of maps in 'opciones')
+    // and legacy format (strings in 'opciones' + structured in 'surveyOptions')
+    final opciones = <EncuestaOpcion>[];
     final rawOpciones = data['opciones'];
-    final opciones = rawOpciones is List
-        ? rawOpciones
+    if (rawOpciones is List && rawOpciones.isNotEmpty) {
+      if (rawOpciones.first is Map) {
+        // New format: opciones is List<Map>
+        opciones.addAll(rawOpciones
             .whereType<Map>()
             .toList()
             .asMap()
             .entries
             .map((e) => EncuestaOpcion.fromMap(
                 Map<String, dynamic>.from(e.value), e.key + 1))
-            .where((o) => o.text.trim().isNotEmpty)
-            .toList()
-        : <EncuestaOpcion>[];
+            .where((o) => o.text.trim().isNotEmpty));
+      } else {
+        // Legacy format: opciones is List<String>, try surveyOptions first
+        final rawSurvey = data['surveyOptions'];
+        if (rawSurvey is List && rawSurvey.isNotEmpty) {
+          opciones.addAll(rawSurvey
+              .whereType<Map>()
+              .toList()
+              .asMap()
+              .entries
+              .map((e) => EncuestaOpcion.fromMap(
+                  Map<String, dynamic>.from(e.value), e.key + 1))
+              .where((o) => o.text.trim().isNotEmpty));
+        } else {
+          opciones.addAll(rawOpciones
+              .whereType<String>()
+              .toList()
+              .asMap()
+              .entries
+              .map((e) => EncuestaOpcion(
+                  id: 'option_${e.key + 1}',
+                  text: e.value,
+                  order: e.key + 1))
+              .where((o) => o.text.trim().isNotEmpty));
+        }
+      }
+    }
 
     final rawAudit = data['auditLog'];
     final auditLog = rawAudit is List
@@ -272,14 +301,14 @@ class Encuesta {
       opciones: opciones,
       reactionEmojis: reactionEmojis,
       fechaCreacion:
-          (data['fechaCreacion'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          (data['fechaCreacion'] ?? data['fecha_creacion'] as Timestamp?)?.toDate() ?? DateTime.now(),
       fechaPublicacion: (data['fechaPublicacion'] as Timestamp?)?.toDate(),
-      fechaLimite: (data['fechaLimite'] as Timestamp?)?.toDate(),
+      fechaLimite: (data['fechaLimite'] ?? data['fecha_limite'] as Timestamp?)?.toDate(),
       publicacionInmediata: data['publicacionInmediata'] ?? true,
       creadaPor: data['creadaPor'] ?? '',
       creadaPorId: data['creadaPorId'] ?? '',
-      mostrarResultados: data['mostrarResultados'] ?? false,
-      totalRespuestas: (data['totalRespuestas'] as num?)?.toInt() ?? 0,
+      mostrarResultados: data['mostrarResultados'] ?? data['mostrar_resultados'] ?? false,
+      totalRespuestas: ((data['totalRespuestas'] ?? data['total_respuestas']) as num?)?.toInt() ?? 0,
       adjuntos: ((data['adjuntos'] as List<dynamic>?) ?? [])
           .map((a) => Map<String, String>.from(a as Map))
           .toList(),
@@ -291,6 +320,7 @@ class Encuesta {
   }
 
   Map<String, dynamic> toFirestore() {
+    final opcionesMaps = opciones.map((o) => o.toMap()).toList();
     return {
       'titulo': titulo,
       'descripcion': descripcion,
@@ -299,23 +329,34 @@ class Encuesta {
       'estado': estado.name,
       'esAnonima': esAnonima,
       'targeting': targeting.toMap(),
-      'opciones': opciones.map((o) => o.toMap()).toList(),
+      'opciones': opcionesMaps,
+      // Legacy fields for backward compatibility with old Convocatoria model
+      'surveyOptions': opcionesMaps,
       'reactionEmojis': reactionEmojis,
       'fechaCreacion': Timestamp.fromDate(fechaCreacion),
+      'fecha_creacion': Timestamp.fromDate(fechaCreacion),
       if (fechaPublicacion != null)
         'fechaPublicacion': Timestamp.fromDate(fechaPublicacion!),
       if (fechaLimite != null)
         'fechaLimite': Timestamp.fromDate(fechaLimite!),
+      if (fechaLimite != null)
+        'fecha_limite': Timestamp.fromDate(fechaLimite!),
+      if (fechaLimite != null)
+        'fecha_evento': Timestamp.fromDate(fechaLimite!),
       'publicacionInmediata': publicacionInmediata,
       'creadaPor': creadaPor,
+      'creada_por': creadaPor,
       'creadaPorId': creadaPorId,
       'mostrarResultados': mostrarResultados,
+      'mostrar_resultados': mostrarResultados,
       'totalRespuestas': totalRespuestas,
+      'total_respuestas': totalRespuestas,
       'adjuntos': adjuntos,
       'coverImageUrl': coverImageUrl,
       'coverImagePath': coverImagePath,
       'auditLog': auditLog.map((e) => e.toMap()).toList(),
       'activa': estado == EncuestaEstado.activa,
+      'status': estado == EncuestaEstado.activa ? 'active' : estado.name,
     };
   }
 }
@@ -359,17 +400,17 @@ class RespuestaEncuesta {
     final data = doc.data() as Map<String, dynamic>;
     return RespuestaEncuesta(
       id: doc.id,
-      cofradeId: data['cofradeId'] ?? '',
-      cofradeNombre: data['cofradeNombre'] ?? '',
-      selectedOptionId: data['selectedOptionId'] as String?,
-      selectedOptionText: data['selectedOptionText'] as String?,
+      cofradeId: data['cofradeId'] ?? data['cofrade_id'] ?? '',
+      cofradeNombre: data['cofradeNombre'] ?? data['cofrade_nombre'] ?? '',
+      selectedOptionId: data['selectedOptionId'] ?? data['respuesta'] as String?,
+      selectedOptionText: data['selectedOptionText'] ?? data['respuesta'] as String?,
       selectedOptionIds: List<String>.from(data['selectedOptionIds'] ?? []),
       selectedOptionTexts:
           List<String>.from(data['selectedOptionTexts'] ?? []),
       textoAbierto: data['textoAbierto'] as String?,
       reaccion: data['reaccion'] as String?,
       comentario: data['comentario'] as String?,
-      fechaRespuesta: (data['fechaRespuesta'] as Timestamp?)?.toDate() ??
+      fechaRespuesta: ((data['fechaRespuesta'] ?? data['fecha_respuesta']) as Timestamp?)?.toDate() ??
           DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -389,6 +430,8 @@ class RespuestaEncuesta {
       if (reaccion != null) 'reaccion': reaccion,
       if (comentario != null) 'comentario': comentario,
       'fechaRespuesta': Timestamp.fromDate(fechaRespuesta),
+      'fecha_respuesta': Timestamp.fromDate(fechaRespuesta),
+      if (selectedOptionId != null) 'respuesta': selectedOptionId,
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
   }

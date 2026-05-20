@@ -515,7 +515,7 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
     super.initState();
     final e = widget.encuesta;
     _encuestaId = e?.id ??
-        FirebaseFirestore.instance.collection('encuestas').doc().id;
+        FirebaseFirestore.instance.collection('convocatorias').doc().id;
     _title = TextEditingController(text: e?.titulo ?? '');
     _description = TextEditingController(text: e?.descripcion ?? '');
     _deadline = e?.fechaLimite ?? DateTime.now().add(const Duration(days: 7));
@@ -890,7 +890,7 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
       if (result == null || result.files.first.bytes == null) return;
       final file = result.files.first;
       final uploaded = await context.read<StorageService>().uploadFile(
-            path: 'encuestas/$_encuestaId/cover',
+            path: 'surveys/$_encuestaId/cover',
             bytes: file.bytes!,
             fileName: file.name,
             allowedExtensions: {'jpg', 'jpeg', 'png', 'webp'},
@@ -915,7 +915,7 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
       if (result == null || result.files.first.bytes == null) return;
       final file = result.files.first;
       final uploaded = await context.read<StorageService>().uploadFile(
-            path: 'encuestas/$_encuestaId/attachments',
+            path: 'surveys/$_encuestaId/attachments',
             bytes: file.bytes!,
             fileName: file.name,
             allowedExtensions: {'pdf'},
@@ -1068,6 +1068,7 @@ class _OptionsEditor extends StatelessWidget {
       children: [
         for (var i = 0; i < opciones.length; i++)
           Padding(
+            key: ValueKey(opciones[i].id),
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
@@ -1097,6 +1098,7 @@ class _OptionsEditor extends StatelessWidget {
                 ),
                 Expanded(
                   child: TextFormField(
+                    key: ValueKey('text_${opciones[i].id}'),
                     initialValue: opciones[i].text,
                     decoration: InputDecoration(labelText: 'Opción ${i + 1}'),
                     onChanged: (value) {
