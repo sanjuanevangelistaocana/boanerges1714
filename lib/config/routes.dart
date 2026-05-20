@@ -65,6 +65,7 @@ import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 import 'package:boanerges1714/screens/admin/manage_encuestas_screen.dart';
 import 'package:boanerges1714/screens/private/encuestas_screen.dart';
+import 'package:boanerges1714/screens/public/news_detail_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -169,6 +170,24 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/news', builder: (context, state) => const NewsScreen()),
           GoRoute(
+              path: '/noticias',
+              builder: (context, state) => const NewsScreen()),
+          GoRoute(
+              path: '/noticias/hemeroteca',
+              builder: (context, state) => const HemerotecaScreen()),
+          GoRoute(
+              path: '/noticias/detalle',
+              builder: (context, state) {
+                final id = state.uri.queryParameters['id'];
+                return NewsDetailScreen(id: id);
+              }),
+          GoRoute(
+              path: '/noticias/:slug',
+              builder: (context, state) {
+                final slug = state.pathParameters['slug'];
+                return NewsDetailScreen(slug: slug);
+              }),
+          GoRoute(
               path: '/gallery',
               builder: (context, state) => const GalleryScreen()),
           GoRoute(
@@ -214,6 +233,9 @@ GoRouter createRouter(AuthService authService) {
               builder: (context, state) => const EventsAdminScreen()),
           GoRoute(
               path: '/admin/news',
+              builder: (context, state) => const ManageNewsScreen()),
+          GoRoute(
+              path: '/admin/noticias',
               builder: (context, state) => const ManageNewsScreen()),
           GoRoute(
               path: '/admin/notifications',

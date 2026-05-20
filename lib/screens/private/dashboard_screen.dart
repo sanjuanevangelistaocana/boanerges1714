@@ -18,6 +18,7 @@ import 'package:boanerges1714/models/treasury.dart';
 import 'package:boanerges1714/models/cofradia_event.dart';
 import 'package:boanerges1714/services/events_service.dart';
 import 'package:boanerges1714/services/encuesta_service.dart';
+import 'package:boanerges1714/services/noticias_service.dart';
 import 'package:boanerges1714/models/encuesta.dart';
 import 'package:boanerges1714/services/treasury/treasury_bank_validation_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_invoice_service.dart';
@@ -123,6 +124,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   if (cofrade != null)
                     _DashboardEncuestaResultsBanner(cofrade: cofrade),
+                  if (cofrade != null)
+                    _UrgentNewsBanners(cofrade: cofrade),
                   _NovedadesSection(
                       firestoreService: firestoreService,
                       cofradeId: cofrade?.id),
@@ -140,7 +143,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (cofrade != null)
                     _ActiveEncuestasSection(cofrade: cofrade),
                   const SizedBox(height: 28),
-                  _PrivateNewsSection(firestoreService: firestoreService),
+                  _PrivateNewsSectionV2(cofrade: cofrade),
                   const SizedBox(height: 28),
                   if (cofrade != null)
                     _CuotasResumenSection(
@@ -203,11 +206,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if ((noticia.imagenUrl ?? '').isNotEmpty) ...[
+              if ((noticia.coverImageUrl ?? '').isNotEmpty) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    noticia.imagenUrl!,
+                    noticia.coverImageUrl!,
                     height: 170,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -215,11 +218,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-              Text(noticia.titulo,
+              Text(noticia.title,
                   style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text(
-                noticia.contenido,
+                noticia.shortDescription.isNotEmpty
+                    ? noticia.shortDescription
+                    : noticia.content,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: AppTheme.textSecondary),
@@ -239,7 +244,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: () async {
               await firestoreService.markNewsRead(cofradeId, noticia.id);
               if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) context.go('/news');
+              if (context.mounted) {
+                final route = noticia.slug.isNotEmpty
+                    ? '/noticias/${noticia.slug}'
+                    : '/noticias';
+                context.go(route);
+              }
             },
             icon: const Icon(Icons.article_outlined),
             label: const Text('Ver noticia'),
@@ -3275,12 +3285,138 @@ class _DashboardResultCard extends StatelessWidget {
   }
 }
 
-class _PrivateNewsSection extends StatelessWidget {
-  final FirestoreService firestoreService;
-  const _PrivateNewsSection({required this.firestoreService});
+// ---- Urgent News Banners (top of private zone) ----
+class _UrgentNewsBanners extends StatelessWidget {
+  final Cofrade cofrade;
+  const _UrgentNewsBanners({required this.cofrade});
 
   @override
   Widget build(BuildContext context) {
+    final service = context.read<NoticiasService>();
+
+    return StreamBuilder<List<Noticia>>(
+      stream: service.getUrgentBanners(cofrade),
+      builder: (context, snapshot) {
+        final urgent = (snapshot.data ?? [])
+            .where((n) => !service.isBannerDismissed(n.id))
+            .toList();
+        if (urgent.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          children: urgent.map((n) => _UrgentBannerCard(
+            noticia: n,
+            onDismiss: () {
+              service.dismissBanner(n.id);
+              (context as Element).markNeedsBuild();
+            },
+          )).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _UrgentBannerCard extends StatelessWidget {
+  final Noticia noticia;
+  final VoidCallback onDismiss;
+  const _UrgentBannerCard({required this.noticia, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: Colors.red.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.red.shade200),
+      ),
+      child: InkWell(
+        onTap: () {
+          final route = noticia.slug.isNotEmpty
+              ? '/noticias/${noticia.slug}'
+              : '/noticias/detalle?id=${noticia.id}';
+          context.go(route);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning_amber, color: Colors.red),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: const Text('URGENTE',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(noticia.category,
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.red.shade400)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(noticia.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                    if (noticia.shortDescription.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(noticia.shortDescription,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.red.shade700)),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onDismiss,
+                icon: Icon(Icons.close, size: 18, color: Colors.red.shade300),
+                tooltip: 'Cerrar',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---- Private News Section V2 (tag-aware, using NoticiasService) ----
+class _PrivateNewsSectionV2 extends StatelessWidget {
+  final Cofrade? cofrade;
+  const _PrivateNewsSectionV2({required this.cofrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<NoticiasService>();
+    final stream = cofrade != null
+        ? service.getNoticiasParaCofrade(cofrade!)
+        : service.getNoticiasActivas();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3299,12 +3435,18 @@ class _PrivateNewsSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         StreamBuilder<List<Noticia>>(
-          stream: firestoreService.getNoticiasCofrades(),
+          stream: stream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            final noticias = snapshot.data ?? [];
+            // Filter to private/segmented only
+            final noticias = (snapshot.data ?? [])
+                .where((n) =>
+                    n.visibility == NoticiaVisibility.privada ||
+                    n.visibility == NoticiaVisibility.segmentada)
+                .take(5)
+                .toList();
             if (noticias.isEmpty) {
               return Card(
                 elevation: 0,
@@ -3326,17 +3468,22 @@ class _PrivateNewsSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       side: BorderSide(color: Colors.grey.shade200)),
                   child: InkWell(
-                    onTap: () => context.go('/news'),
+                    onTap: () {
+                      final route = n.slug.isNotEmpty
+                          ? '/noticias/${n.slug}'
+                          : '/noticias/detalle?id=${n.id}';
+                      context.go(route);
+                    },
                     borderRadius: BorderRadius.circular(10),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          if ((n.imagenUrl ?? '').isNotEmpty)
+                          if ((n.coverImageUrl ?? '').isNotEmpty)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
-                                n.imagenUrl!,
+                                n.coverImageUrl!,
                                 width: 58,
                                 height: 58,
                                 fit: BoxFit.cover,
@@ -3346,7 +3493,7 @@ class _PrivateNewsSection extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withAlpha(15),
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
                                   borderRadius: BorderRadius.circular(8)),
                               child: const Icon(Icons.article,
                                   color: AppTheme.primaryColor),
@@ -3356,14 +3503,49 @@ class _PrivateNewsSection extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(n.titulo,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(n.title,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600)),
+                                    ),
+                                    if (n.requireReadConfirmation)
+                                      Icon(Icons.mark_email_unread,
+                                          size: 16,
+                                          color: Colors.orange.shade600),
+                                  ],
+                                ),
                                 const SizedBox(height: 3),
-                                Text(fmt.format(n.fecha),
-                                    style: const TextStyle(fontSize: 13)),
-                                if (n.adjuntos.isNotEmpty)
-                                  Text('${n.adjuntos.length} adjunto(s)',
+                                Row(
+                                  children: [
+                                    Text(fmt.format(n.createdAt),
+                                        style: const TextStyle(fontSize: 13)),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryColor
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(n.category,
+                                          style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppTheme.primaryColor)),
+                                    ),
+                                    if (n.visibility ==
+                                        NoticiaVisibility.segmentada) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(Icons.people,
+                                          size: 14,
+                                          color: Colors.grey.shade500),
+                                    ],
+                                  ],
+                                ),
+                                if (n.attachments.isNotEmpty)
+                                  Text('${n.attachments.length} adjunto(s)',
                                       style: const TextStyle(
                                           fontSize: 12,
                                           color: AppTheme.textSecondary)),
