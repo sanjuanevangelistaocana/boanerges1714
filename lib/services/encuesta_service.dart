@@ -57,11 +57,46 @@ class EncuestaService {
     });
   }
 
+  /// Shared eligibility check — used by popup, screen, and banner
+  static bool isSurveyVisibleForMember(Encuesta encuesta, Cofrade cofrade) {
+    if (encuesta.estado == EncuestaEstado.borrador ||
+        encuesta.estado == EncuestaEstado.archivada ||
+        encuesta.estado == EncuestaEstado.programada) return false;
+    final allTags = [...cofrade.tagsManual, ...cofrade.tagsAuto];
+    return encuesta.canCofradeAccess(allTags);
+  }
+
   /// Active surveys filtered by cofrade's tags
   Stream<List<Encuesta>> getEncuestasParaCofrade(Cofrade cofrade) {
-    final allTags = [...cofrade.tagsManual, ...cofrade.tagsAuto];
     return getEncuestasActivas().map((encuestas) =>
-        encuestas.where((e) => e.canCofradeAccess(allTags)).toList());
+        encuestas.where((e) => isSurveyVisibleForMember(e, cofrade)).toList());
+  }
+
+  /// Pending (unanswered) surveys for a cofrade — active, visible, not responded
+  Future<List<Encuesta>> getPendingEncuestas(Cofrade cofrade) async {
+    final activas = await getEncuestasParaCofrade(cofrade).first;
+    final pending = <Encuesta>[];
+    for (final enc in activas) {
+      if (enc.estado != EncuestaEstado.activa) continue;
+      final resp = await getMiRespuesta(enc.id, cofrade.id);
+      if (resp == null) pending.add(enc);
+    }
+    // Sort by deadline (most urgent first)
+    pending.sort((a, b) {
+      final aLimit = a.fechaLimite ?? DateTime(2099);
+      final bLimit = b.fechaLimite ?? DateTime(2099);
+      return aLimit.compareTo(bLimit);
+    });
+    return pending;
+  }
+
+  /// Surveys with visible results for this cofrade (mostrarResultados=true)
+  /// Excludes cerrada from banner (visible in detail page only)
+  Stream<List<Encuesta>> getEncuestasConResultadosVisibles(Cofrade cofrade) {
+    return getEncuestasParaCofrade(cofrade).map((encuestas) => encuestas
+        .where((e) =>
+            e.mostrarResultados && e.estado == EncuestaEstado.activa)
+        .toList());
   }
 
   Future<Encuesta?> getEncuesta(String id) async {
@@ -297,6 +332,40 @@ class EncuestaService {
       debugPrint('[EncuestaService] getResultCounts error: ${e.code}');
     }
     return result;
+  }
+
+  /// Real-time stream of result counts (for live banner)
+  Stream<Map<String, int>> getResultCountsStream(String encuestaId) {
+    return _db
+        .collection(_collection)
+        .doc(encuestaId)
+        .collection('respuestas')
+        .snapshots()
+        .map((snap) {
+      final result = <String, int>{};
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final multiIds = data['selectedOptionIds'];
+        if (multiIds is List && multiIds.isNotEmpty) {
+          for (final optId in multiIds) {
+            final key = '$optId';
+            result[key] = (result[key] ?? 0) + 1;
+          }
+          continue;
+        }
+        final reaccion = data['reaccion'];
+        if (reaccion is String && reaccion.isNotEmpty) {
+          result[reaccion] = (result[reaccion] ?? 0) + 1;
+          continue;
+        }
+        final key =
+            '${data['selectedOptionId'] ?? data['selectedOptionText'] ?? data['respuesta'] ?? ''}';
+        if (key.isNotEmpty) {
+          result[key] = (result[key] ?? 0) + 1;
+        }
+      }
+      return result;
+    });
   }
 
   /// Open-text responses

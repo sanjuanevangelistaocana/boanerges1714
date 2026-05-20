@@ -229,7 +229,10 @@ GoRouter createRouter(AuthService authService) {
               builder: (context, state) => const ManageEncuestasScreen()),
           GoRoute(
               path: '/encuestas',
-              builder: (context, state) => const EncuestasScreen()),
+              builder: (context, state) {
+                final surveyId = state.uri.queryParameters['surveyId'];
+                return EncuestasScreen(highlightSurveyId: surveyId);
+              }),
           GoRoute(
               path: '/convocatorias',
               builder: (context, state) => const ConvocatoriasScreen()),

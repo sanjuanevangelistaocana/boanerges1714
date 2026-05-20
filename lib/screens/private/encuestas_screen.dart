@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,8 +9,32 @@ import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/encuesta_service.dart';
 
-class EncuestasScreen extends StatelessWidget {
-  const EncuestasScreen({super.key});
+class EncuestasScreen extends StatefulWidget {
+  final String? highlightSurveyId;
+  const EncuestasScreen({super.key, this.highlightSurveyId});
+
+  @override
+  State<EncuestasScreen> createState() => _EncuestasScreenState();
+}
+
+class _EncuestasScreenState extends State<EncuestasScreen> {
+  final Map<String, GlobalKey> _cardKeys = {};
+  bool _scrolled = false;
+
+  void _scrollToHighlighted(List<Encuesta> encuestas) {
+    if (_scrolled || widget.highlightSurveyId == null) return;
+    _scrolled = true;
+    final key = _cardKeys[widget.highlightSurveyId];
+    if (key?.currentContext != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +53,8 @@ class EncuestasScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Results banner (real-time)
+            _EncuestaResultsBanner(cofrade: cofrade),
             Text('Encuestas',
                 style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
@@ -67,10 +94,34 @@ class EncuestasScreen extends StatelessWidget {
                     ),
                   );
                 }
+
+                // Sort: put highlighted survey first if present
+                final sorted = [...encuestas];
+                if (widget.highlightSurveyId != null) {
+                  final idx = sorted.indexWhere(
+                      (e) => e.id == widget.highlightSurveyId);
+                  if (idx > 0) {
+                    final item = sorted.removeAt(idx);
+                    sorted.insert(0, item);
+                  }
+                }
+
+                // Ensure keys exist for scroll
+                for (final e in sorted) {
+                  _cardKeys.putIfAbsent(e.id, () => GlobalKey());
+                }
+
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollToHighlighted(sorted);
+                });
+
                 return Column(
-                  children: encuestas
-                      .map((e) => _EncuestaCard(encuesta: e, cofrade: cofrade))
-                      .toList(),
+                  children: sorted.map((e) => _EncuestaCard(
+                    key: _cardKeys[e.id],
+                    encuesta: e,
+                    cofrade: cofrade,
+                    highlight: e.id == widget.highlightSurveyId,
+                  )).toList(),
                 );
               },
             ),
@@ -88,7 +139,13 @@ class EncuestasScreen extends StatelessWidget {
 class _EncuestaCard extends StatefulWidget {
   final Encuesta encuesta;
   final Cofrade cofrade;
-  const _EncuestaCard({required this.encuesta, required this.cofrade});
+  final bool highlight;
+  const _EncuestaCard({
+    super.key,
+    required this.encuesta,
+    required this.cofrade,
+    this.highlight = false,
+  });
 
   @override
   State<_EncuestaCard> createState() => _EncuestaCardState();
@@ -129,11 +186,16 @@ class _EncuestaCardState extends State<_EncuestaCard> {
     final fmt = DateFormat('dd/MM/yyyy');
 
     return Card(
-      elevation: 0,
+      elevation: widget.highlight ? 2 : 0,
       margin: const EdgeInsets.only(bottom: 18),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(
+          color: widget.highlight
+              ? AppTheme.primaryColor
+              : Colors.grey.shade200,
+          width: widget.highlight ? 2 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,8 +306,8 @@ class _EncuestaCardState extends State<_EncuestaCard> {
                   ],
                 ],
 
-                // Results (if visible)
-                if (enc.mostrarResultados && _myResponse != null) ...[
+                // Results (if mostrarResultados is enabled, show always)
+                if (enc.mostrarResultados) ...[
                   const SizedBox(height: 16),
                   _InlineResults(encuesta: enc),
                 ],
@@ -708,8 +770,8 @@ class _InlineResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = context.read<EncuestaService>();
-    return FutureBuilder<Map<String, int>>(
-      future: service.getResultCounts(encuesta.id),
+    return StreamBuilder<Map<String, int>>(
+      stream: service.getResultCountsStream(encuesta.id),
       builder: (context, snap) {
         if (!snap.hasData) return const SizedBox.shrink();
         final counts = snap.data!;
@@ -773,6 +835,275 @@ class _InlineResults extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// =============================================================================
+// RESULTS BANNER (real-time, only when showResultsToMembers=true)
+// =============================================================================
+
+class _EncuestaResultsBanner extends StatelessWidget {
+  final Cofrade cofrade;
+  const _EncuestaResultsBanner({required this.cofrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<EncuestaService>();
+    return StreamBuilder<List<Encuesta>>(
+      stream: service.getEncuestasConResultadosVisibles(cofrade),
+      builder: (context, snapshot) {
+        final encuestas = snapshot.data ?? [];
+        if (encuestas.isEmpty) return const SizedBox.shrink();
+        // Show most urgent pending first, then most recent active
+        return Column(
+          children: encuestas.take(2).map((enc) {
+            return _SingleResultBanner(encuesta: enc, cofrade: cofrade);
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _SingleResultBanner extends StatelessWidget {
+  final Encuesta encuesta;
+  final Cofrade cofrade;
+  const _SingleResultBanner(
+      {required this.encuesta, required this.cofrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<EncuestaService>();
+    return StreamBuilder<Map<String, int>>(
+      stream: service.getResultCountsStream(encuesta.id),
+      builder: (context, countsSnap) {
+        final counts = countsSnap.data ?? {};
+        final total = counts.values.fold<int>(0, (a, b) => a + b);
+        if (total == 0) return const SizedBox.shrink();
+
+        // Find the winning option
+        String winnerLabel = '';
+        int winnerCount = 0;
+        if (encuesta.tipoRespuesta == EncuestaTipoRespuesta.reaccion) {
+          for (final emoji in encuesta.reactionEmojis) {
+            final count = counts[emoji] ?? 0;
+            if (count > winnerCount) {
+              winnerCount = count;
+              winnerLabel = emoji;
+            }
+          }
+        } else {
+          for (final opt in encuesta.opciones) {
+            final count = counts[opt.id] ?? 0;
+            if (count > winnerCount) {
+              winnerCount = count;
+              winnerLabel = opt.text;
+            }
+          }
+        }
+        final winnerPct =
+            total > 0 ? (winnerCount / total * 100).toStringAsFixed(0) : '0';
+
+        return FutureBuilder<RespuestaEncuesta?>(
+          future: service.getMiRespuesta(encuesta.id, cofrade.id),
+          builder: (context, respSnap) {
+            final myResp = respSnap.data;
+            final hasPending = myResp == null;
+
+            return Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: AppTheme.primaryColor.withAlpha(80),
+                ),
+              ),
+              color: AppTheme.primaryColor.withAlpha(8),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.bar_chart_rounded,
+                            color: AppTheme.primaryColor, size: 22),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Resultados en directo',
+                            style: TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '$total respuestas',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      encuesta.titulo,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '$winnerLabel lidera con $winnerPct%',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Top 3 mini bars
+                    _buildMiniBars(counts, total),
+                    const SizedBox(height: 10),
+                    // My response or CTA
+                    if (myResp != null) ...[
+                      _buildMyResponseChip(myResp),
+                    ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            context.go(
+                              '/encuestas?surveyId=${encuesta.id}',
+                            );
+                          },
+                          icon: Icon(
+                            hasPending
+                                ? Icons.how_to_vote
+                                : Icons.visibility_outlined,
+                            size: 16,
+                          ),
+                          label: Text(hasPending
+                              ? 'Responder ahora'
+                              : 'Ver encuesta'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMiniBars(Map<String, int> counts, int total) {
+    final items = <MapEntry<String, int>>[];
+    if (encuesta.tipoRespuesta == EncuestaTipoRespuesta.reaccion) {
+      for (final emoji in encuesta.reactionEmojis) {
+        items.add(MapEntry(emoji, counts[emoji] ?? 0));
+      }
+    } else {
+      for (final opt in encuesta.opciones) {
+        items.add(MapEntry(opt.text, counts[opt.id] ?? 0));
+      }
+    }
+    items.sort((a, b) => b.value.compareTo(a.value));
+    final top = items.take(3);
+
+    return Column(
+      children: top.map((entry) {
+        final pct = total > 0 ? entry.value / total : 0.0;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 90,
+                child: Text(
+                  entry.key,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: pct),
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, val, __) => ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: val,
+                      minHeight: 8,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor:
+                          const AlwaysStoppedAnimation(AppTheme.primaryColor),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text('${(pct * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(fontSize: 11)),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMyResponseChip(RespuestaEncuesta resp) {
+    String text;
+    switch (encuesta.tipoRespuesta) {
+      case EncuestaTipoRespuesta.unica:
+        text = resp.selectedOptionText ?? resp.selectedOptionId ?? '';
+        break;
+      case EncuestaTipoRespuesta.multiple:
+        text = resp.selectedOptionTexts.join(', ');
+        break;
+      case EncuestaTipoRespuesta.abierta:
+        final t = resp.textoAbierto ?? '';
+        text = t.length > 40 ? '${t.substring(0, 40)}...' : t;
+        break;
+      case EncuestaTipoRespuesta.reaccion:
+        text = resp.reaccion ?? '';
+        break;
+    }
+    if (text.isEmpty) text = 'Respondida';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        color: Colors.green.withAlpha(15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green.withAlpha(50)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            'Tu respuesta: $text',
+            style: const TextStyle(
+              color: Colors.green,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
