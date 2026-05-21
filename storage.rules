@@ -109,6 +109,17 @@ service firebase.storage {
           'image/webp'
         ];
     }
+    match /surveys/{surveyId}/options/{optionId}/{fileName} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size < 8 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        ];
+    }
     match /events/{eventId}/cover/{fileName} {
       allow read: if isAuth();
       allow create, update, delete: if isAdmin() &&

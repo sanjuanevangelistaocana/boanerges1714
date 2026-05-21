@@ -4,6 +4,7 @@ import 'dart:html' as html;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -70,7 +71,9 @@ class ManageEncuestasScreen extends StatelessWidget {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                final encuestas = snapshot.data ?? [];
+                final encuestas = (snapshot.data ?? [])
+                    .where((e) => e.estado != EncuestaEstado.eliminada)
+                    .toList();
                 if (encuestas.isEmpty) {
                   return _EmptyState(
                     message: 'No hay encuestas creadas todavía.',
@@ -329,12 +332,14 @@ class _AdminEncuestaCard extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, Encuesta encuesta) {
+    final service = context.read<EncuestaService>();
+    final actor = context.read<AuthService>().cofrade;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar encuesta'),
         content: Text(
-            '¿Eliminar "${encuesta.titulo}" y todas sus respuestas? Esta acción no se puede deshacer.'),
+            '¿Seguro que quieres eliminar "${encuesta.titulo}"? Esta acción no se puede deshacer.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -343,11 +348,26 @@ class _AdminEncuestaCard extends StatelessWidget {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
-              await context.read<EncuestaService>().deleteEncuesta(encuesta.id);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Encuesta eliminada.')),
+              try {
+                await service.deleteEncuesta(
+                  encuesta.id,
+                  deletedBy: actor?.id ?? 'admin',
                 );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Encuesta eliminada correctamente.')),
+                  );
+                }
+              } catch (e) {
+                debugPrint('[ManageEncuestas] delete error: $e');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No se pudo eliminar la encuesta. Revisa los permisos o vuelve a intentarlo.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Eliminar'),
@@ -456,6 +476,8 @@ class _Chip extends StatelessWidget {
         return Colors.orange.shade700;
       case EncuestaEstado.archivada:
         return Colors.brown.shade400;
+      case EncuestaEstado.eliminada:
+        return Colors.red.shade700;
     }
   }
 
@@ -649,10 +671,17 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
 
                 // --- Options (for single/multi/reaction) ---
                 if (_tipoRespuesta == EncuestaTipoRespuesta.unica ||
-                    _tipoRespuesta == EncuestaTipoRespuesta.multiple) ...[
-                  const _SectionTitle(title: 'Opciones de respuesta'),
+                    _tipoRespuesta == EncuestaTipoRespuesta.multiple ||
+                    _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen) ...[
+                  _SectionTitle(
+                    title: _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen
+                        ? 'Opciones con imagen'
+                        : 'Opciones de respuesta',
+                  ),
                   _OptionsEditor(
                     opciones: _opciones,
+                    showImageUpload: _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen,
+                    encuestaId: _encuestaId,
                     onChanged: (opts) => setState(() => _opciones = opts),
                   ),
                   const Divider(height: 28),
@@ -879,6 +908,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
         return 'Pregunta abierta (texto libre)';
       case EncuestaTipoRespuesta.reaccion:
         return 'Reacción rápida (emojis)';
+      case EncuestaTipoRespuesta.votacionImagen:
+        return 'Votación por imagen';
     }
   }
 
@@ -932,7 +963,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_tipoRespuesta == EncuestaTipoRespuesta.unica ||
-        _tipoRespuesta == EncuestaTipoRespuesta.multiple) {
+        _tipoRespuesta == EncuestaTipoRespuesta.multiple ||
+        _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen) {
       final cleaned = _normalizedOpciones();
       if (cleaned.length < 2) {
         _showError('Añade al menos 2 opciones de respuesta.');
@@ -1060,71 +1092,177 @@ class _SectionTitle extends StatelessWidget {
 class _OptionsEditor extends StatelessWidget {
   final List<EncuestaOpcion> opciones;
   final ValueChanged<List<EncuestaOpcion>> onChanged;
-  const _OptionsEditor({required this.opciones, required this.onChanged});
+  final bool showImageUpload;
+  final String encuestaId;
+  const _OptionsEditor({
+    required this.opciones,
+    required this.onChanged,
+    this.showImageUpload = false,
+    this.encuestaId = '',
+  });
+
+  Future<void> _uploadOptionImage(BuildContext context, int index) async {
+    try {
+      final result = await FilePicker.platform
+          .pickFiles(type: FileType.image, withData: true);
+      if (result == null || result.files.first.bytes == null) return;
+      final file = result.files.first;
+      final optId = opciones[index].id;
+      final uploaded = await context.read<StorageService>().uploadFile(
+            path: 'surveys/$encuestaId/options/$optId',
+            bytes: file.bytes!,
+            fileName: file.name,
+            allowedExtensions: {'jpg', 'jpeg', 'png', 'webp'},
+            maxSizeBytes: 8 * 1024 * 1024,
+          );
+      final copy = [...opciones];
+      copy[index] = EncuestaOpcion(
+        id: copy[index].id,
+        text: copy[index].text,
+        order: copy[index].order,
+        imageUrl: uploaded['url'],
+        imagePath: uploaded['storage_path'],
+      );
+      onChanged(copy);
+    } catch (e) {
+      debugPrint('[OptionsEditor] upload error: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo subir la imagen. Comprueba el formato y vuelve a intentarlo.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         for (var i = 0; i < opciones.length; i++)
-          Padding(
+          Card(
             key: ValueKey(opciones[i].id),
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Subir',
-                  onPressed: i == 0
-                      ? null
-                      : () {
-                          final copy = [...opciones];
-                          final c = copy.removeAt(i);
-                          copy.insert(i - 1, c);
-                          onChanged(copy);
-                        },
-                  icon: const Icon(Icons.arrow_upward),
-                ),
-                IconButton(
-                  tooltip: 'Bajar',
-                  onPressed: i == opciones.length - 1
-                      ? null
-                      : () {
-                          final copy = [...opciones];
-                          final c = copy.removeAt(i);
-                          copy.insert(i + 1, c);
-                          onChanged(copy);
-                        },
-                  icon: const Icon(Icons.arrow_downward),
-                ),
-                Expanded(
-                  child: TextFormField(
-                    key: ValueKey('text_${opciones[i].id}'),
-                    initialValue: opciones[i].text,
-                    decoration: InputDecoration(labelText: 'Opción ${i + 1}'),
-                    onChanged: (value) {
-                      final copy = [...opciones];
-                      copy[i] = EncuestaOpcion(
-                        id: opciones[i].id,
-                        text: value,
-                        order: i + 1,
-                        imageUrl: opciones[i].imageUrl,
-                        imagePath: opciones[i].imagePath,
-                      );
-                      onChanged(copy);
-                    },
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.grey.shade200),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Subir',
+                        onPressed: i == 0
+                            ? null
+                            : () {
+                                final copy = [...opciones];
+                                final c = copy.removeAt(i);
+                                copy.insert(i - 1, c);
+                                onChanged(copy);
+                              },
+                        icon: const Icon(Icons.arrow_upward),
+                      ),
+                      IconButton(
+                        tooltip: 'Bajar',
+                        onPressed: i == opciones.length - 1
+                            ? null
+                            : () {
+                                final copy = [...opciones];
+                                final c = copy.removeAt(i);
+                                copy.insert(i + 1, c);
+                                onChanged(copy);
+                              },
+                        icon: const Icon(Icons.arrow_downward),
+                      ),
+                      Expanded(
+                        child: TextFormField(
+                          key: ValueKey('text_${opciones[i].id}'),
+                          initialValue: opciones[i].text,
+                          decoration: InputDecoration(labelText: 'Opción ${i + 1}'),
+                          onChanged: (value) {
+                            final copy = [...opciones];
+                            copy[i] = EncuestaOpcion(
+                              id: opciones[i].id,
+                              text: value,
+                              order: i + 1,
+                              imageUrl: opciones[i].imageUrl,
+                              imagePath: opciones[i].imagePath,
+                            );
+                            onChanged(copy);
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Eliminar',
+                        onPressed: opciones.length <= 2
+                            ? null
+                            : () {
+                                final copy = [...opciones]..removeAt(i);
+                                onChanged(copy);
+                              },
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      ),
+                    ],
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Eliminar',
-                  onPressed: opciones.length <= 2
-                      ? null
-                      : () {
-                          final copy = [...opciones]..removeAt(i);
-                          onChanged(copy);
-                        },
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                ),
-              ],
+                  if (showImageUpload) ...[
+                    const SizedBox(height: 8),
+                    if ((opciones[i].imageUrl ?? '').isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          opciones[i].imageUrl!,
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 80,
+                            color: Colors.grey.shade200,
+                            child: const Center(child: Icon(Icons.broken_image)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          TextButton.icon(
+                            onPressed: () => _uploadOptionImage(context, i),
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Reemplazar'),
+                          ),
+                          TextButton.icon(
+                            onPressed: () {
+                              final copy = [...opciones];
+                              copy[i] = EncuestaOpcion(
+                                id: copy[i].id,
+                                text: copy[i].text,
+                                order: copy[i].order,
+                                imageUrl: null,
+                                imagePath: null,
+                              );
+                              onChanged(copy);
+                            },
+                            icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                            label: const Text('Quitar imagen',
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    ] else
+                      OutlinedButton.icon(
+                        onPressed: () => _uploadOptionImage(context, i),
+                        icon: const Icon(Icons.image_outlined),
+                        label: const Text('Subir imagen'),
+                      ),
+                  ],
+                ],
+              ),
             ),
           ),
         Align(

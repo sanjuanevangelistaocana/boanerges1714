@@ -1470,11 +1470,13 @@ class _NovedadesSection extends StatefulWidget {
 class _NovedadesSectionState extends State<_NovedadesSection> {
   Set<String> _leidas = {};
   bool _leidasLoaded = false;
+  Set<String> _respondedSurveyIds = {};
 
   @override
   void initState() {
     super.initState();
     _loadLeidas();
+    _loadRespondedSurveys();
   }
 
   @override
@@ -1483,7 +1485,26 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
     if (oldWidget.cofradeId != widget.cofradeId) {
       _leidas = {};
       _leidasLoaded = false;
+      _respondedSurveyIds = {};
       _loadLeidas();
+      _loadRespondedSurveys();
+    }
+  }
+
+  Future<void> _loadRespondedSurveys() async {
+    if (widget.cofradeId == null) return;
+    try {
+      final service = context.read<EncuestaService>();
+      final activas = await service.getEncuestasActivas().first;
+      final responded = <String>{};
+      for (final enc in activas) {
+        if (enc.estado != EncuestaEstado.activa) continue;
+        final resp = await service.getMiRespuesta(enc.id, widget.cofradeId!);
+        if (resp != null) responded.add(enc.id);
+      }
+      if (mounted) setState(() => _respondedSurveyIds = responded);
+    } catch (e) {
+      debugPrint('Error loading responded surveys: $e');
     }
   }
 
@@ -1646,7 +1667,9 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                           }
                         }
                         for (final enc in (convoSnap.data ?? <Encuesta>[])) {
-                          if (enc.estado == EncuestaEstado.activa) {
+                          if (enc.estado == EncuestaEstado.activa &&
+                              !enc.isDeleted &&
+                              !_respondedSurveyIds.contains(enc.id)) {
                             final dias = enc.fechaLimite != null
                                 ? enc.fechaLimite!.difference(now).inDays
                                 : 999;
@@ -3168,9 +3191,24 @@ class _DashboardEncuestaResultsBanner extends StatelessWidget {
       builder: (context, snapshot) {
         final encuestas = snapshot.data ?? [];
         if (encuestas.isEmpty) return const SizedBox.shrink();
-        // Show most recent with results, max 1 on dashboard
-        final enc = encuestas.first;
-        return _DashboardResultCard(encuesta: enc, cofrade: cofrade);
+        // Show up to 3 with results
+        return Column(
+          children: [
+            ...encuestas.take(3).map((enc) =>
+                _DashboardResultCard(encuesta: enc, cofrade: cofrade)),
+            if (encuestas.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.go('/encuestas'),
+                    child: const Text('Ver todas las encuestas'),
+                  ),
+                ),
+              ),
+          ],
+        );
       },
     );
   }

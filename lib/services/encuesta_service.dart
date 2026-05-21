@@ -41,6 +41,7 @@ class EncuestaService {
       for (final doc in snap.docs) {
         try {
           final e = Encuesta.fromFirestore(doc);
+          if (e.estado == EncuestaEstado.eliminada) continue;
           final withinDeadline =
               e.fechaLimite == null || now.isBefore(e.fechaLimite!);
           if (withinDeadline) list.add(e);
@@ -61,9 +62,18 @@ class EncuestaService {
   static bool isSurveyVisibleForMember(Encuesta encuesta, Cofrade cofrade) {
     if (encuesta.estado == EncuestaEstado.borrador ||
         encuesta.estado == EncuestaEstado.archivada ||
-        encuesta.estado == EncuestaEstado.programada) return false;
+        encuesta.estado == EncuestaEstado.programada ||
+        encuesta.estado == EncuestaEstado.eliminada) return false;
     final allTags = [...cofrade.tagsManual, ...cofrade.tagsAuto];
     return encuesta.canCofradeAccess(allTags);
+  }
+
+  /// Check if a survey is pending for a specific member (not responded, visible, active)
+  static bool isSurveyPendingForMember(
+      Encuesta encuesta, Cofrade cofrade, RespuestaEncuesta? response) {
+    if (!isSurveyVisibleForMember(encuesta, cofrade)) return false;
+    if (encuesta.estado != EncuestaEstado.activa) return false;
+    return response == null;
   }
 
   /// Active surveys filtered by cofrade's tags
@@ -116,20 +126,15 @@ class EncuestaService {
     await _db.collection(_collection).doc(id).update(data);
   }
 
-  Future<void> deleteEncuesta(String id) async {
-    final respSnap =
-        await _db.collection(_collection).doc(id).collection('respuestas').get();
-    final batch = _db.batch();
-    for (final doc in respSnap.docs) {
-      batch.delete(doc.reference);
-    }
-    final votersSnap =
-        await _db.collection(_collection).doc(id).collection('voters').get();
-    for (final doc in votersSnap.docs) {
-      batch.delete(doc.reference);
-    }
-    batch.delete(_db.collection(_collection).doc(id));
-    await batch.commit();
+  /// Soft-delete: sets estado=eliminada + deletedAt/deletedBy fields
+  Future<void> deleteEncuesta(String id, {String? deletedBy}) async {
+    await _db.collection(_collection).doc(id).update({
+      'estado': EncuestaEstado.eliminada.name,
+      'deletedAt': FieldValue.serverTimestamp(),
+      'deletedBy': deletedBy ?? '',
+      'activa': false,
+      'status': 'deleted',
+    });
   }
 
   // ---------------------------------------------------------------------------

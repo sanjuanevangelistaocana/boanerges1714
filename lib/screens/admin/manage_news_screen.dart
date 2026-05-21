@@ -915,28 +915,23 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
 
   Future<void> _loadAvailableTags() async {
     try {
-      // Load tags collection for readable names
+      // Load from tags_config (the official cofrade tags collection)
       final db = FirebaseFirestore.instance;
-      final tagsSnap = await db.collection('tags').get();
+      final tagsSnap = await db
+          .collection('tags_config')
+          .where('activo', isEqualTo: true)
+          .get();
       final nameCache = <String, String>{};
+      final tags = <String>{};
       for (final doc in tagsSnap.docs) {
         final data = doc.data();
-        final name = data['name'] ?? data['title'] ?? data['label'] ?? doc.id;
-        nameCache[doc.id] = name;
+        final nombre = data['nombre'] ?? data['name'] ?? data['title'] ?? doc.id;
+        nameCache[doc.id] = nombre;
+        // Use nombre as the tag identifier (consistent with encuestas)
+        nameCache[nombre] = nombre;
+        tags.add(nombre);
       }
 
-      // Also load from cofrades for completeness
-      final firestoreService = context.read<FirestoreService>();
-      final cofrades = await firestoreService.getAllCofradesStream().first;
-      final tags = <String>{};
-      for (final c in cofrades) {
-        tags.addAll(c.tagsManual);
-        tags.addAll(c.tagsAuto);
-      }
-      // Add tags from tags collection
-      for (final id in nameCache.keys) {
-        tags.add(id);
-      }
       if (mounted) {
         setState(() {
           _availableTags = tags.toList()..sort();

@@ -687,6 +687,15 @@ service cloud.firestore {
         // Only admins can delete responses
         allow delete: if isAdmin();
       }
+
+      // Voters subcollection (for anonymous surveys)
+      match /voters/{voterId} {
+        allow read: if isAdmin() ||
+          (isAuth() && (voterId == request.auth.uid || isLinkedCofrade(voterId)));
+        allow create, update: if isAuth() &&
+          (voterId == request.auth.uid || isLinkedCofrade(voterId));
+        allow delete: if isAdmin();
+      }
     }
   }
 }

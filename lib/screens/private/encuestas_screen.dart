@@ -348,6 +348,13 @@ class _EncuestaCardState extends State<_EncuestaCard> {
           saving: _saving,
           onSelect: (emoji) => _saveReaction(emoji),
         );
+      case EncuestaTipoRespuesta.votacionImagen:
+        return _ImageVoteArea(
+          encuesta: enc,
+          myResponse: _myResponse,
+          saving: _saving,
+          onSelect: (option) => _saveSingleChoice(option),
+        );
     }
   }
 
@@ -695,6 +702,128 @@ class _ReactionArea extends StatelessWidget {
 }
 
 // =============================================================================
+// IMAGE VOTE AREA
+// =============================================================================
+
+class _ImageVoteArea extends StatelessWidget {
+  final Encuesta encuesta;
+  final RespuestaEncuesta? myResponse;
+  final bool saving;
+  final ValueChanged<EncuestaOpcion> onSelect;
+
+  const _ImageVoteArea({
+    required this.encuesta,
+    required this.myResponse,
+    required this.saving,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedId = myResponse?.selectedOptionId;
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width > 900 ? 3 : width > 500 ? 2 : 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Selecciona una imagen',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.85,
+          ),
+          itemCount: encuesta.opciones.length,
+          itemBuilder: (context, i) {
+            final option = encuesta.opciones[i];
+            final isSelected = selectedId == option.id;
+            return InkWell(
+              onTap: saving ? null : () => onSelect(option),
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : Colors.grey.shade200,
+                    width: isSelected ? 3 : 1,
+                  ),
+                  color: isSelected
+                      ? AppTheme.primaryColor.withAlpha(15)
+                      : Colors.white,
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(11)),
+                        child: (option.imageUrl ?? '').isNotEmpty
+                            ? Image.network(
+                                option.imageUrl!,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey.shade100,
+                                  child: const Center(
+                                      child: Icon(Icons.broken_image,
+                                          size: 40, color: Colors.grey)),
+                                ),
+                              )
+                            : Container(
+                                color: Colors.grey.shade100,
+                                child: const Center(
+                                    child: Icon(Icons.image,
+                                        size: 40, color: Colors.grey)),
+                              ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Row(
+                        children: [
+                          if (isSelected)
+                            const Icon(Icons.check_circle,
+                                color: AppTheme.primaryColor, size: 18),
+                          if (isSelected) const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              option.text,
+                              style: TextStyle(
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// =============================================================================
 // CURRENT RESPONSE INDICATOR
 // =============================================================================
 
@@ -720,6 +849,9 @@ class _CurrentResponseIndicator extends StatelessWidget {
         break;
       case EncuestaTipoRespuesta.reaccion:
         text = response.reaccion ?? '';
+        break;
+      case EncuestaTipoRespuesta.votacionImagen:
+        text = response.selectedOptionText ?? response.selectedOptionId ?? '';
         break;
     }
     if (text.isEmpty) text = 'Respuesta registrada';
@@ -794,18 +926,47 @@ class _InlineResults extends StatelessWidget {
             const Text('Resultados actuales',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 8),
-            ...items.map((entry) {
+            ...items.asMap().entries.map((mapEntry) {
+              final i = mapEntry.key;
+              final entry = mapEntry.value;
               final count = counts[entry.key] ?? 0;
               final pct = total > 0 ? count / total : 0.0;
+              final isWinner = count > 0 &&
+                  count == counts.values.reduce((a, b) => a > b ? a : b);
+              // Get image URL for votacionImagen type
+              final hasImage = encuesta.tipoRespuesta ==
+                      EncuestaTipoRespuesta.votacionImagen &&
+                  i < encuesta.opciones.length &&
+                  (encuesta.opciones[i].imageUrl ?? '').isNotEmpty;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: [
+                    if (hasImage) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.network(
+                          encuesta.opciones[i].imageUrl!,
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: Icon(Icons.broken_image, size: 16)),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                     SizedBox(
-                      width: 110,
+                      width: hasImage ? 74 : 110,
                       child: Text(entry.value,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13)),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                                isWinner ? FontWeight.w700 : FontWeight.w400,
+                          )),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -819,15 +980,22 @@ class _InlineResults extends StatelessWidget {
                             value: val,
                             minHeight: 10,
                             backgroundColor: Colors.grey.shade200,
-                            valueColor: const AlwaysStoppedAnimation(
-                                AppTheme.primaryColor),
+                            valueColor: AlwaysStoppedAnimation(
+                              isWinner
+                                  ? Colors.green.shade600
+                                  : AppTheme.primaryColor,
+                            ),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text('$count (${(pct * 100).toStringAsFixed(0)}%)',
-                        style: const TextStyle(fontSize: 12)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              isWinner ? FontWeight.w700 : FontWeight.w400,
+                        )),
                   ],
                 ),
               );
@@ -855,11 +1023,21 @@ class _EncuestaResultsBanner extends StatelessWidget {
       builder: (context, snapshot) {
         final encuestas = snapshot.data ?? [];
         if (encuestas.isEmpty) return const SizedBox.shrink();
-        // Show most urgent pending first, then most recent active
+        // Show up to 3, then "Ver todas" link
         return Column(
-          children: encuestas.take(2).map((enc) {
-            return _SingleResultBanner(encuesta: enc, cofrade: cofrade);
-          }).toList(),
+          children: [
+            ...encuestas.take(3).map((enc) {
+              return _SingleResultBanner(encuesta: enc, cofrade: cofrade);
+            }),
+            if (encuestas.length > 3)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => context.go('/encuestas'),
+                  child: const Text('Ver todas las encuestas'),
+                ),
+              ),
+          ],
         );
       },
     );

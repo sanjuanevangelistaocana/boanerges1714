@@ -6,6 +6,7 @@ enum EncuestaTipoRespuesta {
   multiple,
   abierta,
   reaccion,
+  votacionImagen,
 }
 
 /// Survey lifecycle states
@@ -15,6 +16,7 @@ enum EncuestaEstado {
   activa,
   cerrada,
   archivada,
+  eliminada,
 }
 
 /// Tag-based targeting rule (prepared for future AND/exclusion)
@@ -59,6 +61,7 @@ class EncuestaOpcion {
   final int order;
   final String? imageUrl;
   final String? imagePath;
+  final bool isActive;
 
   const EncuestaOpcion({
     required this.id,
@@ -66,6 +69,7 @@ class EncuestaOpcion {
     required this.order,
     this.imageUrl,
     this.imagePath,
+    this.isActive = true,
   });
 
   factory EncuestaOpcion.fromMap(Map<String, dynamic> data, int fallbackOrder) {
@@ -75,6 +79,7 @@ class EncuestaOpcion {
       order: (data['order'] as num?)?.toInt() ?? fallbackOrder,
       imageUrl: data['imageUrl'] as String?,
       imagePath: data['imagePath'] as String?,
+      isActive: data['isActive'] ?? true,
     );
   }
 
@@ -84,6 +89,7 @@ class EncuestaOpcion {
         'order': order,
         if (imageUrl != null) 'imageUrl': imageUrl,
         if (imagePath != null) 'imagePath': imagePath,
+        'isActive': isActive,
       };
 }
 
@@ -183,6 +189,8 @@ class Encuesta {
     return true;
   }
 
+  bool get isDeleted => estado == EncuestaEstado.eliminada;
+
   String get estadoLabel {
     switch (estado) {
       case EncuestaEstado.borrador:
@@ -195,6 +203,8 @@ class Encuesta {
         return 'Cerrada';
       case EncuestaEstado.archivada:
         return 'Archivada';
+      case EncuestaEstado.eliminada:
+        return 'Eliminada';
     }
   }
 
@@ -208,6 +218,8 @@ class Encuesta {
         return 'Pregunta abierta';
       case EncuestaTipoRespuesta.reaccion:
         return 'Reacción rápida';
+      case EncuestaTipoRespuesta.votacionImagen:
+        return 'Votación por imagen';
     }
   }
 
@@ -275,12 +287,14 @@ class Encuesta {
         : const ['👍', '👎', '❤️'];
 
     final estadoStr = '${data['estado'] ?? 'activa'}'.trim();
-    final estado = EncuestaEstado.values.firstWhere(
-      (e) => e.name == estadoStr,
-      orElse: () => data['activa'] == false
-          ? EncuestaEstado.cerrada
-          : EncuestaEstado.activa,
-    );
+    final estado = estadoStr == 'deleted'
+        ? EncuestaEstado.eliminada
+        : EncuestaEstado.values.firstWhere(
+            (e) => e.name == estadoStr,
+            orElse: () => data['activa'] == false
+                ? EncuestaEstado.cerrada
+                : EncuestaEstado.activa,
+          );
 
     final tipoRespStr = '${data['tipoRespuesta'] ?? 'unica'}'.trim();
     final tipoRespuesta = EncuestaTipoRespuesta.values.firstWhere(
