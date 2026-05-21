@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -429,7 +430,7 @@ class _NoticiaListItem extends StatelessWidget {
   }
 
   void _handleAction(
-      BuildContext context, String action, Noticia noticia) {
+      BuildContext context, String action, Noticia noticia) async {
     final service = context.read<NoticiasService>();
     final auth = context.read<AuthService>();
     final userId = auth.cofrade?.nombre ?? auth.userId ?? 'admin';
@@ -439,10 +440,34 @@ class _NoticiaListItem extends StatelessWidget {
         onEdit();
         break;
       case 'publish':
-        service.publishNoticia(noticia.id, userId);
+        try {
+          await service.publishNoticia(noticia.id, userId);
+        } catch (e) {
+          debugPrint('[ManageNews] Error publicando: $e');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No se pudo publicar la noticia. Vuelve a intentarlo.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
         break;
       case 'archive':
-        service.archiveNoticia(noticia.id, userId);
+        try {
+          await service.archiveNoticia(noticia.id, userId);
+        } catch (e) {
+          debugPrint('[ManageNews] Error archivando: $e');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No se pudo archivar la noticia. Vuelve a intentarlo.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
         break;
       case 'delete':
         _confirmDelete(context, noticia);
@@ -464,8 +489,21 @@ class _NoticiaListItem extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              await context.read<NoticiasService>().deleteNoticia(noticia.id);
-              if (ctx.mounted) Navigator.pop(ctx);
+              try {
+                await context.read<NoticiasService>().deleteNoticia(noticia.id);
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                debugPrint('[ManageNews] Error eliminando: $e');
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No se pudo eliminar la noticia. Vuelve a intentarlo.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Eliminar'),
           ),
@@ -831,6 +869,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
 
   // Available tags — loaded from Firestore
   List<String> _availableTags = [];
+  // Tag name cache: id → readable name
+  Map<String, String> _tagNameCache = {};
 
   @override
   void initState() {
@@ -875,6 +915,17 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
 
   Future<void> _loadAvailableTags() async {
     try {
+      // Load tags collection for readable names
+      final db = FirebaseFirestore.instance;
+      final tagsSnap = await db.collection('tags').get();
+      final nameCache = <String, String>{};
+      for (final doc in tagsSnap.docs) {
+        final data = doc.data();
+        final name = data['name'] ?? data['title'] ?? data['label'] ?? doc.id;
+        nameCache[doc.id] = name;
+      }
+
+      // Also load from cofrades for completeness
       final firestoreService = context.read<FirestoreService>();
       final cofrades = await firestoreService.getAllCofradesStream().first;
       final tags = <String>{};
@@ -882,12 +933,22 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         tags.addAll(c.tagsManual);
         tags.addAll(c.tagsAuto);
       }
+      // Add tags from tags collection
+      for (final id in nameCache.keys) {
+        tags.add(id);
+      }
       if (mounted) {
         setState(() {
           _availableTags = tags.toList()..sort();
+          _tagNameCache = nameCache;
         });
       }
     } catch (_) {}
+  }
+
+  /// Get readable name for a tag (uses cache, falls back to tag id)
+  String _tagDisplayName(String tagId) {
+    return _tagNameCache[tagId] ?? tagId;
   }
 
   @override
@@ -996,6 +1057,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                   blocks: _richContent,
                   onChanged: (blocks) =>
                       setState(() => _richContent = blocks),
+                  onUploadImage: _uploadContentImage,
                 ),
                 const SizedBox(height: 12),
                 ExpansionTile(
@@ -1016,8 +1078,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // ---- Category & Tags ----
-                _SectionHeader(title: 'Categoría y Tags'),
+                // ---- Category ----
+                _SectionHeader(title: 'Categoría'),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -1025,7 +1087,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                       child: DropdownButtonFormField<String>(
                         value: _category,
                         decoration: const InputDecoration(
-                          labelText: 'Categoría',
+                          labelText: 'Categoría principal',
                           border: OutlineInputBorder(),
                         ),
                         items: Noticia.defaultCategories
@@ -1038,16 +1100,22 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                const Text('Tags de contenido (para noticias relacionadas)',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                const SizedBox(height: 6),
+                const SizedBox(height: 24),
+
+                // ---- Content Tags ----
+                _SectionHeader(title: 'Tags de contenido'),
+                const SizedBox(height: 4),
+                const Text(
+                  'Sirven para clasificar la noticia y mostrar contenidos relacionados.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: [
                     ..._tags.map((t) => Chip(
-                          label: Text(t, style: const TextStyle(fontSize: 12)),
+                          label: Text(_tagDisplayName(t), style: const TextStyle(fontSize: 12)),
                           onDeleted: () =>
                               setState(() => _tags.remove(t)),
                         )),
@@ -1087,25 +1155,28 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                       () => _visibility = v ?? NoticiaVisibility.publica),
                 ),
                 if (_visibility == NoticiaVisibility.segmentada) ...[
-                  const SizedBox(height: 12),
-                  const Text('Tags destinatarias',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 14)),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 16),
+                  _SectionHeader(title: 'Destinatarios por tags'),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Solo los cofrades con alguna de estas tags podrán ver esta noticia.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: [
                       ..._targetTags.map((t) => Chip(
                             label:
-                                Text(t, style: const TextStyle(fontSize: 12)),
+                                Text(_tagDisplayName(t), style: const TextStyle(fontSize: 12)),
                             onDeleted: () =>
                                 setState(() => _targetTags.remove(t)),
                           )),
                       ActionChip(
                         label: const Text('+ Añadir tag'),
                         onPressed: () => _showTagPicker(
-                          'Tags destinatarias',
+                          'Destinatarios por tags',
                           _targetTags,
                           (selected) =>
                               setState(() => _targetTags = selected),
@@ -1239,7 +1310,12 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
 
                 // ---- Gallery ----
                 _SectionHeader(title: 'Galería de imágenes'),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
+                const Text(
+                  'Añade varias imágenes para actos, cultos, procesiones, patrimonio o eventos. Formatos: jpg, png, webp.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
                 if (_gallery.isNotEmpty)
                   SizedBox(
                     height: 100,
@@ -1287,7 +1363,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.photo_library),
-                  label: const Text('Añadir imágenes a galería'),
+                  label: const Text('Subir imágenes a galería'),
                   onPressed: _uploading ? null : _uploadGalleryImage,
                 ),
                 const SizedBox(height: 24),
@@ -1443,16 +1519,26 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(widget.noticia == null
-                ? 'Noticia creada'
-                : 'Noticia actualizada'),
+                ? 'Noticia guardada correctamente'
+                : 'Noticia actualizada correctamente'),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
+      debugPrint('[ManageNews] Error guardando noticia: $e');
       if (mounted) {
+        String userMessage;
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('permission') || errorStr.contains('denied') || errorStr.contains('unauthorized')) {
+          userMessage = 'No se pudo guardar la noticia. Revisa los permisos o vuelve a intentarlo.';
+        } else if (errorStr.contains('network') || errorStr.contains('unavailable')) {
+          userMessage = 'Error de conexi\u00f3n. Comprueba tu conexi\u00f3n a internet y vuelve a intentarlo.';
+        } else {
+          userMessage = 'No se pudo guardar la noticia. Vuelve a intentarlo.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(userMessage), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -1472,8 +1558,9 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         final file = result.files.first;
         if (file.bytes != null) {
           final storage = context.read<StorageService>();
+          final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
           final uploaded = await storage.uploadFile(
-            path: 'noticias/${widget.noticia?.id ?? 'new'}/portada',
+            path: 'news/$newsId/cover',
             bytes: file.bytes!,
             fileName: file.name,
             allowedExtensions: {'jpg', 'jpeg', 'png', 'webp'},
@@ -1483,9 +1570,13 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         }
       }
     } catch (e) {
+      debugPrint('[ManageNews] Error subiendo portada: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('No se pudo subir la imagen de portada. Comprueba el formato y vuelve a intentarlo.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -1503,23 +1594,48 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       );
       if (result != null) {
         final storage = context.read<StorageService>();
+        final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
+        int successCount = 0;
+        int failCount = 0;
         for (final file in result.files) {
           if (file.bytes != null) {
-            final uploaded = await storage.uploadFile(
-              path: 'noticias/${widget.noticia?.id ?? 'new'}/galeria',
-              bytes: file.bytes!,
-              fileName: file.name,
-              allowedExtensions: {'jpg', 'jpeg', 'png', 'webp'},
-              maxSizeBytes: 8 * 1024 * 1024,
-            );
-            setState(() => _gallery.add(uploaded));
+            try {
+              final uploaded = await storage.uploadFile(
+                path: 'news/$newsId/gallery',
+                bytes: file.bytes!,
+                fileName: file.name,
+                allowedExtensions: {'jpg', 'jpeg', 'png', 'webp'},
+                maxSizeBytes: 8 * 1024 * 1024,
+              );
+              setState(() => _gallery.add(uploaded));
+              successCount++;
+            } catch (e) {
+              debugPrint('[ManageNews] Error subiendo imagen de galería ${file.name}: $e');
+              failCount++;
+            }
           }
+        }
+        if (failCount > 0 && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                successCount > 0
+                    ? 'Se subieron $successCount imágenes, pero $failCount fallaron. Vuelve a intentarlo.'
+                    : 'No se pudieron subir las imágenes. Comprueba el formato (jpg, png, webp) y vuelve a intentarlo.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
     } catch (e) {
+      debugPrint('[ManageNews] Error subiendo galería: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('No se pudieron subir las imágenes. Comprueba el formato y vuelve a intentarlo.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -1538,8 +1654,9 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         final file = result.files.first;
         if (file.bytes != null) {
           final storage = context.read<StorageService>();
+          final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
           final uploaded = await storage.uploadFile(
-            path: 'noticias/${widget.noticia?.id ?? 'new'}/adjuntos',
+            path: 'news/$newsId/attachments',
             bytes: file.bytes!,
             fileName: file.name,
           );
@@ -1547,14 +1664,66 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         }
       }
     } catch (e) {
+      debugPrint('[ManageNews] Error subiendo adjunto: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('No se pudo subir el archivo. Vuelve a intentarlo.'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
       setState(() => _uploading = false);
     }
+  }
+
+  // ---- Content image upload ----
+  Future<String?> _uploadContentImage() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null) {
+          final ext = file.name.split('.').last.toLowerCase();
+          if (!{'jpg', 'jpeg', 'png', 'webp'}.contains(ext)) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Formato no permitido. Usa jpg, png o webp.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return null;
+          }
+          final storage = context.read<StorageService>();
+          final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
+          final uploaded = await storage.uploadFile(
+            path: 'news/$newsId/content',
+            bytes: file.bytes!,
+            fileName: file.name,
+            allowedExtensions: {'jpg', 'jpeg', 'png', 'webp'},
+            maxSizeBytes: 8 * 1024 * 1024,
+          );
+          return uploaded['url'];
+        }
+      }
+    } catch (e) {
+      debugPrint('[ManageNews] Error subiendo imagen de contenido: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo subir la imagen. Comprueba el formato y vuelve a intentarlo.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+    return null;
   }
 
   // ---- Tag picker ----
@@ -1575,7 +1744,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                 children: _availableTags.map((tag) {
                   final isSelected = selected.contains(tag);
                   return FilterChip(
-                    label: Text(tag),
+                    label: Text(_tagDisplayName(tag)),
                     selected: isSelected,
                     onSelected: (v) {
                       setD(() {
@@ -1813,10 +1982,12 @@ class _AnalyticRow extends StatelessWidget {
 class _RichContentEditor extends StatelessWidget {
   final List<ContentBlock> blocks;
   final ValueChanged<List<ContentBlock>> onChanged;
+  final Future<String?> Function() onUploadImage;
 
   const _RichContentEditor({
     required this.blocks,
     required this.onChanged,
+    required this.onUploadImage,
   });
 
   @override
@@ -1858,8 +2029,8 @@ class _RichContentEditor extends StatelessWidget {
                     onTap: () => _addBlock('quote')),
                 _ToolbarBtn(
                     icon: Icons.image,
-                    tooltip: 'Imagen',
-                    onTap: () => _addBlock('image')),
+                    tooltip: 'Subir imagen al contenido',
+                    onTap: () => _addImageBlock()),
                 _ToolbarBtn(
                     icon: Icons.horizontal_rule,
                     tooltip: 'Separador',
@@ -1911,6 +2082,7 @@ class _RichContentEditor extends StatelessWidget {
                   list.removeAt(index);
                   onChanged(list);
                 },
+                onUploadImage: onUploadImage,
               );
             },
           ),
@@ -1923,6 +2095,15 @@ class _RichContentEditor extends StatelessWidget {
     final updated = List<ContentBlock>.from(blocks);
     updated.add(ContentBlock(type: type));
     onChanged(updated);
+  }
+
+  Future<void> _addImageBlock() async {
+    final url = await onUploadImage();
+    if (url != null && url.isNotEmpty) {
+      final updated = List<ContentBlock>.from(blocks);
+      updated.add(ContentBlock(type: 'image', imageUrl: url));
+      onChanged(updated);
+    }
   }
 }
 
@@ -1954,6 +2135,7 @@ class _ContentBlockEditor extends StatelessWidget {
   final int index;
   final ValueChanged<ContentBlock> onChanged;
   final VoidCallback onDelete;
+  final Future<String?> Function() onUploadImage;
 
   const _ContentBlockEditor({
     super.key,
@@ -1961,6 +2143,7 @@ class _ContentBlockEditor extends StatelessWidget {
     required this.index,
     required this.onChanged,
     required this.onDelete,
+    required this.onUploadImage,
   });
 
   @override
@@ -2084,32 +2267,57 @@ class _ContentBlockEditor extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Imagen embebida',
+            const Text('Imagen del contenido',
                 style:
                     TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-            TextField(
-              controller:
-                  TextEditingController(text: block.imageUrl ?? ''),
-              decoration: const InputDecoration(
-                hintText: 'URL de la imagen...',
-              ),
-              onChanged: (v) =>
-                  onChanged(ContentBlock(type: 'image', imageUrl: v)),
-            ),
-            if ((block.imageUrl ?? '').isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.network(
-                    block.imageUrl!,
-                    height: 100,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) =>
-                        const Text('Error cargando imagen'),
-                  ),
+            if ((block.imageUrl ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  block.imageUrl!,
+                  height: 120,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Text('Error cargando imagen',
+                          style: TextStyle(color: Colors.red, fontSize: 12)),
                 ),
               ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.swap_horiz, size: 16),
+                    label: const Text('Reemplazar', style: TextStyle(fontSize: 12)),
+                    onPressed: () async {
+                      final url = await onUploadImage();
+                      if (url != null && url.isNotEmpty) {
+                        onChanged(ContentBlock(type: 'image', imageUrl: url));
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                    label: const Text('Quitar', style: TextStyle(fontSize: 12, color: Colors.red)),
+                    onPressed: () => onChanged(ContentBlock(type: 'image', imageUrl: '')),
+                  ),
+                ],
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Subir imagen al contenido'),
+                onPressed: () async {
+                  final url = await onUploadImage();
+                  if (url != null && url.isNotEmpty) {
+                    onChanged(ContentBlock(type: 'image', imageUrl: url));
+                  }
+                },
+              ),
+            ],
           ],
         );
 

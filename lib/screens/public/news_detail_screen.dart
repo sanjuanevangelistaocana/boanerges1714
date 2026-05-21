@@ -337,10 +337,21 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                               if (!_readConfirmed)
                                 ElevatedButton(
                                   onPressed: () async {
-                                    await context
-                                        .read<NoticiasService>()
-                                        .confirmRead(n.id, cofrade.id);
-                                    setState(() => _readConfirmed = true);
+                                    try {
+                                      await context
+                                          .read<NoticiasService>()
+                                          .confirmRead(n.id, cofrade.id);
+                                      setState(() => _readConfirmed = true);
+                                    } catch (_) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('No se pudo confirmar la lectura. Vuelve a intentarlo.'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
                                   },
                                   child: const Text('He leído'),
                                 ),

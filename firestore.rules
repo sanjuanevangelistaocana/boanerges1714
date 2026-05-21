@@ -331,6 +331,24 @@ service cloud.firestore {
 
       // Only admins can manage news
       allow create, update, delete: if isAdmin();
+
+      // Audit subcollection
+      match /audit/{auditId} {
+        allow read: if isAdmin();
+        allow create: if isAdmin();
+      }
+
+      // Read confirmations subcollection
+      match /reads/{readId} {
+        allow read: if isAdmin() || (isAuth() && readId == request.auth.uid);
+        allow create, update: if isAuth();
+      }
+
+      // Analytics subcollection
+      match /analytics/{analyticsId} {
+        allow read: if isAdmin();
+        allow create: if isAuth();
+      }
     }
 
     // Documentos collection

@@ -30,6 +30,7 @@ service firebase.storage {
         ];
     }
 
+    // Legacy noticias paths (backward compatibility)
     match /noticias/{noticiaId}/adjuntos/{fileName} {
       allow read: if true;
       allow write: if isAdmin();
@@ -44,6 +45,47 @@ service firebase.storage {
           'image/png',
           'image/webp'
         ];
+    }
+
+    // New news paths (CMS module)
+    match /news/{newsId}/cover/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size < 8 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        ];
+    }
+    match /news/{newsId}/content/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size < 8 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        ];
+    }
+    match /news/{newsId}/gallery/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size < 8 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        ];
+    }
+    match /news/{newsId}/attachments/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size < 20 * 1024 * 1024;
     }
     match /eventos/{eventoId}/adjuntos/{fileName} {
       allow read: if true;

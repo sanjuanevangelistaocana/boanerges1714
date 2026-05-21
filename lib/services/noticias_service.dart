@@ -174,12 +174,21 @@ class NoticiasService {
     data['updatedAt'] = FieldValue.serverTimestamp();
     final doc = await _db.collection(_collection).add(data);
 
-    // Create audit entry
-    await _addAuditEntry(doc.id, 'created', noticia.createdBy, {});
+    // Secondary writes: audit + novedades — non-blocking
+    // If these fail (e.g. permission issues on subcollections), the main
+    // document is still saved correctly. Errors are logged, not propagated.
+    try {
+      await _addAuditEntry(doc.id, 'created', noticia.createdBy, {});
+    } catch (e) {
+      debugPrint('[NoticiasService] Audit write failed (non-critical): $e');
+    }
 
-    // Create novedad if published
     if (noticia.status == NoticiaStatus.published) {
-      await _createNovedad(doc.id, noticia);
+      try {
+        await _createNovedad(doc.id, noticia);
+      } catch (e) {
+        debugPrint('[NoticiasService] Novedad write failed (non-critical): $e');
+      }
     }
 
     return doc.id;
@@ -192,7 +201,7 @@ class NoticiasService {
     data['updatedBy'] = updatedBy;
     await _db.collection(_collection).doc(id).update(data);
 
-    // Audit
+    // Secondary write: audit — non-blocking
     final changes = <String, dynamic>{};
     if (previousVersion != null) {
       if (previousVersion.title != noticia.title) {
@@ -211,7 +220,11 @@ class NoticiasService {
         };
       }
     }
-    await _addAuditEntry(id, 'updated', updatedBy, changes);
+    try {
+      await _addAuditEntry(id, 'updated', updatedBy, changes);
+    } catch (e) {
+      debugPrint('[NoticiasService] Audit write failed (non-critical): $e');
+    }
   }
 
   Future<void> deleteNoticia(String id) async {
@@ -225,7 +238,11 @@ class NoticiasService {
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': archivedBy,
     });
-    await _addAuditEntry(id, 'archived', archivedBy, {});
+    try {
+      await _addAuditEntry(id, 'archived', archivedBy, {});
+    } catch (e) {
+      debugPrint('[NoticiasService] Audit write failed (non-critical): $e');
+    }
   }
 
   Future<void> publishNoticia(String id, String publishedBy) async {
@@ -235,7 +252,11 @@ class NoticiasService {
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': publishedBy,
     });
-    await _addAuditEntry(id, 'published', publishedBy, {});
+    try {
+      await _addAuditEntry(id, 'published', publishedBy, {});
+    } catch (e) {
+      debugPrint('[NoticiasService] Audit write failed (non-critical): $e');
+    }
   }
 
   // -------------------------------------------------------------------------

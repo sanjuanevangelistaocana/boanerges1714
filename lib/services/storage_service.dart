@@ -167,6 +167,8 @@ class StorageService {
         return 'image/jpeg';
       case 'png':
         return 'image/png';
+      case 'webp':
+        return 'image/webp';
       case 'gif':
         return 'image/gif';
       case 'doc':
