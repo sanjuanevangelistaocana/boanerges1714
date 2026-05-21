@@ -1257,6 +1257,9 @@ class _SingleResultBanner extends StatelessWidget {
       case EncuestaTipoRespuesta.reaccion:
         text = resp.reaccion ?? '';
         break;
+      case EncuestaTipoRespuesta.votacionImagen:
+        text = resp.selectedOptionText ?? resp.selectedOptionId ?? '';
+        break;
     }
     if (text.isEmpty) text = 'Respondida';
     return Container(
