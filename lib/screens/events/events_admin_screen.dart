@@ -1700,10 +1700,35 @@ class _CampaignTypeKpis extends StatelessWidget {
         .where((reg) =>
             reg.paymentStatus == 'pending' || reg.paymentStatus == 'partial')
         .length;
-    final isJunta = campaigns
-            .any((campaign) => campaign.type == 'junta_general_ordinaria') &&
-        campaigns
-            .every((campaign) => campaign.type == 'junta_general_ordinaria');
+    final isPalmas = campaigns.isNotEmpty &&
+        campaigns.every((campaign) => campaign.type == 'palmas');
+    final isJunta = campaigns.isNotEmpty &&
+        campaigns.every((campaign) => campaign.type == 'junta_general_ordinaria');
+
+    // Palmas-specific status KPIs
+    final palmasPending = isPalmas
+        ? registrations
+            .where((reg) => const {'solicitada', 'requested', 'pending', 'pendiente'}
+                .contains(reg.status))
+            .length
+        : 0;
+    final palmasConfirmed = isPalmas
+        ? registrations.where((reg) => reg.status == 'confirmada').length
+        : 0;
+    final palmasRejected = isPalmas
+        ? registrations.where((reg) => reg.status == 'rechazada').length
+        : 0;
+    final palmasDelivered = isPalmas
+        ? registrations.where((reg) => reg.status == 'entregada').length
+        : 0;
+
+    // Sanjuandereta / general payment KPIs
+    final paidCount = registrations
+        .where((reg) => reg.paymentStatus == 'paid')
+        .length;
+    final companionCount = registrations.fold<int>(
+        0, (total, reg) => total + (reg.participants.length > 1 ? reg.participants.length - 1 : 0));
+
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -1711,10 +1736,22 @@ class _CampaignTypeKpis extends StatelessWidget {
         _AdminKpi(label: 'Eventos', value: '${campaigns.length}'),
         _AdminKpi(label: 'Abiertos', value: '$open'),
         _AdminKpi(label: 'Borradores', value: '$drafts'),
-        _AdminKpi(label: 'Inscripciones', value: '${registrations.length}'),
+        _AdminKpi(
+          label: isPalmas ? 'Solicitudes' : 'Inscripciones',
+          value: '${registrations.length}',
+        ),
         _AdminKpi(label: 'Participantes', value: '$participants'),
-        if (!isJunta)
+        if (isPalmas) ...[
+          _AdminKpi(label: 'Pendientes', value: '$palmasPending'),
+          _AdminKpi(label: 'Confirmadas', value: '$palmasConfirmed'),
+          _AdminKpi(label: 'Rechazadas', value: '$palmasRejected'),
+          _AdminKpi(label: 'Entregadas', value: '$palmasDelivered'),
+        ],
+        if (!isJunta && !isPalmas) ...[
           _AdminKpi(label: 'Pagos pendientes', value: '$pendingPayments'),
+          _AdminKpi(label: 'Pagados', value: '$paidCount'),
+          _AdminKpi(label: 'Acompañantes', value: '$companionCount'),
+        ],
       ],
     );
   }
@@ -1966,20 +2003,35 @@ class _CampaignAdminCard extends StatelessWidget {
                               else
                                 DropdownButton<String>(
                                   value: reg.status,
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: 'solicitada',
-                                        child: Text('Solicitada')),
-                                    DropdownMenuItem(
-                                        value: 'confirmada',
-                                        child: Text('Confirmada')),
-                                    DropdownMenuItem(
-                                        value: 'entregada',
-                                        child: Text('Entregada')),
-                                    DropdownMenuItem(
-                                        value: 'cancelada',
-                                        child: Text('Cancelada')),
-                                  ],
+                                  items: isPalmas
+                                      ? const [
+                                          DropdownMenuItem(
+                                              value: 'solicitada',
+                                              child: Text('Solicitada')),
+                                          DropdownMenuItem(
+                                              value: 'confirmada',
+                                              child: Text('Confirmada')),
+                                          DropdownMenuItem(
+                                              value: 'rechazada',
+                                              child: Text('Rechazada')),
+                                          DropdownMenuItem(
+                                              value: 'entregada',
+                                              child: Text('Entregada')),
+                                          DropdownMenuItem(
+                                              value: 'cancelada',
+                                              child: Text('Cancelada')),
+                                        ]
+                                      : const [
+                                          DropdownMenuItem(
+                                              value: 'pending',
+                                              child: Text('Pendiente')),
+                                          DropdownMenuItem(
+                                              value: 'confirmada',
+                                              child: Text('Confirmada')),
+                                          DropdownMenuItem(
+                                              value: 'cancelada',
+                                              child: Text('Cancelada')),
+                                        ],
                                   onChanged: (value) {
                                     if (value != null) {
                                       service.updateRegistration(

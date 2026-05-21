@@ -1794,9 +1794,9 @@ class _PalmasCampaignCard extends StatelessWidget {
                     _InfoBadge(
                       text: hasRegistration
                           ? 'Petición: ${_registrationStatusLabel(registration!.status)}'
-                          : 'No inscrito',
+                          : 'No solicitada',
                       color: hasRegistration
-                          ? AppTheme.accentColor
+                          ? _palmasStatusColor(registration!.status)
                           : AppTheme.textSecondary,
                     ),
                     if (hasRegistration &&
@@ -1805,6 +1805,18 @@ class _PalmasCampaignCard extends StatelessWidget {
                         text:
                             'Pago: ${_paymentStatusLabel(registration!.paymentStatus)}',
                         color: _paymentStatusColor(registration!),
+                      ),
+                    if (campaign.endDate != null && campaign.isOpen)
+                      _InfoBadge(
+                        text: _deadlineLabel(campaign.endDate!),
+                        color: Colors.orange.shade700,
+                      ),
+                    if (campaign.description.isNotEmpty && !hasRegistration)
+                      _InfoBadge(
+                        text: campaign.description.length > 60
+                            ? '${campaign.description.substring(0, 60)}...'
+                            : campaign.description,
+                        color: AppTheme.textSecondary,
                       ),
                   ],
                 ),
@@ -2336,9 +2348,15 @@ String _registrationStatusLabel(String status) {
     case 'rechazada':
     case 'rejected':
       return 'Rechazada';
+    case 'entregada':
+    case 'delivered':
+      return 'Entregada';
     case 'en_espera':
     case 'waitlisted':
       return 'En espera';
+    case 'pending':
+    case 'pendiente':
+      return 'Pendiente';
     default:
       return status;
   }
@@ -2382,6 +2400,33 @@ Color _paymentStatusColor(EventRegistration reg) {
   }
 }
 
+Color _palmasStatusColor(String status) {
+  switch (status) {
+    case 'confirmada':
+    case 'confirmed':
+      return AppTheme.accentColor;
+    case 'rechazada':
+    case 'rejected':
+      return Colors.red.shade700;
+    case 'entregada':
+    case 'delivered':
+      return Colors.blue.shade700;
+    case 'cancelada':
+    case 'cancelled':
+      return AppTheme.textSecondary;
+    default:
+      return Colors.orange.shade700;
+  }
+}
+
+String _deadlineLabel(DateTime deadline) {
+  final remaining = deadline.difference(DateTime.now()).inDays;
+  if (remaining < 0) return 'Plazo cerrado';
+  if (remaining == 0) return 'Último día';
+  if (remaining == 1) return 'Queda 1 día';
+  return 'Quedan $remaining días';
+}
+
 class _RegistrationStatusCard extends StatelessWidget {
   final EventRegistration reg;
   final String noun;
@@ -2390,26 +2435,74 @@ class _RegistrationStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final companionCount =
+        reg.participants.length > 1 ? reg.participants.length - 1 : 0;
     return Card(
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: AppTheme.accentColor,
-          child: Icon(Icons.check, color: Colors.white),
-        ),
-        title: Text('${_capitalize(noun)}: ${reg.status}'),
-        subtitle: Text(
-          [
-            if (reg.addedByName.isNotEmpty && reg.addedById != reg.cofradeId)
-              'Añadido por ${reg.addedByName}',
-            'Pago ${_paymentLabel(reg.paymentStatus)}',
-            if (reg.paymentStatus == 'partial')
-              'Pagado ${reg.paidAmount.toStringAsFixed(2)} €',
-            ..._registrationDetails(reg),
-            if (reg.heightCm != null) 'Altura ${reg.heightCm} cm',
-            if (reg.turnName.isNotEmpty) 'Turno ${reg.turnName}',
-            if (reg.role.isNotEmpty) reg.role,
-            if (reg.position != null) 'Posición ${reg.position}',
-          ].join(' · '),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: AppTheme.accentColor,
+                  child: Icon(Icons.check, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${_capitalize(noun)}: ${_registrationStatusLabel(reg.status)}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _SmallIconText(
+                  icon: Icons.payments_outlined,
+                  text: 'Pago: ${_paymentLabel(reg.paymentStatus)}'
+                      '${reg.paymentStatus == 'partial' ? ' (${reg.paidAmount.toStringAsFixed(2)} €)' : ''}'
+                      '${reg.totalAmount > 0 ? ' · Total: ${reg.totalAmount.toStringAsFixed(2)} €' : ''}',
+                ),
+                if (companionCount > 0)
+                  _SmallIconText(
+                    icon: Icons.group,
+                    text: '$companionCount acompañante${companionCount > 1 ? 's' : ''}',
+                  ),
+                if (reg.addedByName.isNotEmpty &&
+                    reg.addedById != reg.cofradeId)
+                  _SmallIconText(
+                    icon: Icons.person_add_alt,
+                    text: 'Añadido por ${reg.addedByName}',
+                  ),
+                if (reg.heightCm != null)
+                  _SmallIconText(
+                    icon: Icons.height,
+                    text: '${reg.heightCm} cm',
+                  ),
+                if (reg.turnName.isNotEmpty)
+                  _SmallIconText(
+                    icon: Icons.schedule,
+                    text: 'Turno: ${reg.turnName}',
+                  ),
+              ],
+            ),
+            if (_registrationDetails(reg).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _registrationDetails(reg).join(' · '),
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ],
+          ],
         ),
       ),
     );
