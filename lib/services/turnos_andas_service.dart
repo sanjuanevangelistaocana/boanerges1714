@@ -46,6 +46,22 @@ class TurnosAndasService {
     return actualizarEvento(eventoId, {'estado': nuevoEstado});
   }
 
+  /// Delete evento and all subcollections (inscripciones, puestos)
+  Future<void> eliminarEvento(String eventoId) async {
+    // Delete inscripciones
+    final inscDocs = await _inscCol(eventoId).get();
+    for (final doc in inscDocs.docs) {
+      await doc.reference.delete();
+    }
+    // Delete puestos
+    final puestosDocs = await _puestosCol(eventoId).get();
+    for (final doc in puestosDocs.docs) {
+      await doc.reference.delete();
+    }
+    // Delete the evento document itself
+    await _col.doc(eventoId).delete();
+  }
+
   // ---------------------------------------------------------------------------
   //  Inscripciones
   // ---------------------------------------------------------------------------
@@ -353,8 +369,8 @@ class TurnosAndasService {
 
   int _puestoTurno(Puesto puesto, List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     final doc = docs.where((d) => d.id == puesto.id).toList();
-    if (doc.isEmpty) return puesto.id.startsWith('t1') ? 1 : 2;
-    return (doc.first.data()['turno'] as int?) ?? (puesto.id.startsWith('t1') ? 1 : 2);
+    if (doc.isEmpty) return puesto.turno;
+    return (doc.first.data()['turno'] as int?) ?? puesto.turno;
   }
 
   // ---------------------------------------------------------------------------
@@ -377,7 +393,17 @@ class TurnosAndasService {
         .collection('cofrades')
         .doc(cofradeId)
         .get();
-    return doc.data()?['portador'] == true;
+    return getEsPortador(doc.data());
+  }
+
+  /// Centralized helper: reads Portador (P mayúscula) first, then portador.
+  static bool getEsPortador(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    // Priority 1: 'Portador' (capital P — actual field in Firestore)
+    if (data.containsKey('Portador')) return data['Portador'] == true;
+    // Priority 2: 'portador' (lowercase fallback)
+    if (data.containsKey('portador')) return data['portador'] == true;
+    return false;
   }
 
   Future<int?> getEstaturaCofrade(String cofradeId) async {

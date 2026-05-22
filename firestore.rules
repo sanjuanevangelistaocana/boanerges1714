@@ -713,7 +713,8 @@ service cloud.firestore {
           (isAuth() && isLinkedCofrade(cofradeId));
         allow create, update: if isAdmin() ||
           (isAuth() && isLinkedCofrade(cofradeId));
-        allow delete: if isAdmin();
+        allow delete: if isAdmin() ||
+          (isAuth() && isLinkedCofrade(cofradeId));
       }
 
       // Puestos subcollection

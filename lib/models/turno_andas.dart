@@ -16,6 +16,7 @@ class TurnoAndasEvento {
   final int anio;
   final ConfiguracionTurno turno1;
   final ConfiguracionTurno turno2;
+  final bool mostrarAndaVisualACofrades;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final String createdBy;
@@ -30,6 +31,7 @@ class TurnoAndasEvento {
     required this.anio,
     required this.turno1,
     required this.turno2,
+    this.mostrarAndaVisualACofrades = false,
     this.createdAt,
     this.updatedAt,
     this.createdBy = '',
@@ -52,6 +54,7 @@ class TurnoAndasEvento {
       anio: (d['anio'] as int?) ?? DateTime.now().year,
       turno1: ConfiguracionTurno.fromMap(d['configuracionTurnos']?['turno1'] as Map<String, dynamic>? ?? {}),
       turno2: ConfiguracionTurno.fromMap(d['configuracionTurnos']?['turno2'] as Map<String, dynamic>? ?? {}),
+      mostrarAndaVisualACofrades: d['mostrarAndaVisualACofrades'] == true,
       createdAt: _ts(d['createdAt']),
       updatedAt: _ts(d['updatedAt']),
       createdBy: '${d['createdBy'] ?? ''}',
@@ -69,6 +72,7 @@ class TurnoAndasEvento {
           'turno1': turno1.toMap(),
           'turno2': turno2.toMap(),
         },
+        'mostrarAndaVisualACofrades': mostrarAndaVisualACofrades,
         'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'createdBy': createdBy,

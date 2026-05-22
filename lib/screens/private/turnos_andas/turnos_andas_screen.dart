@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
@@ -116,14 +117,31 @@ class _Body extends StatelessWidget {
                           body: 'El plazo para solicitar portar ha finalizado.',
                         )
                       else if (inscripcion != null) ...[
-                        _MiInscripcionCard(inscripcion: inscripcion),
-                        if (evento.isPublished && inscripcion.asignacion != null)
+                        _MiInscripcionCard(
+                          inscripcion: inscripcion,
+                          eventoAbierto: evento.acceptsInscriptions,
+                        ),
+                        if ((evento.isPublished || evento.mostrarAndaVisualACofrades) &&
+                            inscripcion.asignacion != null)
                           _MiAsignacionCard(
                             inscripcion: inscripcion,
                             evento: evento,
                             service: service,
                           ),
+                        if (!evento.isPublished &&
+                            evento.mostrarAndaVisualACofrades &&
+                            inscripcion.asignacion == null)
+                          _InfoCard(
+                            icon: Icons.visibility,
+                            color: AppTheme.primaryColor,
+                            title: 'Distribución provisional',
+                            body: 'La distribución de turnos está visible como borrador organizativo. Aún no ha sido publicada oficialmente.',
+                          ),
                       ],
+                      // Show anda visual for cofrades when admin enabled it or when published
+                      if (inscripcion != null &&
+                          (evento.isPublished || evento.mostrarAndaVisualACofrades))
+                        _CofradeAndaVisual(evento: evento, service: service),
                     ],
                   ),
                 ),
@@ -626,7 +644,8 @@ class _InscripcionFlowState extends State<_InscripcionFlow> {
 
 class _MiInscripcionCard extends StatelessWidget {
   final InscripcionTurno inscripcion;
-  const _MiInscripcionCard({required this.inscripcion});
+  final bool eventoAbierto;
+  const _MiInscripcionCard({required this.inscripcion, this.eventoAbierto = false});
 
   @override
   Widget build(BuildContext context) {
@@ -703,6 +722,58 @@ class _MiInscripcionCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text('Observaciones: ${inscripcion.observaciones}',
                   style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+            ],
+            if (eventoAbierto && inscripcion.estado == 'solicitado') ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final service = context.read<TurnosAndasService>();
+                    final auth = context.read<AuthService>();
+                    final cofrade = auth.cofrade;
+                    if (cofrade == null) return;
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Actualizar solicitud'),
+                        content: const Text(
+                            '¿Quieres eliminar tu solicitud actual y volver a inscribirte? Podrás modificar tus datos.'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancelar')),
+                          ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Sí, actualizar')),
+                        ],
+                      ),
+                    );
+                    if (confirm == true && context.mounted) {
+                      // Delete current inscription so the flow re-shows
+                      try {
+                        final eventoSnap = await FirebaseFirestore.instance
+                            .collection('turnos_andas')
+                            .where('estado', whereIn: ['abierto'])
+                            .limit(1)
+                            .get();
+                        if (eventoSnap.docs.isNotEmpty) {
+                          await FirebaseFirestore.instance
+                              .collection('turnos_andas')
+                              .doc(eventoSnap.docs.first.id)
+                              .collection('inscripciones')
+                              .doc(cofrade.id)
+                              .delete();
+                        }
+                      } catch (e) {
+                        debugPrint('Error deleting inscription for update: $e');
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Actualizar solicitud'),
+                ),
+              ),
             ],
           ],
         ),
@@ -1025,3 +1096,181 @@ Color _estadoColor(String estado) {
 
 String _fmtDate(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+// ---------------------------------------------------------------------------
+//  Cofrade read-only anda visual (two-column layout)
+// ---------------------------------------------------------------------------
+
+class _CofradeAndaVisual extends StatelessWidget {
+  final TurnoAndasEvento evento;
+  final TurnosAndasService service;
+  const _CofradeAndaVisual({required this.evento, required this.service});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.grid_view, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Text(
+                evento.isPublished ? 'Distribución oficial' : 'Distribución provisional',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          if (!evento.isPublished)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              child: Text(
+                'Borrador organizativo — sujeto a cambios',
+                style: TextStyle(fontSize: 12, color: Colors.orange.shade700, fontStyle: FontStyle.italic),
+              ),
+            ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<Puesto>>(
+            stream: service.watchPuestos(evento.id),
+            builder: (context, pSnap) {
+              final puestos = pSnap.data ?? [];
+              if (puestos.isEmpty) {
+                return const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('Aún no se ha generado la distribución.',
+                        style: TextStyle(color: AppTheme.textSecondary)),
+                  ),
+                );
+              }
+              final turno1 = puestos.where((p) => p.turno == 1).toList()
+                ..sort((a, b) => a.numero.compareTo(b.numero));
+              final turno2 = puestos.where((p) => p.turno == 2).toList()
+                ..sort((a, b) => a.numero.compareTo(b.numero));
+
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth > 600) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _CofradesTurnoColumn(turno: 1, puestos: turno1, config: evento.turno1)),
+                        const SizedBox(width: 16),
+                        Expanded(child: _CofradesTurnoColumn(turno: 2, puestos: turno2, config: evento.turno2)),
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      _CofradesTurnoColumn(turno: 1, puestos: turno1, config: evento.turno1),
+                      const SizedBox(height: 16),
+                      _CofradesTurnoColumn(turno: 2, puestos: turno2, config: evento.turno2),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CofradesTurnoColumn extends StatelessWidget {
+  final int turno;
+  final List<Puesto> puestos;
+  final ConfiguracionTurno config;
+  const _CofradesTurnoColumn({required this.turno, required this.puestos, required this.config});
+
+  @override
+  Widget build(BuildContext context) {
+    final filled = puestos.where((p) => !p.isEmpty).toList();
+    final mediaReal = filled.isEmpty
+        ? 0.0
+        : filled.fold<int>(0, (s, p) => s + p.estaturaCm) / filled.length;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('Turno $turno',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+                const SizedBox(width: 10),
+                Text('${filled.length}/${puestos.length} puestos',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                const Spacer(),
+                Text('Media: ${mediaReal.toStringAsFixed(1)} cm',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...puestos.map((p) => Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: p.isEmpty ? Colors.grey.shade50 : Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: p.lateral
+                          ? Colors.blue.shade200
+                          : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withAlpha(20),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('${p.numero}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          p.isEmpty ? '—' : p.nombreCompleto,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: p.isEmpty ? AppTheme.textSecondary : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      if (!p.isEmpty)
+                        Text('${p.estaturaCm} cm',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                      if (p.lateral)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Icon(Icons.compare_arrows, size: 14, color: Colors.blue.shade400),
+                        ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+}

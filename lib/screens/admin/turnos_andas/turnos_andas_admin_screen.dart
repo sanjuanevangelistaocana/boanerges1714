@@ -344,6 +344,48 @@ class _EstadoActions extends StatelessWidget {
             color: AppTheme.textSecondary,
             onPressed: () => service.cambiarEstado(evento.id, 'archivado'),
           ),
+        _ActionButton(
+          label: 'Eliminar',
+          icon: Icons.delete_forever,
+          color: Colors.red.shade700,
+          onPressed: () async {
+            final isPublished = evento.estado == 'publicado';
+            final confirmText = isPublished
+                ? '¡ATENCIÓN! Este evento está PUBLICADO. Esta acción eliminará la campaña de andas y todos sus datos asociados (inscripciones, puestos, sustituciones). No se puede deshacer.'
+                : 'Esta acción eliminará la campaña de andas y todos sus datos asociados (inscripciones, puestos, sustituciones). No se puede deshacer.';
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Eliminar evento de andas'),
+                content: Text(confirmText),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text(isPublished ? 'Sí, eliminar igualmente' : 'Eliminar'),
+                  ),
+                ],
+              ),
+            );
+            if (confirm == true && context.mounted) {
+              try {
+                await service.eliminarEvento(evento.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Evento eliminado correctamente')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('No se pudo eliminar el evento. Revisa permisos.')),
+                  );
+                }
+              }
+            }
+          },
+        ),
       ],
     );
   }
@@ -1349,6 +1391,7 @@ class _ConfigTabState extends State<_ConfigTab> {
   late final TextEditingController _lat2Ctrl;
   DateTime? _fechaProcesion;
   DateTime? _deadlineInscripcion;
+  bool _mostrarAndaVisual = false;
   bool _saving = false;
 
   @override
@@ -1369,6 +1412,7 @@ class _ConfigTabState extends State<_ConfigTab> {
     _lat2Ctrl = TextEditingController(text: '${e.turno2.posicionesLaterales}');
     _fechaProcesion = e.fechaProcesion;
     _deadlineInscripcion = e.deadlineInscripcion;
+    _mostrarAndaVisual = e.mostrarAndaVisualACofrades;
   }
 
   @override
@@ -1395,6 +1439,7 @@ class _ConfigTabState extends State<_ConfigTab> {
       await service.actualizarEvento(widget.evento.id, {
         'titulo': _tituloCtrl.text.trim(),
         'descripcion': _descCtrl.text.trim(),
+        'mostrarAndaVisualACofrades': _mostrarAndaVisual,
         'fechaProcesion': _fechaProcesion != null
             ? _fechaProcesion
             : null,
@@ -1480,6 +1525,16 @@ class _ConfigTabState extends State<_ConfigTab> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Mostrar anda visual a cofrades',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text(
+                    'Si está activo, los cofrades podrán ver la distribución provisional antes de la publicación.'),
+                value: _mostrarAndaVisual,
+                onChanged: (v) => setState(() => _mostrarAndaVisual = v),
               ),
               const SizedBox(height: 28),
               const Text('Configuración Turno 1',

@@ -3855,6 +3855,8 @@ class _TurnosAndasCard extends StatelessWidget {
                 : inscripcion == null
                     ? 'Ver detalles'
                     : 'Ver mi solicitud';
+            final hasAsignacion = inscripcion?.asignacion != null &&
+                (evento.isPublished || evento.mostrarAndaVisualACofrades);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -3952,6 +3954,36 @@ class _TurnosAndasCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (hasAsignacion) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Icon(
+                                inscripcion!.asignacion!.turno == 1
+                                    ? Icons.looks_one
+                                    : Icons.looks_two,
+                                size: 16,
+                                color: AppTheme.primaryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Turno ${inscripcion.asignacion!.turno} · Posición ${inscripcion.asignacion!.posicion}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              const Spacer(),
+                              InkWell(
+                                onTap: () => GoRouter.of(context).go('/turnos-andas'),
+                                child: Text('Ver anda',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.accentColor,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
