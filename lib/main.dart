@@ -22,6 +22,7 @@ import 'package:boanerges1714/services/treasury/treasury_remittance_service.dart
 import 'package:boanerges1714/services/treasury/treasury_settings_service.dart';
 import 'package:boanerges1714/services/encuesta_service.dart';
 import 'package:boanerges1714/services/noticias_service.dart';
+import 'package:boanerges1714/services/turnos_andas_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +60,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
   late final TreasuryAuditService _treasuryAuditService;
   late final EncuestaService _encuestaService;
   late final NoticiasService _noticiasService;
+  late final TurnosAndasService _turnosAndasService;
   late final GoRouter goRouter;
 
   @override
@@ -92,6 +94,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
         TreasuryAuditService(repository: _treasuryRepository);
     _encuestaService = EncuestaService();
     _noticiasService = NoticiasService();
+    _turnosAndasService = TurnosAndasService();
     _notificationService.initialize();
     goRouter = createRouter(_authService);
   }
@@ -116,6 +119,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
         Provider.value(value: _treasuryAuditService),
         Provider.value(value: _encuestaService),
         Provider.value(value: _noticiasService),
+        Provider.value(value: _turnosAndasService),
       ],
       child: MaterialApp.router(
         title: 'Cofradía San Juan Evangelista - Ocaña',

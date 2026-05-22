@@ -65,6 +65,8 @@ import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 import 'package:boanerges1714/screens/admin/manage_encuestas_screen.dart';
 import 'package:boanerges1714/screens/private/encuestas_screen.dart';
+import 'package:boanerges1714/screens/private/turnos_andas/turnos_andas_screen.dart';
+import 'package:boanerges1714/screens/admin/turnos_andas/turnos_andas_admin_screen.dart';
 import 'package:boanerges1714/screens/public/news_detail_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -95,6 +97,7 @@ GoRouter createRouter(AuthService authService) {
         '/festividad',
         '/loteria',
         '/loteria-disponibilidad',
+        '/turnos-andas',
         '/bank-validation',
         '/consent',
         '/select-profile',
@@ -249,6 +252,12 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/admin/encuestas',
               builder: (context, state) => const ManageEncuestasScreen()),
+          GoRoute(
+              path: '/admin/turnos-andas',
+              builder: (context, state) => const TurnosAndasAdminScreen()),
+          GoRoute(
+              path: '/turnos-andas',
+              builder: (context, state) => const TurnosAndasScreen()),
           GoRoute(
               path: '/encuestas',
               builder: (context, state) {

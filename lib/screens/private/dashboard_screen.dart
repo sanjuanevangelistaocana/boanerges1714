@@ -23,6 +23,8 @@ import 'package:boanerges1714/models/encuesta.dart';
 import 'package:boanerges1714/services/treasury/treasury_bank_validation_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_invoice_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_repository.dart';
+import 'package:boanerges1714/models/turno_andas.dart';
+import 'package:boanerges1714/services/turnos_andas_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -124,6 +126,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   if (cofrade != null)
                     _DashboardEncuestaResultsBanner(cofrade: cofrade),
+                  if (cofrade != null)
+                    _TurnosAndasCard(cofradeId: cofrade.id),
                   if (cofrade != null)
                     _UrgentNewsBanners(cofrade: cofrade),
                   _NovedadesSection(
@@ -3817,5 +3821,179 @@ class _CofradeSelectorCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Turnos de Andas card for Mi Zona dashboard
+// ---------------------------------------------------------------------------
+
+class _TurnosAndasCard extends StatelessWidget {
+  final String cofradeId;
+  const _TurnosAndasCard({required this.cofradeId});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<TurnosAndasService>();
+    return StreamBuilder<TurnoAndasEvento?>(
+      stream: service.watchEventoActivo(),
+      builder: (context, eventoSnap) {
+        final evento = eventoSnap.data;
+        if (evento == null) return const SizedBox.shrink();
+        return StreamBuilder<InscripcionTurno?>(
+          stream: service.watchMiInscripcion(evento.id, cofradeId),
+          builder: (context, inscSnap) {
+            final inscripcion = inscSnap.data;
+            final estadoLabel = inscripcion == null
+                ? 'No inscrito'
+                : _inscEstadoLabel(inscripcion.estado);
+            final estadoColor = inscripcion == null
+                ? AppTheme.textSecondary
+                : _inscEstadoColor(inscripcion.estado);
+            final ctaLabel = inscripcion == null && evento.acceptsInscriptions
+                ? 'QUIERO PORTAR'
+                : inscripcion == null
+                    ? 'Ver detalles'
+                    : 'Ver mi solicitud';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: AppTheme.primaryColor.withAlpha(40)),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => GoRouter.of(context).go('/turnos-andas'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withAlpha(15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.fitness_center,
+                                  color: AppTheme.primaryColor, size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(evento.titulo,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15)),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: estadoColor.withAlpha(20),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                              color: estadoColor.withAlpha(80)),
+                                        ),
+                                        child: Text(estadoLabel,
+                                            style: TextStyle(
+                                                color: estadoColor,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 10)),
+                                      ),
+                                      if (evento.fechaProcesion != null) ...[
+                                        const SizedBox(width: 8),
+                                        Icon(Icons.calendar_today,
+                                            size: 12,
+                                            color: AppTheme.textSecondary),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '${evento.fechaProcesion!.day}/${evento.fechaProcesion!.month}/${evento.fechaProcesion!.year}',
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textSecondary),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: inscripcion == null &&
+                                        evento.acceptsInscriptions
+                                    ? AppTheme.accentColor
+                                    : AppTheme.primaryColor.withAlpha(15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                ctaLabel,
+                                style: TextStyle(
+                                  color: inscripcion == null &&
+                                          evento.acceptsInscriptions
+                                      ? Colors.white
+                                      : AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _inscEstadoLabel(String estado) {
+    switch (estado) {
+      case 'solicitado':
+        return 'Solicitud enviada';
+      case 'asignado':
+        return 'Asignado';
+      case 'reserva':
+        return 'Reserva';
+      case 'sustituto':
+        return 'Sustitución';
+      case 'descartado':
+        return 'Descartado';
+      default:
+        return estado;
+    }
+  }
+
+  Color _inscEstadoColor(String estado) {
+    switch (estado) {
+      case 'solicitado':
+        return Colors.orange.shade700;
+      case 'asignado':
+        return AppTheme.accentColor;
+      case 'reserva':
+      case 'sustituto':
+        return Colors.blue.shade700;
+      case 'descartado':
+        return AppTheme.textSecondary;
+      default:
+        return AppTheme.textSecondary;
+    }
   }
 }

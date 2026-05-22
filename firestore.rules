@@ -697,5 +697,30 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+
+    // =====================================================================
+    //  TURNOS DE ANDAS
+    // =====================================================================
+
+    match /turnos_andas/{eventoId} {
+      // Admin can CRUD events; authenticated cofrades can read active events
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+
+      // Inscripciones subcollection
+      match /inscripciones/{cofradeId} {
+        allow read: if isAdmin() ||
+          (isAuth() && isLinkedCofrade(cofradeId));
+        allow create, update: if isAdmin() ||
+          (isAuth() && isLinkedCofrade(cofradeId));
+        allow delete: if isAdmin();
+      }
+
+      // Puestos subcollection
+      match /puestos/{puestoId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin();
+      }
+    }
   }
 }

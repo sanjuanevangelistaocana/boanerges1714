@@ -247,6 +247,11 @@ class AdminDashboardScreen extends StatelessWidget {
                           subtitle: 'Campañas y ventas',
                           onTap: () => context.go('/admin/loteria')),
                       _AdminActionCard(
+                          icon: Icons.fitness_center,
+                          title: 'Turnos de Andas',
+                          subtitle: 'Gestión de portadores',
+                          onTap: () => context.go('/admin/turnos-andas')),
+                      _AdminActionCard(
                           icon: Icons.account_balance_wallet,
                           title: 'Tesorería',
                           subtitle: 'Cuotas y contabilidad',
