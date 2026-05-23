@@ -274,6 +274,8 @@ class _ConfigurableCampaignAdmin extends StatefulWidget {
 class _ConfigurableCampaignAdminState
     extends State<_ConfigurableCampaignAdmin> {
   bool _showHistorical = false;
+  String _statusFilter = 'activos';
+  int? _yearFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -300,23 +302,39 @@ class _ConfigurableCampaignAdminState
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _buildFilterBar(),
           const SizedBox(height: 16),
           StreamBuilder<List<EventCampaign>>(
             stream: service.watchCampaigns(type: type),
             builder: (context, snap) {
               final allCampaigns = snap.data ?? const <EventCampaign>[];
-              final campaigns = isJunta && !_showHistorical
+              var campaigns = isJunta && !_showHistorical
                   ? allCampaigns.where(_isCurrentJuntaCampaign).toList()
                   : allCampaigns;
+              campaigns = _applyFilters(campaigns);
               if (campaigns.isEmpty) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (isJunta) _historicalSwitch(),
-                    const Card(
+                    Card(
                       child: Padding(
-                        padding: EdgeInsets.all(28),
-                        child: Text('No hay encuestas visibles.'),
+                        padding: const EdgeInsets.all(28),
+                        child: Column(
+                          children: [
+                            Icon(Icons.event_busy,
+                                size: 48, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text(
+                              _statusFilter != 'activos' || _yearFilter != null
+                                  ? 'No hay eventos con los filtros seleccionados.'
+                                  : 'No hay eventos creados a\u00fan.',
+                              style: const TextStyle(
+                                  color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -368,6 +386,102 @@ class _ConfigurableCampaignAdminState
     );
   }
 
+  Widget _buildFilterBar() {
+    final currentYear = DateTime.now().year;
+    final years = List.generate(5, (index) => currentYear - index);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      children: [
+        _FilterChip(
+          label: 'Activos',
+          selected: _statusFilter == 'activos',
+          onTap: () => setState(() => _statusFilter = 'activos'),
+        ),
+        _FilterChip(
+          label: 'Borradores',
+          selected: _statusFilter == 'borradores',
+          onTap: () => setState(() => _statusFilter = 'borradores'),
+        ),
+        _FilterChip(
+          label: 'Finalizados',
+          selected: _statusFilter == 'finalizados',
+          onTap: () => setState(() => _statusFilter = 'finalizados'),
+        ),
+        _FilterChip(
+          label: 'Archivados',
+          selected: _statusFilter == 'archivados',
+          onTap: () => setState(() => _statusFilter = 'archivados'),
+        ),
+        _FilterChip(
+          label: 'Todos',
+          selected: _statusFilter == 'todos',
+          onTap: () => setState(() => _statusFilter = 'todos'),
+        ),
+        const SizedBox(width: 8),
+        DropdownButton<int?>(
+          value: _yearFilter,
+          hint: const Text('A\u00f1o'),
+          underline: const SizedBox.shrink(),
+          isDense: true,
+          items: [
+            const DropdownMenuItem<int?>(value: null, child: Text('Todos')),
+            ...years.map((year) => DropdownMenuItem<int?>(
+                  value: year,
+                  child: Text('$year'),
+                )),
+          ],
+          onChanged: (value) => setState(() => _yearFilter = value),
+        ),
+      ],
+    );
+  }
+
+  List<EventCampaign> _applyFilters(List<EventCampaign> campaigns) {
+    var filtered = campaigns.toList();
+    if (_yearFilter != null) {
+      filtered = filtered
+          .where((campaign) => campaign.year == _yearFilter)
+          .toList();
+    }
+    switch (_statusFilter) {
+      case 'activos':
+        filtered = filtered
+            .where((campaign) =>
+                !campaign.deleted &&
+                campaign.status != 'archived' &&
+                campaign.status != 'finished')
+            .toList();
+        break;
+      case 'borradores':
+        filtered = filtered
+            .where((campaign) =>
+                !campaign.deleted && campaign.status == 'draft')
+            .toList();
+        break;
+      case 'finalizados':
+        filtered = filtered
+            .where((campaign) =>
+                !campaign.deleted &&
+                (campaign.status == 'finished' ||
+                    campaign.status == 'closed'))
+            .toList();
+        break;
+      case 'archivados':
+        filtered = filtered
+            .where((campaign) =>
+                !campaign.deleted && campaign.status == 'archived')
+            .toList();
+        break;
+      case 'todos':
+        filtered = filtered
+            .where((campaign) => !campaign.deleted)
+            .toList();
+        break;
+    }
+    return filtered;
+  }
+
   Widget _historicalSwitch() {
     return Align(
       alignment: Alignment.centerLeft,
@@ -375,7 +489,7 @@ class _ConfigurableCampaignAdminState
         onPressed: () => setState(() => _showHistorical = !_showHistorical),
         icon: Icon(_showHistorical ? Icons.visibility_off : Icons.history),
         label:
-            Text(_showHistorical ? 'Ocultar histórico' : 'Mostrar histórico'),
+            Text(_showHistorical ? 'Ocultar hist\u00f3rico' : 'Mostrar hist\u00f3rico'),
       ),
     );
   }
@@ -1838,13 +1952,58 @@ class _CampaignAdminCard extends StatelessWidget {
     required this.onEdit,
   });
 
+  String _statusLabel() {
+    if (campaign.isOpen) return 'Abierto';
+    switch (campaign.status) {
+      case 'draft':
+        return 'Borrador';
+      case 'published':
+        return 'Publicado';
+      case 'closed':
+        return 'Cerrado';
+      case 'finished':
+        return 'Finalizado';
+      case 'archived':
+        return 'Archivado';
+      default:
+        return campaign.status;
+    }
+  }
+
+  Color _statusColor() {
+    if (campaign.isOpen) return AppTheme.accentColor;
+    switch (campaign.status) {
+      case 'draft':
+        return Colors.blueGrey;
+      case 'published':
+        return Colors.blue.shade700;
+      case 'closed':
+      case 'finished':
+        return AppTheme.textSecondary;
+      case 'archived':
+        return Colors.grey;
+      default:
+        return AppTheme.primaryColor;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isJunta = campaign.type == 'junta_general_ordinaria';
     final isPalmas = campaign.type == 'palmas';
     final supportsFoodFlow = !isJunta && !isPalmas;
+    final dateFormat = _campaignDateFormat();
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
+      elevation: campaign.isOpen ? 1 : 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: campaign.isOpen
+              ? AppTheme.accentColor.withAlpha(80)
+              : Colors.grey.shade200,
+        ),
+      ),
       child: ExpansionTile(
         leading: campaign.coverImageUrl.isNotEmpty
             ? ClipRRect(
@@ -1852,13 +2011,53 @@ class _CampaignAdminCard extends StatelessWidget {
                 child: Image.network(campaign.coverImageUrl,
                     width: 44, height: 44, fit: BoxFit.cover),
               )
-            : Icon(
-                campaign.active ? Icons.play_circle : Icons.pause_circle,
-                color: campaign.active ? AppTheme.accentColor : Colors.grey,
+            : CircleAvatar(
+                backgroundColor: _statusColor().withAlpha(20),
+                child: Icon(
+                  campaign.isOpen ? Icons.play_circle : Icons.pause_circle,
+                  color: _statusColor(),
+                ),
               ),
-        title: Text(campaign.name),
-        subtitle: Text(
-          'Año ${campaign.year} · ${campaign.active ? 'Activa' : 'Inactiva'} · ${campaign.published ? 'Publicada' : 'Sin publicar'}',
+        title: Row(
+          children: [
+            Expanded(child: Text(campaign.name)),
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _statusColor().withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _statusColor().withAlpha(60)),
+              ),
+              child: Text(
+                _statusLabel(),
+                style: TextStyle(
+                  color: _statusColor(),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text('A\u00f1o ${campaign.year}'),
+              if (dateFormat.isNotEmpty)
+                Text(dateFormat,
+                    style:
+                        const TextStyle(color: AppTheme.textSecondary)),
+              if (campaign.location.isNotEmpty)
+                Text(campaign.location,
+                    style:
+                        const TextStyle(color: AppTheme.textSecondary)),
+            ],
+          ),
         ),
         trailing: IconButton(
           icon: const Icon(Icons.edit),
@@ -1873,7 +2072,7 @@ class _CampaignAdminCard extends StatelessWidget {
               children: [
                 _ActionButton(
                     icon: Icons.settings,
-                    label: 'Configuración',
+                    label: 'Configuraci\u00f3n',
                     onTap: onEdit),
                 _ActionButton(
                     icon: Icons.dashboard_outlined,
@@ -1898,7 +2097,7 @@ class _CampaignAdminCard extends StatelessWidget {
                 if (supportsFoodFlow) ...[
                   _ActionButton(
                       icon: Icons.restaurant_menu,
-                      label: 'Menús/campos',
+                      label: 'Men\u00fas/campos',
                       onTap: onEdit),
                   _ActionButton(
                       icon: Icons.payment,
@@ -1918,6 +2117,15 @@ class _CampaignAdminCard extends StatelessWidget {
                       icon: Icons.open_in_new,
                       label: 'Popup login',
                       onTap: () => _showPopupDialog(context)),
+                _ActionButton(
+                    icon: Icons.copy_outlined,
+                    label: 'Duplicar',
+                    onTap: () => _duplicateCampaign(context)),
+                if (campaign.status != 'archived')
+                  _ActionButton(
+                      icon: Icons.archive_outlined,
+                      label: 'Archivar',
+                      onTap: () => _archiveCampaign(context)),
                 _ActionButton(
                     icon: Icons.delete_outline,
                     label: 'Eliminar evento',
@@ -2121,6 +2329,191 @@ class _CampaignAdminCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _campaignDateFormat() {
+    final parts = <String>[];
+    if (campaign.eventDate != null) {
+      final eventDate = campaign.eventDate!;
+      parts.add(
+          '${eventDate.day}/${eventDate.month}/${eventDate.year}');
+    }
+    if (campaign.endDate != null && campaign.isOpen) {
+      final remaining =
+          campaign.endDate!.difference(DateTime.now()).inDays;
+      if (remaining >= 0) {
+        parts.add(remaining == 0
+            ? 'Cierre hoy'
+            : remaining == 1
+                ? 'Cierra ma\u00f1ana'
+                : 'Cierra en $remaining d\u00edas');
+      } else {
+        parts.add('Cerrada');
+      }
+    }
+    return parts.join(' \u00b7 ');
+  }
+
+  Future<void> _duplicateCampaign(BuildContext context) async {
+    final year = DateTime.now().year;
+    final newCampaign = EventCampaign(
+      id: '',
+      type: campaign.type,
+      year: year,
+      name: '${campaign.name} (copia)',
+      description: campaign.description,
+      startDate: campaign.startDate,
+      endDate: campaign.endDate,
+      eventDate: campaign.eventDate,
+      location: campaign.location,
+      active: false,
+      published: false,
+      status: 'draft',
+      requiresRegistration: campaign.requiresRegistration,
+      allowCompanions: campaign.allowCompanions,
+      allowExternalGuests: campaign.allowExternalGuests,
+      allowOtherCofrades: campaign.allowOtherCofrades,
+      maxCompanions: campaign.maxCompanions,
+      capacity: campaign.capacity,
+      waitlistEnabled: campaign.waitlistEnabled,
+      requiresPayment: campaign.requiresPayment,
+      freeEvent: campaign.freeEvent,
+      memberPrice: campaign.memberPrice,
+      guestPrice: campaign.guestPrice,
+      childPrice: campaign.childPrice,
+      protocolPrice: campaign.protocolPrice,
+      memberAdultPrice: campaign.memberAdultPrice,
+      memberChildPrice: campaign.memberChildPrice,
+      guestAdultPrice: campaign.guestAdultPrice,
+      guestChildPrice: campaign.guestChildPrice,
+      protocolAdultPrice: campaign.protocolAdultPrice,
+      protocolChildPrice: campaign.protocolChildPrice,
+      realAdultMenuCost: campaign.realAdultMenuCost,
+      realChildMenuCost: campaign.realChildMenuCost,
+      palmMemberPrice: campaign.palmMemberPrice,
+      palmExternalPrice: campaign.palmExternalPrice,
+      realPalmCost: campaign.realPalmCost,
+      allergiesEnabled: campaign.allergiesEnabled,
+      observationsEnabled: campaign.observationsEnabled,
+      showBanner: campaign.showBanner,
+      bannerText: campaign.bannerText,
+      menusEnabled: campaign.menusEnabled,
+      menuRequired: campaign.menuRequired,
+      menus: List<Map<String, dynamic>>.from(campaign.menus),
+      customFields:
+          List<Map<String, dynamic>>.from(campaign.customFields),
+      registrationConfig:
+          Map<String, dynamic>.from(campaign.registrationConfig),
+      pricingConfig:
+          Map<String, dynamic>.from(campaign.pricingConfig),
+      companionConfig:
+          Map<String, dynamic>.from(campaign.companionConfig),
+      paymentConfig:
+          Map<String, dynamic>.from(campaign.paymentConfig),
+      notificationConfig:
+          Map<String, dynamic>.from(campaign.notificationConfig),
+      popupConfig:
+          Map<String, dynamic>.from(campaign.popupConfig),
+    );
+    try {
+      await service.saveCampaign(newCampaign);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Evento duplicado como borrador.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  'Error al duplicar: ${e.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
+  }
+
+  Future<void> _archiveCampaign(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Archivar evento'),
+        content: const Text(
+          'El evento se mover\u00e1 a la secci\u00f3n de archivados. '
+          'No ser\u00e1 visible para los cofrades pero se conservar\u00e1n todos los datos.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Archivar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await service.saveCampaign(EventCampaign(
+      id: campaign.id,
+      type: campaign.type,
+      year: campaign.year,
+      name: campaign.name,
+      description: campaign.description,
+      startDate: campaign.startDate,
+      endDate: campaign.endDate,
+      eventDate: campaign.eventDate,
+      location: campaign.location,
+      active: false,
+      published: false,
+      status: 'archived',
+      requiresRegistration: campaign.requiresRegistration,
+      allowCompanions: campaign.allowCompanions,
+      allowExternalGuests: campaign.allowExternalGuests,
+      allowOtherCofrades: campaign.allowOtherCofrades,
+      maxCompanions: campaign.maxCompanions,
+      capacity: campaign.capacity,
+      waitlistEnabled: campaign.waitlistEnabled,
+      requiresPayment: campaign.requiresPayment,
+      freeEvent: campaign.freeEvent,
+      memberPrice: campaign.memberPrice,
+      guestPrice: campaign.guestPrice,
+      childPrice: campaign.childPrice,
+      protocolPrice: campaign.protocolPrice,
+      memberAdultPrice: campaign.memberAdultPrice,
+      memberChildPrice: campaign.memberChildPrice,
+      guestAdultPrice: campaign.guestAdultPrice,
+      guestChildPrice: campaign.guestChildPrice,
+      protocolAdultPrice: campaign.protocolAdultPrice,
+      protocolChildPrice: campaign.protocolChildPrice,
+      realAdultMenuCost: campaign.realAdultMenuCost,
+      realChildMenuCost: campaign.realChildMenuCost,
+      palmMemberPrice: campaign.palmMemberPrice,
+      palmExternalPrice: campaign.palmExternalPrice,
+      realPalmCost: campaign.realPalmCost,
+      allergiesEnabled: campaign.allergiesEnabled,
+      observationsEnabled: campaign.observationsEnabled,
+      showBanner: campaign.showBanner,
+      bannerText: campaign.bannerText,
+      menusEnabled: campaign.menusEnabled,
+      menuRequired: campaign.menuRequired,
+      menus: campaign.menus,
+      customFields: campaign.customFields,
+      registrationConfig: campaign.registrationConfig,
+      pricingConfig: campaign.pricingConfig,
+      companionConfig: campaign.companionConfig,
+      paymentConfig: campaign.paymentConfig,
+      notificationConfig: campaign.notificationConfig,
+      popupConfig: campaign.popupConfig,
+      coverImagePath: campaign.coverImagePath,
+      coverImageUrl: campaign.coverImageUrl,
+    ));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Evento archivado.')),
+      );
+    }
   }
 
   Future<void> _confirmDelete(BuildContext context) async {
@@ -3663,6 +4056,44 @@ class _StatChip extends StatelessWidget {
     return Chip(
       label: Text('$label: $value'),
       backgroundColor: Colors.grey.shade100,
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppTheme.primaryColor : Colors.grey.shade300,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : AppTheme.textSecondary,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+            fontSize: 13,
+          ),
+        ),
+      ),
     );
   }
 }

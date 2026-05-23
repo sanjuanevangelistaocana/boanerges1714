@@ -41,6 +41,134 @@ class EventsHomeScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+//  Personal status helpers for cofrade
+// ---------------------------------------------------------------------------
+
+String _personalStatusLabel({
+  required _EventItem item,
+}) {
+  if (item.type == 'festividad_27_diciembre') {
+    if (item.festInscripcion != null) return 'Ya inscrito';
+    final estado = '${item.festEdicion?['estado'] ?? ''}';
+    if (estado == 'abierto') return 'Pendiente de inscripción';
+    return 'Sin inscripción';
+  }
+  final campaign = item.campaign;
+  final reg = item.registration;
+  if (campaign == null) return '';
+  if (campaign.type == 'junta_general_ordinaria') {
+    if (reg == null) return 'Pendiente de respuesta';
+    if (reg.status == 'not_attending') return 'No asistirás';
+    if (reg.status == 'attending' ||
+        reg.status == 'confirmed' ||
+        reg.status == 'confirmada') {
+      return 'Asistencia confirmada';
+    }
+    return _registrationStatusLabel(reg.status);
+  }
+  if (campaign.type == 'palmas') {
+    if (reg == null) {
+      return campaign.isOpen ? 'No solicitada' : 'Sin solicitud';
+    }
+    return 'Solicitud: ${_registrationStatusLabel(reg.status)}';
+  }
+  if (campaign.type == 'sanjuandereta') {
+    if (reg == null) {
+      return campaign.isOpen ? 'Pendiente de inscripción' : 'Sin inscripción';
+    }
+    if (reg.status == 'confirmed' || reg.status == 'confirmada') {
+      final companionCount = reg.participants.length - 1;
+      return companionCount > 0
+          ? 'Inscrito · $companionCount acompañante${companionCount > 1 ? 's' : ''}'
+          : 'Inscrito';
+    }
+    return _registrationStatusLabel(reg.status);
+  }
+  if (reg != null) return _registrationStatusLabel(reg.status);
+  if (campaign.isOpen) return 'Pendiente de inscripción';
+  return 'Sin inscripción';
+}
+
+Color _personalStatusColor(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    return item.festInscripcion != null
+        ? AppTheme.accentColor
+        : Colors.orange.shade700;
+  }
+  final reg = item.registration;
+  if (reg == null) return Colors.orange.shade700;
+  switch (reg.status) {
+    case 'attending':
+    case 'confirmed':
+    case 'confirmada':
+    case 'solicitada':
+    case 'requested':
+    case 'entregada':
+    case 'delivered':
+      return AppTheme.accentColor;
+    case 'rechazada':
+    case 'rejected':
+    case 'cancelada':
+    case 'cancelled':
+      return Colors.red.shade700;
+    case 'not_attending':
+      return AppTheme.textSecondary;
+    default:
+      return Colors.orange.shade700;
+  }
+}
+
+IconData _personalStatusIcon(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    return item.festInscripcion != null
+        ? Icons.check_circle
+        : Icons.pending_actions;
+  }
+  final reg = item.registration;
+  if (reg == null) return Icons.pending_actions;
+  switch (reg.status) {
+    case 'attending':
+    case 'confirmed':
+    case 'confirmada':
+    case 'entregada':
+    case 'delivered':
+      return Icons.check_circle;
+    case 'solicitada':
+    case 'requested':
+    case 'pending':
+    case 'pendiente':
+      return Icons.hourglass_top;
+    case 'rechazada':
+    case 'rejected':
+      return Icons.cancel;
+    case 'not_attending':
+      return Icons.block;
+    case 'cancelada':
+    case 'cancelled':
+      return Icons.cancel_outlined;
+    default:
+      return Icons.info_outline;
+  }
+}
+
+bool _isDeadlineUrgent(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    final raw = item.festEdicion?['fecha_limite'];
+    final limit =
+        raw is Timestamp ? raw.toDate() : (raw is DateTime ? raw : null);
+    if (limit != null) {
+      return limit.difference(DateTime.now()).inDays <= 3;
+    }
+    return false;
+  }
+  final endDate = item.campaign?.endDate;
+  if (endDate != null && (item.campaign?.isOpen ?? false)) {
+    return endDate.difference(DateTime.now()).inDays <= 3;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 //  Header
 // ---------------------------------------------------------------------------
 
@@ -406,22 +534,30 @@ class _UnifiedEventCard extends StatelessWidget {
             : (campaign?.coverImageUrl ?? '');
     final icon = _iconForType(item.type);
     final typeLabel = _typeLabelFor(item.type);
-    final statusLabel = _statusLabelForItem(item);
-    final statusColor = _statusColorForItem(item);
     final ctaLabel = _ctaLabelForItem(item);
     final dateText = _dateTextForItem(item);
     final deadlineText = _deadlineTextForItem(item);
+    final personalLabel = _personalStatusLabel(item: item);
+    final personalColor = _personalStatusColor(item);
+    final personalIcon = _personalStatusIcon(item);
+    final isActionRequired =
+        item.category == _EventCategory.actionRequired;
+    final hasImage = imageUrl != null && imageUrl.isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
+      elevation: isActionRequired ? 2 : 0,
+      shadowColor: isActionRequired
+          ? Colors.orange.withAlpha(60)
+          : Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: item.category == _EventCategory.actionRequired
+          color: isActionRequired
               ? Colors.orange.withAlpha(100)
               : Colors.grey.shade200,
+          width: isActionRequired ? 1.5 : 1,
         ),
       ),
       child: InkWell(
@@ -430,13 +566,26 @@ class _UnifiedEventCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (imageUrl != null && imageUrl.isNotEmpty)
-              Image.network(
-                imageUrl,
-                width: double.infinity,
-                height: 160,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            if (hasImage)
+              Stack(
+                children: [
+                  Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    height: 170,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: _SmallBadge(
+                      label: _statusLabelForItem(item),
+                      color: _statusColorForItem(item),
+                      filled: true,
+                    ),
+                  ),
+                ],
               ),
             Padding(
               padding: const EdgeInsets.all(18),
@@ -457,8 +606,11 @@ class _UnifiedEventCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      _SmallBadge(
-                          label: statusLabel, color: statusColor),
+                      if (!hasImage)
+                        _SmallBadge(
+                          label: _statusLabelForItem(item),
+                          color: _statusColorForItem(item),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -479,6 +631,42 @@ class _UnifiedEventCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: personalColor.withAlpha(12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: personalColor.withAlpha(40)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(personalIcon,
+                            size: 18, color: personalColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            personalLabel,
+                            style: TextStyle(
+                              color: personalColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        if (registration != null &&
+                            campaign?.type != 'junta_general_ordinaria' &&
+                            campaign?.requiresPayment == true)
+                          _SmallBadge(
+                            label:
+                                'Pago: ${_paymentStatusLabel(registration.paymentStatus)}',
+                            color: _paymentStatusColor(registration),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 16,
                     runSpacing: 8,
@@ -489,19 +677,19 @@ class _UnifiedEventCard extends StatelessWidget {
                       if (deadlineText != null)
                         _SmallIconText(
                             icon: Icons.timer_outlined,
-                            text: deadlineText),
-                      if (registration != null &&
-                          campaign?.type != 'junta_general_ordinaria')
-                        _SmallIconText(
-                          icon: Icons.payments_outlined,
-                          text:
-                              'Pago: ${_paymentStatusLabel(registration.paymentStatus)}',
-                        ),
+                            text: deadlineText,
+                            urgent: _isDeadlineUrgent(item)),
                       if (campaign != null &&
                           campaign.location.isNotEmpty)
                         _SmallIconText(
                             icon: Icons.place_outlined,
                             text: campaign.location),
+                      if (registration != null &&
+                          registration.participants.length > 1)
+                        _SmallIconText(
+                            icon: Icons.group,
+                            text:
+                                '${registration.participants.length - 1} acompa\u00f1ante${registration.participants.length > 2 ? 's' : ''}'),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -515,6 +703,9 @@ class _UnifiedEventCard extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
+                        backgroundColor: isActionRequired
+                            ? AppTheme.primaryColor
+                            : null,
                       ),
                       child: Text(ctaLabel),
                     ),
@@ -536,21 +727,28 @@ class _UnifiedEventCard extends StatelessWidget {
 class _SmallBadge extends StatelessWidget {
   final String label;
   final Color color;
-  const _SmallBadge({required this.label, required this.color});
+  final bool filled;
+  const _SmallBadge({
+    required this.label,
+    required this.color,
+    this.filled = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withAlpha(20),
+        color: filled ? color : color.withAlpha(20),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withAlpha(80)),
+        border: filled ? null : Border.all(color: color.withAlpha(80)),
       ),
       child: Text(
         label,
         style: TextStyle(
-            color: color, fontWeight: FontWeight.w700, fontSize: 11),
+            color: filled ? Colors.white : color,
+            fontWeight: FontWeight.w700,
+            fontSize: 11),
       ),
     );
   }
@@ -559,18 +757,27 @@ class _SmallBadge extends StatelessWidget {
 class _SmallIconText extends StatelessWidget {
   final IconData icon;
   final String text;
-  const _SmallIconText({required this.icon, required this.text});
+  final bool urgent;
+  const _SmallIconText({
+    required this.icon,
+    required this.text,
+    this.urgent = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final textColor =
+        urgent ? Colors.red.shade700 : AppTheme.textSecondary;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: AppTheme.textSecondary),
+        Icon(icon, size: 14, color: textColor),
         const SizedBox(width: 4),
         Text(text,
-            style: const TextStyle(
-                fontSize: 12, color: AppTheme.textSecondary)),
+            style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+                fontWeight: urgent ? FontWeight.w700 : FontWeight.normal)),
       ],
     );
   }
@@ -1057,34 +1264,89 @@ class _JuntaAttendanceCardState extends State<_JuntaAttendanceCard> {
     final ownResponsePending = ownRegistration == null;
     final editable = widget.campaign.isOpen && ownRegistration != null;
     final carriedVotes = ownRegistration?.delegatedVotes ?? const [];
+    final statusText = ownResponsePending
+        ? 'Pendiente de respuesta'
+        : pendingRequests.isNotEmpty
+            ? 'Solicitud de delegaci\u00f3n pendiente'
+            : isNotAttending
+                ? 'No asistir\u00e1s'
+                : 'Asistencia confirmada';
+    final statusColor = ownResponsePending
+        ? Colors.orange.shade700
+        : pendingRequests.isNotEmpty
+            ? Colors.blue.shade700
+            : isNotAttending
+                ? AppTheme.textSecondary
+                : AppTheme.accentColor;
+    final statusIcon = ownResponsePending
+        ? Icons.pending_actions
+        : pendingRequests.isNotEmpty
+            ? Icons.how_to_vote
+            : isNotAttending
+                ? Icons.block
+                : Icons.check_circle;
     return Card(
+      elevation: ownResponsePending ? 2 : 0,
+      shadowColor: ownResponsePending
+          ? Colors.orange.withAlpha(60)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: ownResponsePending
+              ? Colors.orange.withAlpha(100)
+              : Colors.grey.shade200,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    ownResponsePending
-                        ? 'Mi respuesta'
-                        : pendingRequests.isNotEmpty
-                            ? 'Solicitud de delegación pendiente'
-                            : isNotAttending
-                                ? 'Has indicado que no asistirás'
-                                : 'Tu asistencia está confirmada',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w800),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: statusColor.withAlpha(12),
+                borderRadius: BorderRadius.circular(10),
+                border:
+                    Border.all(color: statusColor.withAlpha(40)),
+              ),
+              child: Row(
+                children: [
+                  Icon(statusIcon,
+                      size: 18, color: statusColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
-                ),
-                if (ownRegistration != null && !isNotAttending)
-                  Chip(
-                    avatar: const Icon(Icons.how_to_vote, size: 18),
-                    label: Text(
-                        '${_countVotes(ownRegistration, 'accepted')} aceptado(s) · ${_countVotes(ownRegistration, 'requested')} pendiente(s)'),
-                  ),
-              ],
+                  if (ownRegistration != null && !isNotAttending)
+                    _InfoBadge(
+                      text:
+                          '${_countVotes(ownRegistration, 'accepted')} delegado(s)',
+                      color: AppTheme.primaryColor,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              ownResponsePending
+                  ? 'Confirma tu asistencia'
+                  : pendingRequests.isNotEmpty
+                      ? 'Tienes solicitudes pendientes'
+                      : isNotAttending
+                          ? 'No vas a asistir a esta junta'
+                          : 'Tu asistencia est\u00e1 confirmada',
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             _JuntaDetails(campaign: widget.campaign),
@@ -1723,27 +1985,94 @@ class _PalmasCampaignCard extends StatelessWidget {
     this.expanded = false,
   });
 
+  String _palmasCta() {
+    if (registration != null) {
+      if (campaign.isOpen && registration!.status != 'cancelada') {
+        return 'Modificar solicitud';
+      }
+      return 'Ver mi solicitud';
+    }
+    return campaign.isOpen ? 'Solicitar palma' : 'Ver evento';
+  }
+
+  String _palmasStatusText() {
+    if (registration == null) {
+      return campaign.isOpen ? 'No solicitada' : 'Sin solicitud';
+    }
+    return 'Solicitud: ${_registrationStatusLabel(registration!.status)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasRegistration = registration != null;
-    final title = hasRegistration
-        ? 'Ver mi petición'
-        : campaign.isOpen
-            ? 'Solicitar palma'
-            : 'Ver evento';
+    final statusColor = hasRegistration
+        ? _palmasStatusColor(registration!.status)
+        : (campaign.isOpen ? Colors.orange.shade700 : AppTheme.textSecondary);
+    final statusIcon = hasRegistration
+        ? (registration!.status == 'confirmada' ||
+                registration!.status == 'confirmed'
+            ? Icons.check_circle
+            : registration!.status == 'rechazada' ||
+                    registration!.status == 'rejected'
+                ? Icons.cancel
+                : registration!.status == 'entregada' ||
+                        registration!.status == 'delivered'
+                    ? Icons.local_shipping
+                    : Icons.hourglass_top)
+        : Icons.pending_actions;
+    final participantCount = hasRegistration
+        ? registration!.participants.length
+        : 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: campaign.isOpen && !hasRegistration ? 2 : 0,
+      shadowColor: campaign.isOpen && !hasRegistration
+          ? Colors.orange.withAlpha(60)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: campaign.isOpen && !hasRegistration
+              ? Colors.orange.withAlpha(100)
+              : Colors.grey.shade200,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (campaign.coverImageUrl.isNotEmpty)
-            Image.network(
-              campaign.coverImageUrl,
-              width: double.infinity,
-              height: 170,
-              fit: BoxFit.cover,
+            Stack(
+              children: [
+                Image.network(
+                  campaign.coverImageUrl,
+                  width: double.infinity,
+                  height: 170,
+                  fit: BoxFit.cover,
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: campaign.isOpen
+                          ? AppTheme.accentColor
+                          : AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _eventStatusLabel(campaign),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           Padding(
             padding: const EdgeInsets.all(18),
@@ -1751,74 +2080,132 @@ class _PalmasCampaignCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(campaign.name,
-                              style: Theme.of(context).textTheme.titleLarge),
-                          const SizedBox(height: 4),
-                          Text(
-                            [
-                              'Año ${campaign.year}',
-                              if (campaign.location.isNotEmpty)
-                                campaign.location,
-                            ].join(' · '),
-                            style:
-                                const TextStyle(color: AppTheme.textSecondary),
-                          ),
-                        ],
+                    const Icon(Icons.park,
+                        color: AppTheme.primaryColor, size: 18),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Petici\u00f3n de Palmas',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        letterSpacing: 0.3,
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.go(EventsService.routeForCampaign(campaign));
-                      },
-                      child: Text(title),
-                    ),
+                    const Spacer(),
+                    if (campaign.coverImageUrl.isEmpty)
+                      _InfoBadge(
+                        text: _eventStatusLabel(campaign),
+                        color: campaign.isOpen
+                            ? AppTheme.accentColor
+                            : AppTheme.primaryColor,
+                      ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Text(campaign.name,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                if (campaign.description.isNotEmpty &&
+                    !hasRegistration) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    campaign.description.length > 100
+                        ? '${campaign.description.substring(0, 100)}...'
+                        : campaign.description,
+                    style: const TextStyle(
+                        color: AppTheme.textSecondary, fontSize: 13),
+                  ),
+                ],
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _InfoBadge(
-                      text: _eventStatusLabel(campaign),
-                      color: campaign.isOpen
-                          ? AppTheme.accentColor
-                          : AppTheme.primaryColor,
-                    ),
-                    _InfoBadge(
-                      text: hasRegistration
-                          ? 'Petición: ${_registrationStatusLabel(registration!.status)}'
-                          : 'No solicitada',
-                      color: hasRegistration
-                          ? _palmasStatusColor(registration!.status)
-                          : AppTheme.textSecondary,
-                    ),
-                    if (hasRegistration &&
-                        campaign.type != 'junta_general_ordinaria')
-                      _InfoBadge(
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: statusColor.withAlpha(12),
+                    borderRadius: BorderRadius.circular(10),
+                    border:
+                        Border.all(color: statusColor.withAlpha(40)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(statusIcon,
+                          size: 18, color: statusColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _palmasStatusText(),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      if (hasRegistration && campaign.requiresPayment)
+                        _InfoBadge(
                         text:
                             'Pago: ${_paymentStatusLabel(registration!.paymentStatus)}',
                         color: _paymentStatusColor(registration!),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
                     if (campaign.endDate != null && campaign.isOpen)
-                      _InfoBadge(
+                      _SmallIconText(
+                        icon: Icons.timer_outlined,
                         text: _deadlineLabel(campaign.endDate!),
-                        color: Colors.orange.shade700,
+                        urgent: campaign.endDate!
+                                .difference(DateTime.now())
+                                .inDays <=
+                            3,
                       ),
-                    if (campaign.description.isNotEmpty && !hasRegistration)
-                      _InfoBadge(
-                        text: campaign.description.length > 60
-                            ? '${campaign.description.substring(0, 60)}...'
-                            : campaign.description,
-                        color: AppTheme.textSecondary,
+                    if (campaign.eventDate != null)
+                      _SmallIconText(
+                        icon: Icons.calendar_today,
+                        text:
+                            '${campaign.eventDate!.day}/${campaign.eventDate!.month}/${campaign.eventDate!.year}',
+                      ),
+                    if (campaign.location.isNotEmpty)
+                      _SmallIconText(
+                        icon: Icons.place_outlined,
+                        text: campaign.location,
+                      ),
+                    if (participantCount > 1)
+                      _SmallIconText(
+                        icon: Icons.group,
+                        text:
+                            '${participantCount - 1} persona${participantCount > 2 ? 's' : ''} a\u00f1adida${participantCount > 2 ? 's' : ''}',
                       ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context
+                          .go(EventsService.routeForCampaign(campaign));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      backgroundColor:
+                          campaign.isOpen && !hasRegistration
+                              ? AppTheme.primaryColor
+                              : null,
+                    ),
+                    child: Text(_palmasCta()),
+                  ),
                 ),
               ],
             ),

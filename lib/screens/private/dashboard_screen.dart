@@ -1475,12 +1475,14 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
   Set<String> _leidas = {};
   bool _leidasLoaded = false;
   Set<String> _respondedSurveyIds = {};
+  Set<String> _respondedEventCampaignIds = {};
 
   @override
   void initState() {
     super.initState();
     _loadLeidas();
     _loadRespondedSurveys();
+    _loadRespondedEventCampaigns();
   }
 
   @override
@@ -1490,8 +1492,10 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
       _leidas = {};
       _leidasLoaded = false;
       _respondedSurveyIds = {};
+      _respondedEventCampaignIds = {};
       _loadLeidas();
       _loadRespondedSurveys();
+      _loadRespondedEventCampaigns();
     }
   }
 
@@ -1509,6 +1513,25 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
       if (mounted) setState(() => _respondedSurveyIds = responded);
     } catch (e) {
       debugPrint('Error loading responded surveys: $e');
+    }
+  }
+
+  Future<void> _loadRespondedEventCampaigns() async {
+    if (widget.cofradeId == null) return;
+    try {
+      final eventsService = context.read<EventsService>();
+      final registrations = await eventsService
+          .watchMyRegistrations(widget.cofradeId!)
+          .first;
+      final responded = <String>{};
+      for (final reg in registrations) {
+        responded.add(reg.campaignId);
+      }
+      if (mounted) {
+        setState(() => _respondedEventCampaignIds = responded);
+      }
+    } catch (e) {
+      debugPrint('Error loading responded event campaigns: $e');
     }
   }
 
@@ -1626,6 +1649,11 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                               .getSugerenciasRespondidas(widget.cofradeId!)
                           : const Stream.empty(),
                       builder: (context, sugSnap) {
+                        return StreamBuilder<List<EventCampaign>>(
+                          stream: context
+                              .read<EventsService>()
+                              .watchCampaigns(),
+                          builder: (context, campaignSnap) {
                         final now = DateTime.now();
                         final sevenDaysAgo =
                             now.subtract(const Duration(days: 7));
@@ -1643,6 +1671,15 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                           }
                           final tipo = nov['tipo'] as String? ?? '';
                           final ruta = nov['ruta'] as String? ?? '/dashboard';
+                          // Skip event novedades the cofrade already responded to
+                          if (tipo == 'evento') {
+                            final campaignIdMatch = RegExp(r'campaignId=([^&]+)').firstMatch(ruta);
+                            if (campaignIdMatch != null &&
+                                _respondedEventCampaignIds.contains(
+                                    Uri.decodeComponent(campaignIdMatch.group(1)!))) {
+                              continue;
+                            }
+                          }
                           items.add(_NovedadItem(
                             id: 'nov_${nov['id']}',
                             icon: _iconForNovedadTipo(tipo),
@@ -1714,6 +1751,38 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                                 'Tu ${s.tipo} ha sido respondida por la Junta',
                             route: '/sugerencias',
                             isPriority: true,
+                          ));
+                        }
+
+                        // Event campaigns requiring action
+                        for (final campaign
+                            in (campaignSnap.data ?? <EventCampaign>[])) {
+                          if (!campaign.isOpen) continue;
+                          if (_respondedEventCampaignIds
+                              .contains(campaign.id)) {
+                            continue;
+                          }
+                          final definition =
+                              EventsService.definitionFor(campaign.type);
+                          final deadlineDays = campaign.endDate != null
+                              ? campaign.endDate!
+                                  .difference(now)
+                                  .inDays
+                              : 999;
+                          if (deadlineDays < 0) continue;
+                          items.add(_NovedadItem(
+                            id: 'campaign_${campaign.id}',
+                            icon: Icons.event,
+                            color: deadlineDays <= 3
+                                ? Colors.red.shade700
+                                : AppTheme.accentColor,
+                            title: campaign.name,
+                            subtitle: deadlineDays <= 0
+                                ? '\u00a1\u00daltimo d\u00eda! ${definition.shortTitle}'
+                                : deadlineDays <= 3
+                                    ? 'Quedan $deadlineDays d\u00edas \u00b7 ${definition.shortTitle}'
+                                    : '${definition.shortTitle} \u00b7 Requiere tu respuesta',
+                            route: EventsService.routeForCampaign(campaign),
                           ));
                         }
 
@@ -1926,6 +1995,8 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                               ],
                             ],
                           ),
+                        );
+                          },
                         );
                       },
                     );
