@@ -331,6 +331,24 @@ service cloud.firestore {
 
       // Only admins can manage news
       allow create, update, delete: if isAdmin();
+
+      // Audit subcollection
+      match /audit/{auditId} {
+        allow read: if isAdmin();
+        allow create: if isAdmin();
+      }
+
+      // Read confirmations subcollection
+      match /reads/{readId} {
+        allow read: if isAdmin() || (isAuth() && readId == request.auth.uid);
+        allow create, update: if isAuth();
+      }
+
+      // Analytics subcollection
+      match /analytics/{analyticsId} {
+        allow read: if isAdmin();
+        allow create: if isAuth();
+      }
     }
 
     // Documentos collection
@@ -668,6 +686,41 @@ service cloud.firestore {
 
         // Only admins can delete responses
         allow delete: if isAdmin();
+      }
+
+      // Voters subcollection (for anonymous surveys)
+      match /voters/{voterId} {
+        allow read: if isAdmin() ||
+          (isAuth() && (voterId == request.auth.uid || isLinkedCofrade(voterId)));
+        allow create, update: if isAuth() &&
+          (voterId == request.auth.uid || isLinkedCofrade(voterId));
+        allow delete: if isAdmin();
+      }
+    }
+
+    // =====================================================================
+    //  TURNOS DE ANDAS
+    // =====================================================================
+
+    match /turnos_andas/{eventoId} {
+      // Admin can CRUD events; authenticated cofrades can read active events
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+
+      // Inscripciones subcollection
+      match /inscripciones/{cofradeId} {
+        allow read: if isAdmin() ||
+          (isAuth() && isLinkedCofrade(cofradeId));
+        allow create, update: if isAdmin() ||
+          (isAuth() && isLinkedCofrade(cofradeId));
+        allow delete: if isAdmin() ||
+          (isAuth() && isLinkedCofrade(cofradeId));
+      }
+
+      // Puestos subcollection
+      match /puestos/{puestoId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin();
       }
     }
   }

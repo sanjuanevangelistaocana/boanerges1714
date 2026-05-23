@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,6 +10,10 @@ import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/events_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 
+// ---------------------------------------------------------------------------
+//  EventsHomeScreen — unified events view (grid → detail)
+// ---------------------------------------------------------------------------
+
 class EventsHomeScreen extends StatelessWidget {
   const EventsHomeScreen({super.key});
 
@@ -17,129 +22,900 @@ class EventsHomeScreen extends StatelessWidget {
     final uri = GoRouterState.of(context).uri;
     final focusedType = uri.queryParameters['type'];
     final focusedCampaignId = uri.queryParameters['campaignId'];
-    final initialIndex = EventsService.eventTypes.indexWhere(
-      (definition) => definition.type == focusedType,
+    final showDetail = focusedType != null;
+
+    return Column(
+      children: [
+        _EventsHeader(showBack: showDetail),
+        Expanded(
+          child: showDetail
+              ? _EventDetailPanel(
+                  type: focusedType!,
+                  focusCampaignId: focusedCampaignId,
+                )
+              : const _UnifiedEventsGrid(),
+        ),
+      ],
     );
-    return DefaultTabController(
-      length: EventsService.eventTypes.length,
-      initialIndex: initialIndex < 0 ? 0 : initialIndex,
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.primaryDark, AppTheme.primaryColor],
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Personal status helpers for cofrade
+// ---------------------------------------------------------------------------
+
+String _personalStatusLabel({
+  required _EventItem item,
+}) {
+  if (item.type == 'festividad_27_diciembre') {
+    if (item.festInscripcion != null) return 'Ya inscrito';
+    final estado = '${item.festEdicion?['estado'] ?? ''}';
+    if (estado == 'abierto') return 'Pendiente de inscripción';
+    return 'Sin inscripción';
+  }
+  final campaign = item.campaign;
+  final reg = item.registration;
+  if (campaign == null) return '';
+  if (campaign.type == 'junta_general_ordinaria') {
+    if (reg == null) return 'Pendiente de respuesta';
+    if (reg.status == 'not_attending') return 'No asistirás';
+    if (reg.status == 'attending' ||
+        reg.status == 'confirmed' ||
+        reg.status == 'confirmada') {
+      return 'Asistencia confirmada';
+    }
+    return _registrationStatusLabel(reg.status);
+  }
+  if (campaign.type == 'palmas') {
+    if (reg == null) {
+      return campaign.isOpen ? 'No solicitada' : 'Sin solicitud';
+    }
+    return 'Solicitud: ${_registrationStatusLabel(reg.status)}';
+  }
+  if (campaign.type == 'sanjuandereta') {
+    if (reg == null) {
+      return campaign.isOpen ? 'Pendiente de inscripción' : 'Sin inscripción';
+    }
+    if (reg.status == 'confirmed' || reg.status == 'confirmada') {
+      final companionCount = reg.participants.length - 1;
+      return companionCount > 0
+          ? 'Inscrito · $companionCount acompañante${companionCount > 1 ? 's' : ''}'
+          : 'Inscrito';
+    }
+    return _registrationStatusLabel(reg.status);
+  }
+  if (reg != null) return _registrationStatusLabel(reg.status);
+  if (campaign.isOpen) return 'Pendiente de inscripción';
+  return 'Sin inscripción';
+}
+
+Color _personalStatusColor(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    return item.festInscripcion != null
+        ? AppTheme.accentColor
+        : Colors.orange.shade700;
+  }
+  final reg = item.registration;
+  if (reg == null) return Colors.orange.shade700;
+  switch (reg.status) {
+    case 'attending':
+    case 'confirmed':
+    case 'confirmada':
+    case 'solicitada':
+    case 'requested':
+    case 'entregada':
+    case 'delivered':
+      return AppTheme.accentColor;
+    case 'rechazada':
+    case 'rejected':
+    case 'cancelada':
+    case 'cancelled':
+      return Colors.red.shade700;
+    case 'not_attending':
+      return AppTheme.textSecondary;
+    default:
+      return Colors.orange.shade700;
+  }
+}
+
+IconData _personalStatusIcon(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    return item.festInscripcion != null
+        ? Icons.check_circle
+        : Icons.pending_actions;
+  }
+  final reg = item.registration;
+  if (reg == null) return Icons.pending_actions;
+  switch (reg.status) {
+    case 'attending':
+    case 'confirmed':
+    case 'confirmada':
+    case 'entregada':
+    case 'delivered':
+      return Icons.check_circle;
+    case 'solicitada':
+    case 'requested':
+    case 'pending':
+    case 'pendiente':
+      return Icons.hourglass_top;
+    case 'rechazada':
+    case 'rejected':
+      return Icons.cancel;
+    case 'not_attending':
+      return Icons.block;
+    case 'cancelada':
+    case 'cancelled':
+      return Icons.cancel_outlined;
+    default:
+      return Icons.info_outline;
+  }
+}
+
+bool _isDeadlineUrgent(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    final raw = item.festEdicion?['fecha_limite'];
+    final limit =
+        raw is Timestamp ? raw.toDate() : (raw is DateTime ? raw : null);
+    if (limit != null) {
+      return limit.difference(DateTime.now()).inDays <= 3;
+    }
+    return false;
+  }
+  final endDate = item.campaign?.endDate;
+  if (endDate != null && (item.campaign?.isOpen ?? false)) {
+    return endDate.difference(DateTime.now()).inDays <= 3;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+//  Header
+// ---------------------------------------------------------------------------
+
+class _EventsHeader extends StatelessWidget {
+  final bool showBack;
+  const _EventsHeader({this.showBack = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppTheme.primaryDark, AppTheme.primaryColor],
+        ),
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1050),
+          child: Row(
+            children: [
+              if (showBack)
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  tooltip: 'Volver a eventos',
+                  onPressed: () => context.go('/eventos'),
+                ),
+              const Icon(Icons.event_available, color: Colors.white, size: 30),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Eventos',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1050),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Unified events grid (replaces old TabBar)
+// ---------------------------------------------------------------------------
+
+enum _EventCategory { actionRequired, activeInscribed, upcoming, historical }
+
+class _EventItem {
+  final String type;
+  final String title;
+  final String? subtitle;
+  final _EventCategory category;
+  final EventCampaign? campaign;
+  final EventRegistration? registration;
+  final Map<String, dynamic>? festEdicion;
+  final Map<String, dynamic>? festInscripcion;
+
+  const _EventItem({
+    required this.type,
+    required this.title,
+    this.subtitle,
+    required this.category,
+    this.campaign,
+    this.registration,
+    this.festEdicion,
+    this.festInscripcion,
+  });
+
+  String get routePath {
+    if (type == 'festividad_27_diciembre') return '/festividad';
+    if (campaign != null) return EventsService.routeForCampaign(campaign!);
+    return '/eventos';
+  }
+}
+
+class _UnifiedEventsGrid extends StatefulWidget {
+  const _UnifiedEventsGrid();
+
+  @override
+  State<_UnifiedEventsGrid> createState() => _UnifiedEventsGridState();
+}
+
+class _UnifiedEventsGridState extends State<_UnifiedEventsGrid> {
+  Map<String, dynamic>? _festEdicion;
+  Map<String, dynamic>? _festInscripcion;
+  bool _festLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFestividad();
+  }
+
+  Future<void> _loadFestividad() async {
+    final firestoreService = context.read<FirestoreService>();
+    final auth = context.read<AuthService>();
+    final cofrade = auth.cofrade;
+    try {
+      final edicion = await firestoreService.getFestividadEdicionActiva();
+      if (edicion != null && cofrade != null) {
+        final inscripcion =
+            await firestoreService.getInscripcionFestividadParaCofrade(
+                edicion['id'] as String, cofrade.id);
+        if (mounted) {
+          setState(() {
+            _festEdicion = edicion;
+            _festInscripcion = inscripcion;
+            _festLoaded = true;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _festLoaded = true);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _festLoaded = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    final cofrade = auth.cofrade;
+    final eventsService = context.read<EventsService>();
+
+    if (cofrade == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return StreamBuilder<List<EventCampaign>>(
+      stream: eventsService.watchCampaigns(),
+      builder: (context, campaignSnap) {
+        return StreamBuilder<List<EventRegistration>>(
+          stream: eventsService.watchMyRegistrations(cofrade.id),
+          builder: (context, regSnap) {
+            if (!campaignSnap.hasData || !_festLoaded) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final allCampaigns = campaignSnap.data!
+                .where((campaign) =>
+                    !campaign.deleted && campaign.status != 'archived')
+                .toList();
+            final myRegistrations = regSnap.data ?? [];
+            final items = <_EventItem>[];
+
+            // --- Festividad card ---
+            if (_festEdicion != null) {
+              final estado = '${_festEdicion!['estado'] ?? 'borrador'}';
+              final isOpen = estado == 'abierto';
+              final hasInscripcion = _festInscripcion != null;
+              _EventCategory category;
+              if (isOpen && !hasInscripcion) {
+                category = _EventCategory.actionRequired;
+              } else if (hasInscripcion) {
+                category = _EventCategory.activeInscribed;
+              } else if (estado == 'finalizada' || estado == 'cerrado') {
+                category = _EventCategory.historical;
+              } else {
+                category = _EventCategory.upcoming;
+              }
+              items.add(_EventItem(
+                type: 'festividad_27_diciembre',
+                title:
+                    '${_festEdicion!['nombre'] ?? 'Festividad San Juan Evangelista'}',
+                subtitle: _festEdicion!['descripcion'] as String?,
+                category: category,
+                festEdicion: _festEdicion,
+                festInscripcion: _festInscripcion,
+              ));
+            }
+
+            // --- Configurable event campaigns ---
+            for (final campaign in allCampaigns) {
+              if (!campaign.isVisibleToCofrade &&
+                  campaign.status != 'finished') {
+                continue;
+              }
+              final campaignRegs = myRegistrations
+                  .where((reg) => reg.campaignId == campaign.id)
+                  .toList();
+              final hasRegistration = campaignRegs.isNotEmpty;
+              _EventCategory category;
+              if (campaign.isHistorical) {
+                category = _EventCategory.historical;
+              } else if (hasRegistration) {
+                category = _EventCategory.activeInscribed;
+              } else if (campaign.isOpen) {
+                category = _EventCategory.actionRequired;
+              } else if (campaign.isUpcoming || campaign.status == 'published') {
+                category = _EventCategory.upcoming;
+              } else {
+                category = _EventCategory.upcoming;
+              }
+              items.add(_EventItem(
+                type: campaign.type,
+                title: campaign.name,
+                subtitle: campaign.description.isEmpty
+                    ? null
+                    : campaign.description,
+                category: category,
+                campaign: campaign,
+                registration: hasRegistration ? campaignRegs.first : null,
+              ));
+            }
+
+            final actionRequired = items
+                .where(
+                    (item) => item.category == _EventCategory.actionRequired)
+                .toList();
+            final activeInscribed = items
+                .where(
+                    (item) => item.category == _EventCategory.activeInscribed)
+                .toList();
+            final upcoming = items
+                .where((item) => item.category == _EventCategory.upcoming)
+                .toList();
+            final historical = items
+                .where((item) => item.category == _EventCategory.historical)
+                .toList();
+
+            if (items.isEmpty) {
+              return Center(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.event_available,
-                            color: Colors.white, size: 30),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Eventos',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
-                    TabBar(
-                      isScrollable: true,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white60,
-                      indicatorColor: Colors.white,
-                      tabs: [
-                        for (final definition in EventsService.eventTypes)
-                          Tab(text: definition.title),
-                      ],
+                    Icon(Icons.event_busy,
+                        size: 64, color: Colors.grey.shade300),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No hay eventos disponibles en este momento.',
+                      style: TextStyle(
+                          fontSize: 16, color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
+              );
+            }
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1050),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (actionRequired.isNotEmpty)
+                        _buildSection(
+                          context,
+                          'Requiere tu acción',
+                          actionRequired,
+                          Colors.orange.shade700,
+                          Icons.notifications_active,
+                        ),
+                      if (activeInscribed.isNotEmpty)
+                        _buildSection(
+                          context,
+                          'Tus inscripciones activas',
+                          activeInscribed,
+                          AppTheme.accentColor,
+                          Icons.check_circle_outline,
+                        ),
+                      if (upcoming.isNotEmpty)
+                        _buildSection(
+                          context,
+                          'Próximos eventos',
+                          upcoming,
+                          AppTheme.primaryColor,
+                          Icons.upcoming,
+                        ),
+                      if (historical.isNotEmpty)
+                        _buildSection(
+                          context,
+                          'Eventos pasados',
+                          historical,
+                          AppTheme.textSecondary,
+                          Icons.history,
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<_EventItem> items,
+    Color color,
+    IconData icon,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${items.length}',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: color),
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _FestividadEntry(),
-                _ConfigurableEventPrivatePanel(
-                  type: 'palmas',
-                  focusCampaignId:
-                      focusedType == 'palmas' ? focusedCampaignId : null,
-                ),
-                _ConfigurableEventPrivatePanel(
-                  type: 'sanjuandereta',
-                  focusCampaignId:
-                      focusedType == 'sanjuandereta' ? focusedCampaignId : null,
-                ),
-                _ConfigurableEventPrivatePanel(
-                  type: 'junta_general_ordinaria',
-                  focusCampaignId: focusedType == 'junta_general_ordinaria'
-                      ? focusedCampaignId
-                      : null,
-                ),
-                _ConfigurableEventPrivatePanel(
-                  type: 'general',
-                  focusCampaignId:
-                      focusedType == 'general' ? focusedCampaignId : null,
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 14),
+          ...items.map((item) => _UnifiedEventCard(item: item)),
         ],
       ),
     );
   }
 }
 
-class _FestividadEntry extends StatelessWidget {
-  const _FestividadEntry();
+// ---------------------------------------------------------------------------
+//  Unified event card
+// ---------------------------------------------------------------------------
+
+class _UnifiedEventCard extends StatelessWidget {
+  final _EventItem item;
+  const _UnifiedEventCard({required this.item});
 
   @override
   Widget build(BuildContext context) {
-    return _ModulePadding(
-      child: _ActionCard(
-        icon: Icons.celebration,
-        title: 'Festividad 27 de diciembre',
-        subtitle:
-            'Inscripción, acompañantes, menús y estado de tu participación.',
-        action: 'Abrir Festividad',
-        onTap: () => context.go('/festividad'),
+    final campaign = item.campaign;
+    final registration = item.registration;
+
+    final imageUrl =
+        item.type == 'festividad_27_diciembre'
+            ? null
+            : (campaign?.coverImageUrl ?? '');
+    final icon = _iconForType(item.type);
+    final typeLabel = _typeLabelFor(item.type);
+    final ctaLabel = _ctaLabelForItem(item);
+    final dateText = _dateTextForItem(item);
+    final deadlineText = _deadlineTextForItem(item);
+    final personalLabel = _personalStatusLabel(item: item);
+    final personalColor = _personalStatusColor(item);
+    final personalIcon = _personalStatusIcon(item);
+    final isActionRequired =
+        item.category == _EventCategory.actionRequired;
+    final hasImage = imageUrl != null && imageUrl.isNotEmpty;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      clipBehavior: Clip.antiAlias,
+      elevation: isActionRequired ? 2 : 0,
+      shadowColor: isActionRequired
+          ? Colors.orange.withAlpha(60)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isActionRequired
+              ? Colors.orange.withAlpha(100)
+              : Colors.grey.shade200,
+          width: isActionRequired ? 1.5 : 1,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => context.go(item.routePath),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasImage)
+              Stack(
+                children: [
+                  Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    height: 170,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: _SmallBadge(
+                      label: _statusLabelForItem(item),
+                      color: _statusColorForItem(item),
+                      filled: true,
+                    ),
+                  ),
+                ],
+              ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(icon, color: AppTheme.primaryColor, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        typeLabel,
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (!hasImage)
+                        _SmallBadge(
+                          label: _statusLabelForItem(item),
+                          color: _statusColorForItem(item),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  if (item.subtitle != null &&
+                      item.subtitle!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.subtitle!.length > 120
+                          ? '${item.subtitle!.substring(0, 120)}...'
+                          : item.subtitle!,
+                      style: const TextStyle(
+                          color: AppTheme.textSecondary, fontSize: 13),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: personalColor.withAlpha(12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: personalColor.withAlpha(40)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(personalIcon,
+                            size: 18, color: personalColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            personalLabel,
+                            style: TextStyle(
+                              color: personalColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        if (registration != null &&
+                            campaign?.type != 'junta_general_ordinaria' &&
+                            campaign?.requiresPayment == true)
+                          _SmallBadge(
+                            label:
+                                'Pago: ${_paymentStatusLabel(registration.paymentStatus)}',
+                            color: _paymentStatusColor(registration),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: [
+                      if (dateText != null)
+                        _SmallIconText(
+                            icon: Icons.calendar_today, text: dateText),
+                      if (deadlineText != null)
+                        _SmallIconText(
+                            icon: Icons.timer_outlined,
+                            text: deadlineText,
+                            urgent: _isDeadlineUrgent(item)),
+                      if (campaign != null &&
+                          campaign.location.isNotEmpty)
+                        _SmallIconText(
+                            icon: Icons.place_outlined,
+                            text: campaign.location),
+                      if (registration != null &&
+                          registration.participants.length > 1)
+                        _SmallIconText(
+                            icon: Icons.group,
+                            text:
+                                '${registration.participants.length - 1} acompa\u00f1ante${registration.participants.length > 2 ? 's' : ''}'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => context.go(item.routePath),
+                      style: ElevatedButton.styleFrom(
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        backgroundColor: isActionRequired
+                            ? AppTheme.primaryColor
+                            : null,
+                      ),
+                      child: Text(ctaLabel),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ConfigurableEventPrivatePanel extends StatefulWidget {
+// ---------------------------------------------------------------------------
+//  Small UI helpers for cards
+// ---------------------------------------------------------------------------
+
+class _SmallBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool filled;
+  const _SmallBadge({
+    required this.label,
+    required this.color,
+    this.filled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: filled ? color : color.withAlpha(20),
+        borderRadius: BorderRadius.circular(20),
+        border: filled ? null : Border.all(color: color.withAlpha(80)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+            color: filled ? Colors.white : color,
+            fontWeight: FontWeight.w700,
+            fontSize: 11),
+      ),
+    );
+  }
+}
+
+class _SmallIconText extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool urgent;
+  const _SmallIconText({
+    required this.icon,
+    required this.text,
+    this.urgent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor =
+        urgent ? Colors.red.shade700 : AppTheme.textSecondary;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: textColor),
+        const SizedBox(width: 4),
+        Text(text,
+            style: TextStyle(
+                fontSize: 12,
+                color: textColor,
+                fontWeight: urgent ? FontWeight.w700 : FontWeight.normal)),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Helper functions for card display
+// ---------------------------------------------------------------------------
+
+IconData _iconForType(String type) {
+  switch (type) {
+    case 'festividad_27_diciembre':
+      return Icons.celebration;
+    case 'palmas':
+      return Icons.park;
+    case 'sanjuandereta':
+      return Icons.restaurant;
+    case 'junta_general_ordinaria':
+      return Icons.groups;
+    default:
+      return Icons.event;
+  }
+}
+
+String _typeLabelFor(String type) {
+  return EventsService.definitionFor(type).shortTitle;
+}
+
+String _statusLabelForItem(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    if (item.festInscripcion != null) return 'Inscrito';
+    final estado = '${item.festEdicion?['estado'] ?? ''}';
+    if (estado == 'abierto') return 'Abierto';
+    if (estado == 'cerrado' || estado == 'finalizada') return 'Cerrado';
+    return 'Publicado';
+  }
+  final campaign = item.campaign!;
+  final reg = item.registration;
+  if (reg != null) return _registrationStatusLabel(reg.status);
+  return _eventStatusLabel(campaign);
+}
+
+Color _statusColorForItem(_EventItem item) {
+  if (item.category == _EventCategory.actionRequired) {
+    return Colors.orange.shade700;
+  }
+  if (item.registration != null || item.festInscripcion != null) {
+    return AppTheme.accentColor;
+  }
+  if (item.category == _EventCategory.historical) {
+    return AppTheme.textSecondary;
+  }
+  return AppTheme.primaryColor;
+}
+
+String _ctaLabelForItem(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    if (item.festInscripcion != null) return 'Ver inscripción';
+    final estado = '${item.festEdicion?['estado'] ?? ''}';
+    if (estado == 'abierto') return 'Inscribirme';
+    return 'Ver detalles';
+  }
+  final campaign = item.campaign!;
+  final reg = item.registration;
+  if (campaign.type == 'junta_general_ordinaria') {
+    if (reg == null) return 'Responder asistencia';
+    if (reg.status == 'not_attending') return 'Delegar voto';
+    return 'Ver convocatoria';
+  }
+  if (campaign.type == 'palmas') {
+    if (reg != null) return 'Ver mi petición';
+    if (campaign.isOpen) return 'Solicitar palma';
+    return 'Ver detalles';
+  }
+  if (reg != null) {
+    if (campaign.isOpen) return 'Modificar inscripción';
+    return 'Ver inscripción';
+  }
+  if (campaign.isOpen) return 'Inscribirme';
+  return 'Ver detalles';
+}
+
+String? _dateTextForItem(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    final raw = item.festEdicion?['fecha'];
+    final fecha =
+        raw is Timestamp ? raw.toDate() : (raw is DateTime ? raw : null);
+    if (fecha != null) return _fmtDate(fecha);
+    return null;
+  }
+  final date = item.campaign?.eventDate;
+  if (date != null) return _fmtDate(date);
+  return null;
+}
+
+String? _deadlineTextForItem(_EventItem item) {
+  if (item.type == 'festividad_27_diciembre') {
+    final raw = item.festEdicion?['fecha_limite'];
+    final limit =
+        raw is Timestamp ? raw.toDate() : (raw is DateTime ? raw : null);
+    if (limit != null) return 'Límite: ${_fmtDate(limit)}';
+    return null;
+  }
+  final endDate = item.campaign?.endDate;
+  if (endDate != null && (item.campaign?.isOpen ?? false)) {
+    final remaining = endDate.difference(DateTime.now()).inDays;
+    if (remaining >= 0) {
+      return remaining == 0
+          ? 'Último día'
+          : remaining == 1
+              ? 'Queda 1 día'
+              : 'Quedan $remaining días';
+    }
+  }
+  return null;
+}
+
+String _fmtDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+// ---------------------------------------------------------------------------
+//  Event detail panel (shown when a card is tapped)
+// ---------------------------------------------------------------------------
+
+class _EventDetailPanel extends StatefulWidget {
   final String type;
   final String? focusCampaignId;
 
-  const _ConfigurableEventPrivatePanel({
+  const _EventDetailPanel({
     required this.type,
     this.focusCampaignId,
   });
 
   @override
-  State<_ConfigurableEventPrivatePanel> createState() =>
-      _ConfigurableEventPrivatePanelState();
+  State<_EventDetailPanel> createState() => _EventDetailPanelState();
 }
 
-class _ConfigurableEventPrivatePanelState
-    extends State<_ConfigurableEventPrivatePanel> {
+class _EventDetailPanelState extends State<_EventDetailPanel> {
   List<Cofrade> _cofrades = const [];
   Cofrade? _selectedCofrade;
   bool _loadingCofrades = false;
@@ -147,16 +923,24 @@ class _ConfigurableEventPrivatePanelState
 
   @override
   Widget build(BuildContext context) {
+    // Festividad has its own dedicated screen
+    if (widget.type == 'festividad_27_diciembre') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/festividad');
+      });
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final auth = context.watch<AuthService>();
     final current = auth.cofrade;
-    final events = context.read<EventsService>();
+    final eventsService = context.read<EventsService>();
     final definition = EventsService.definitionFor(widget.type);
     if (current == null) {
       return const Center(child: CircularProgressIndicator());
     }
     return _ModulePadding(
       child: StreamBuilder<List<EventCampaign>>(
-        stream: events.watchVisibleCampaigns(widget.type),
+        stream: eventsService.watchVisibleCampaigns(widget.type),
         builder: (context, campaignSnap) {
           final campaigns = campaignSnap.data ?? const <EventCampaign>[];
           if (campaigns.isEmpty) {
@@ -166,10 +950,10 @@ class _ConfigurableEventPrivatePanelState
             );
           }
           return StreamBuilder<List<EventRegistration>>(
-            stream: events.watchMyRegistrations(current.id),
+            stream: eventsService.watchMyRegistrations(current.id),
             builder: (context, regSnap) {
               final allMyRegs = (regSnap.data ?? const <EventRegistration>[])
-                  .where((r) => r.type == widget.type)
+                  .where((reg) => reg.type == widget.type)
                   .toList();
               final orderedCampaigns = [...campaigns]..sort((a, b) {
                   if (a.id == widget.focusCampaignId) return -1;
@@ -182,26 +966,29 @@ class _ConfigurableEventPrivatePanelState
               );
               final openCampaigns =
                   campaigns.where((campaign) => campaign.isOpen).toList();
-              final upcoming = campaigns
-                  .where(
-                      (campaign) => !campaign.isOpen && !campaign.isHistorical)
+              final upcomingCampaigns = campaigns
+                  .where((campaign) =>
+                      !campaign.isOpen && !campaign.isHistorical)
                   .toList();
-              final history =
-                  campaigns.where((campaign) => campaign.isHistorical).toList();
-              final myPrimaryRegs =
-                  allMyRegs.where((r) => r.campaignId == primary.id).toList();
-              final simpleDetail = widget.type == 'palmas';
-              final noun = widget.type == 'palmas' ? 'petición' : 'inscripción';
-              if (simpleDetail) {
+              final historicalCampaigns = campaigns
+                  .where((campaign) => campaign.isHistorical)
+                  .toList();
+              final myPrimaryRegs = allMyRegs
+                  .where((reg) => reg.campaignId == primary.id)
+                  .toList();
+              final noun =
+                  widget.type == 'palmas' ? 'petición' : 'inscripción';
+
+              if (widget.type == 'palmas') {
                 return _PalmasCampaignsView(
                   campaigns: orderedCampaigns,
                   registrations: allMyRegs,
                   current: current,
-                  events: events,
+                  events: eventsService,
                   focusCampaignId: widget.focusCampaignId,
                   saving: _saving,
-                  onRegisterSelf: (campaign, input) =>
-                      _register(events, campaign, current, current, input),
+                  onRegisterSelf: (campaign, input) => _register(
+                      eventsService, campaign, current, current, input),
                   onSavingChanged: (value) {
                     if (mounted) setState(() => _saving = value);
                   },
@@ -212,7 +999,7 @@ class _ConfigurableEventPrivatePanelState
                   campaigns: orderedCampaigns,
                   registrations: allMyRegs,
                   current: current,
-                  events: events,
+                  events: eventsService,
                   focusCampaignId: widget.focusCampaignId,
                   saving: _saving,
                   onSavingChanged: (value) {
@@ -223,30 +1010,30 @@ class _ConfigurableEventPrivatePanelState
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (!simpleDetail && openCampaigns.isNotEmpty)
+                  if (openCampaigns.isNotEmpty)
                     _EventSection(
                       title: 'Eventos abiertos',
                       campaigns: openCampaigns,
                       registrations: allMyRegs,
                     ),
-                  if (!simpleDetail && allMyRegs.isNotEmpty) ...[
+                  if (allMyRegs.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _RegistrationListSection(
                         registrations: allMyRegs, noun: noun),
                   ],
-                  if (!simpleDetail && upcoming.isNotEmpty) ...[
+                  if (upcomingCampaigns.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _EventSection(
                       title: 'Próximos eventos',
-                      campaigns: upcoming,
+                      campaigns: upcomingCampaigns,
                       registrations: allMyRegs,
                     ),
                   ],
-                  if (!simpleDetail && history.isNotEmpty) ...[
+                  if (historicalCampaigns.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _EventSection(
                       title: 'Histórico',
-                      campaigns: history,
+                      campaigns: historicalCampaigns,
                       registrations: allMyRegs,
                     ),
                   ],
@@ -255,7 +1042,7 @@ class _ConfigurableEventPrivatePanelState
                   const SizedBox(height: 16),
                   if (myPrimaryRegs.isNotEmpty)
                     ...myPrimaryRegs.map(
-                        (r) => _RegistrationStatusCard(reg: r, noun: noun)),
+                        (reg) => _RegistrationStatusCard(reg: reg, noun: noun)),
                   const SizedBox(height: 16),
                   if (primary.isOpen && myPrimaryRegs.isEmpty)
                     _GenericRegistrationCard(
@@ -268,12 +1055,12 @@ class _ConfigurableEventPrivatePanelState
                       onLoadCofrades: _loadCofrades,
                       onSelected: (value) =>
                           setState(() => _selectedCofrade = value),
-                      onRegisterSelf: (input) =>
-                          _register(events, primary, current, current, input),
+                      onRegisterSelf: (input) => _register(
+                          eventsService, primary, current, current, input),
                       onRegisterOther: _selectedCofrade == null
                           ? null
                           : (input) => _register(
-                                events,
+                                eventsService,
                                 primary,
                                 _selectedCofrade!,
                                 current,
@@ -302,7 +1089,7 @@ class _ConfigurableEventPrivatePanelState
   }
 
   Future<void> _register(
-    EventsService events,
+    EventsService eventsService,
     EventCampaign campaign,
     Cofrade cofrade,
     Cofrade addedBy,
@@ -310,7 +1097,7 @@ class _ConfigurableEventPrivatePanelState
   ) async {
     setState(() => _saving = true);
     try {
-      await events.registerCofrade(
+      await eventsService.registerCofrade(
         campaign: campaign,
         cofrade: cofrade,
         addedBy: addedBy,
@@ -323,10 +1110,12 @@ class _ConfigurableEventPrivatePanelState
           SnackBar(content: Text('${cofrade.nombreCompleto} inscrito.')),
         );
       }
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+          SnackBar(
+              content:
+                  Text('$error'.replaceFirst('Exception: ', ''))),
         );
       }
     } finally {
@@ -475,34 +1264,89 @@ class _JuntaAttendanceCardState extends State<_JuntaAttendanceCard> {
     final ownResponsePending = ownRegistration == null;
     final editable = widget.campaign.isOpen && ownRegistration != null;
     final carriedVotes = ownRegistration?.delegatedVotes ?? const [];
+    final statusText = ownResponsePending
+        ? 'Pendiente de respuesta'
+        : pendingRequests.isNotEmpty
+            ? 'Solicitud de delegaci\u00f3n pendiente'
+            : isNotAttending
+                ? 'No asistir\u00e1s'
+                : 'Asistencia confirmada';
+    final statusColor = ownResponsePending
+        ? Colors.orange.shade700
+        : pendingRequests.isNotEmpty
+            ? Colors.blue.shade700
+            : isNotAttending
+                ? AppTheme.textSecondary
+                : AppTheme.accentColor;
+    final statusIcon = ownResponsePending
+        ? Icons.pending_actions
+        : pendingRequests.isNotEmpty
+            ? Icons.how_to_vote
+            : isNotAttending
+                ? Icons.block
+                : Icons.check_circle;
     return Card(
+      elevation: ownResponsePending ? 2 : 0,
+      shadowColor: ownResponsePending
+          ? Colors.orange.withAlpha(60)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: ownResponsePending
+              ? Colors.orange.withAlpha(100)
+              : Colors.grey.shade200,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    ownResponsePending
-                        ? 'Mi respuesta'
-                        : pendingRequests.isNotEmpty
-                            ? 'Solicitud de delegación pendiente'
-                            : isNotAttending
-                                ? 'Has indicado que no asistirás'
-                                : 'Tu asistencia está confirmada',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w800),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: statusColor.withAlpha(12),
+                borderRadius: BorderRadius.circular(10),
+                border:
+                    Border.all(color: statusColor.withAlpha(40)),
+              ),
+              child: Row(
+                children: [
+                  Icon(statusIcon,
+                      size: 18, color: statusColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
-                ),
-                if (ownRegistration != null && !isNotAttending)
-                  Chip(
-                    avatar: const Icon(Icons.how_to_vote, size: 18),
-                    label: Text(
-                        '${_countVotes(ownRegistration, 'accepted')} aceptado(s) · ${_countVotes(ownRegistration, 'requested')} pendiente(s)'),
-                  ),
-              ],
+                  if (ownRegistration != null && !isNotAttending)
+                    _InfoBadge(
+                      text:
+                          '${_countVotes(ownRegistration, 'accepted')} delegado(s)',
+                      color: AppTheme.primaryColor,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              ownResponsePending
+                  ? 'Confirma tu asistencia'
+                  : pendingRequests.isNotEmpty
+                      ? 'Tienes solicitudes pendientes'
+                      : isNotAttending
+                          ? 'No vas a asistir a esta junta'
+                          : 'Tu asistencia est\u00e1 confirmada',
+              style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             _JuntaDetails(campaign: widget.campaign),
@@ -1141,27 +1985,94 @@ class _PalmasCampaignCard extends StatelessWidget {
     this.expanded = false,
   });
 
+  String _palmasCta() {
+    if (registration != null) {
+      if (campaign.isOpen && registration!.status != 'cancelada') {
+        return 'Modificar solicitud';
+      }
+      return 'Ver mi solicitud';
+    }
+    return campaign.isOpen ? 'Solicitar palma' : 'Ver evento';
+  }
+
+  String _palmasStatusText() {
+    if (registration == null) {
+      return campaign.isOpen ? 'No solicitada' : 'Sin solicitud';
+    }
+    return 'Solicitud: ${_registrationStatusLabel(registration!.status)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasRegistration = registration != null;
-    final title = hasRegistration
-        ? 'Ver mi petición'
-        : campaign.isOpen
-            ? 'Solicitar palma'
-            : 'Ver evento';
+    final statusColor = hasRegistration
+        ? _palmasStatusColor(registration!.status)
+        : (campaign.isOpen ? Colors.orange.shade700 : AppTheme.textSecondary);
+    final statusIcon = hasRegistration
+        ? (registration!.status == 'confirmada' ||
+                registration!.status == 'confirmed'
+            ? Icons.check_circle
+            : registration!.status == 'rechazada' ||
+                    registration!.status == 'rejected'
+                ? Icons.cancel
+                : registration!.status == 'entregada' ||
+                        registration!.status == 'delivered'
+                    ? Icons.local_shipping
+                    : Icons.hourglass_top)
+        : Icons.pending_actions;
+    final participantCount = hasRegistration
+        ? registration!.participants.length
+        : 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: campaign.isOpen && !hasRegistration ? 2 : 0,
+      shadowColor: campaign.isOpen && !hasRegistration
+          ? Colors.orange.withAlpha(60)
+          : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: campaign.isOpen && !hasRegistration
+              ? Colors.orange.withAlpha(100)
+              : Colors.grey.shade200,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (campaign.coverImageUrl.isNotEmpty)
-            Image.network(
-              campaign.coverImageUrl,
-              width: double.infinity,
-              height: 170,
-              fit: BoxFit.cover,
+            Stack(
+              children: [
+                Image.network(
+                  campaign.coverImageUrl,
+                  width: double.infinity,
+                  height: 170,
+                  fit: BoxFit.cover,
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: campaign.isOpen
+                          ? AppTheme.accentColor
+                          : AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _eventStatusLabel(campaign),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           Padding(
             padding: const EdgeInsets.all(18),
@@ -1169,62 +2080,132 @@ class _PalmasCampaignCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(campaign.name,
-                              style: Theme.of(context).textTheme.titleLarge),
-                          const SizedBox(height: 4),
-                          Text(
-                            [
-                              'Año ${campaign.year}',
-                              if (campaign.location.isNotEmpty)
-                                campaign.location,
-                            ].join(' · '),
-                            style:
-                                const TextStyle(color: AppTheme.textSecondary),
-                          ),
-                        ],
+                    const Icon(Icons.park,
+                        color: AppTheme.primaryColor, size: 18),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Petici\u00f3n de Palmas',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        letterSpacing: 0.3,
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: () {
-                        context.go(EventsService.routeForCampaign(campaign));
-                      },
-                      child: Text(title),
-                    ),
+                    const Spacer(),
+                    if (campaign.coverImageUrl.isEmpty)
+                      _InfoBadge(
+                        text: _eventStatusLabel(campaign),
+                        color: campaign.isOpen
+                            ? AppTheme.accentColor
+                            : AppTheme.primaryColor,
+                      ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Text(campaign.name,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
+                if (campaign.description.isNotEmpty &&
+                    !hasRegistration) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    campaign.description.length > 100
+                        ? '${campaign.description.substring(0, 100)}...'
+                        : campaign.description,
+                    style: const TextStyle(
+                        color: AppTheme.textSecondary, fontSize: 13),
+                  ),
+                ],
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _InfoBadge(
-                      text: _eventStatusLabel(campaign),
-                      color: campaign.isOpen
-                          ? AppTheme.accentColor
-                          : AppTheme.primaryColor,
-                    ),
-                    _InfoBadge(
-                      text: hasRegistration
-                          ? 'Petición: ${_registrationStatusLabel(registration!.status)}'
-                          : 'No inscrito',
-                      color: hasRegistration
-                          ? AppTheme.accentColor
-                          : AppTheme.textSecondary,
-                    ),
-                    if (hasRegistration &&
-                        campaign.type != 'junta_general_ordinaria')
-                      _InfoBadge(
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: statusColor.withAlpha(12),
+                    borderRadius: BorderRadius.circular(10),
+                    border:
+                        Border.all(color: statusColor.withAlpha(40)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(statusIcon,
+                          size: 18, color: statusColor),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _palmasStatusText(),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      if (hasRegistration && campaign.requiresPayment)
+                        _InfoBadge(
                         text:
                             'Pago: ${_paymentStatusLabel(registration!.paymentStatus)}',
                         color: _paymentStatusColor(registration!),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    if (campaign.endDate != null && campaign.isOpen)
+                      _SmallIconText(
+                        icon: Icons.timer_outlined,
+                        text: _deadlineLabel(campaign.endDate!),
+                        urgent: campaign.endDate!
+                                .difference(DateTime.now())
+                                .inDays <=
+                            3,
+                      ),
+                    if (campaign.eventDate != null)
+                      _SmallIconText(
+                        icon: Icons.calendar_today,
+                        text:
+                            '${campaign.eventDate!.day}/${campaign.eventDate!.month}/${campaign.eventDate!.year}',
+                      ),
+                    if (campaign.location.isNotEmpty)
+                      _SmallIconText(
+                        icon: Icons.place_outlined,
+                        text: campaign.location,
+                      ),
+                    if (participantCount > 1)
+                      _SmallIconText(
+                        icon: Icons.group,
+                        text:
+                            '${participantCount - 1} persona${participantCount > 2 ? 's' : ''} a\u00f1adida${participantCount > 2 ? 's' : ''}',
+                      ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context
+                          .go(EventsService.routeForCampaign(campaign));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      backgroundColor:
+                          campaign.isOpen && !hasRegistration
+                              ? AppTheme.primaryColor
+                              : null,
+                    ),
+                    child: Text(_palmasCta()),
+                  ),
                 ),
               ],
             ),
@@ -1754,9 +2735,15 @@ String _registrationStatusLabel(String status) {
     case 'rechazada':
     case 'rejected':
       return 'Rechazada';
+    case 'entregada':
+    case 'delivered':
+      return 'Entregada';
     case 'en_espera':
     case 'waitlisted':
       return 'En espera';
+    case 'pending':
+    case 'pendiente':
+      return 'Pendiente';
     default:
       return status;
   }
@@ -1800,6 +2787,33 @@ Color _paymentStatusColor(EventRegistration reg) {
   }
 }
 
+Color _palmasStatusColor(String status) {
+  switch (status) {
+    case 'confirmada':
+    case 'confirmed':
+      return AppTheme.accentColor;
+    case 'rechazada':
+    case 'rejected':
+      return Colors.red.shade700;
+    case 'entregada':
+    case 'delivered':
+      return Colors.blue.shade700;
+    case 'cancelada':
+    case 'cancelled':
+      return AppTheme.textSecondary;
+    default:
+      return Colors.orange.shade700;
+  }
+}
+
+String _deadlineLabel(DateTime deadline) {
+  final remaining = deadline.difference(DateTime.now()).inDays;
+  if (remaining < 0) return 'Plazo cerrado';
+  if (remaining == 0) return 'Último día';
+  if (remaining == 1) return 'Queda 1 día';
+  return 'Quedan $remaining días';
+}
+
 class _RegistrationStatusCard extends StatelessWidget {
   final EventRegistration reg;
   final String noun;
@@ -1808,26 +2822,74 @@ class _RegistrationStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final companionCount =
+        reg.participants.length > 1 ? reg.participants.length - 1 : 0;
     return Card(
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: AppTheme.accentColor,
-          child: Icon(Icons.check, color: Colors.white),
-        ),
-        title: Text('${_capitalize(noun)}: ${reg.status}'),
-        subtitle: Text(
-          [
-            if (reg.addedByName.isNotEmpty && reg.addedById != reg.cofradeId)
-              'Añadido por ${reg.addedByName}',
-            'Pago ${_paymentLabel(reg.paymentStatus)}',
-            if (reg.paymentStatus == 'partial')
-              'Pagado ${reg.paidAmount.toStringAsFixed(2)} €',
-            ..._registrationDetails(reg),
-            if (reg.heightCm != null) 'Altura ${reg.heightCm} cm',
-            if (reg.turnName.isNotEmpty) 'Turno ${reg.turnName}',
-            if (reg.role.isNotEmpty) reg.role,
-            if (reg.position != null) 'Posición ${reg.position}',
-          ].join(' · '),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: AppTheme.accentColor,
+                  child: Icon(Icons.check, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${_capitalize(noun)}: ${_registrationStatusLabel(reg.status)}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                _SmallIconText(
+                  icon: Icons.payments_outlined,
+                  text: 'Pago: ${_paymentLabel(reg.paymentStatus)}'
+                      '${reg.paymentStatus == 'partial' ? ' (${reg.paidAmount.toStringAsFixed(2)} €)' : ''}'
+                      '${reg.totalAmount > 0 ? ' · Total: ${reg.totalAmount.toStringAsFixed(2)} €' : ''}',
+                ),
+                if (companionCount > 0)
+                  _SmallIconText(
+                    icon: Icons.group,
+                    text: '$companionCount acompañante${companionCount > 1 ? 's' : ''}',
+                  ),
+                if (reg.addedByName.isNotEmpty &&
+                    reg.addedById != reg.cofradeId)
+                  _SmallIconText(
+                    icon: Icons.person_add_alt,
+                    text: 'Añadido por ${reg.addedByName}',
+                  ),
+                if (reg.heightCm != null)
+                  _SmallIconText(
+                    icon: Icons.height,
+                    text: '${reg.heightCm} cm',
+                  ),
+                if (reg.turnName.isNotEmpty)
+                  _SmallIconText(
+                    icon: Icons.schedule,
+                    text: 'Turno: ${reg.turnName}',
+                  ),
+              ],
+            ),
+            if (_registrationDetails(reg).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _registrationDetails(reg).join(' · '),
+                style: const TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ],
+          ],
         ),
       ),
     );

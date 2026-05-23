@@ -145,6 +145,10 @@ class ShellScaffold extends StatelessWidget {
                 label: 'Encuestas',
                 route: '/encuestas'),
             _DrawerItem(
+                icon: Icons.fitness_center,
+                label: 'Turnos de Andas',
+                route: '/turnos-andas'),
+            _DrawerItem(
                 icon: Icons.lightbulb_outline,
                 label: 'Mensajería',
                 route: '/sugerencias'),

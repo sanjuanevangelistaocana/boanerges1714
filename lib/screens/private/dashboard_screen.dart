@@ -12,15 +12,19 @@ import 'package:boanerges1714/models/cofrade_field_config.dart';
 import 'package:boanerges1714/models/cuota.dart';
 import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/models/evento.dart';
-import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/models/sugerencia.dart';
 import 'package:boanerges1714/models/loteria.dart';
 import 'package:boanerges1714/models/treasury.dart';
 import 'package:boanerges1714/models/cofradia_event.dart';
 import 'package:boanerges1714/services/events_service.dart';
+import 'package:boanerges1714/services/encuesta_service.dart';
+import 'package:boanerges1714/services/noticias_service.dart';
+import 'package:boanerges1714/models/encuesta.dart';
 import 'package:boanerges1714/services/treasury/treasury_bank_validation_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_invoice_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_repository.dart';
+import 'package:boanerges1714/models/turno_andas.dart';
+import 'package:boanerges1714/services/turnos_andas_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -44,7 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!_popupShown && cofrade != null) {
       _popupShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkUnansweredConvocatorias(context, firestoreService, cofrade.id);
+        _checkPendingEncuestas(context, cofrade);
       });
     }
     if (!_treasuryPopupShown && authService.userId != null) {
@@ -120,6 +124,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       firestoreService: firestoreService,
                       cofradeId: cofrade.id,
                     ),
+                  if (cofrade != null)
+                    _DashboardEncuestaResultsBanner(cofrade: cofrade),
+                  if (cofrade != null)
+                    _TurnosAndasCard(cofradeId: cofrade.id),
+                  if (cofrade != null)
+                    _UrgentNewsBanners(cofrade: cofrade),
                   _NovedadesSection(
                       firestoreService: firestoreService,
                       cofradeId: cofrade?.id),
@@ -134,10 +144,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 28),
                   _CofradiaStatsSection(firestoreService: firestoreService),
                   const SizedBox(height: 28),
-                  _ActiveConvocatoriasSection(
-                      firestoreService: firestoreService),
+                  if (cofrade != null)
+                    _ActiveEncuestasSection(cofrade: cofrade),
                   const SizedBox(height: 28),
-                  _PrivateNewsSection(firestoreService: firestoreService),
+                  _PrivateNewsSectionV2(cofrade: cofrade),
                   const SizedBox(height: 28),
                   if (cofrade != null)
                     _CuotasResumenSection(
@@ -200,11 +210,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if ((noticia.imagenUrl ?? '').isNotEmpty) ...[
+              if ((noticia.coverImageUrl ?? '').isNotEmpty) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.network(
-                    noticia.imagenUrl!,
+                    noticia.coverImageUrl!,
                     height: 170,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -212,11 +222,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
-              Text(noticia.titulo,
+              Text(noticia.title,
                   style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text(
-                noticia.contenido,
+                noticia.shortDescription.isNotEmpty
+                    ? noticia.shortDescription
+                    : noticia.content,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: AppTheme.textSecondary),
@@ -236,7 +248,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: () async {
               await firestoreService.markNewsRead(cofradeId, noticia.id);
               if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) context.go('/news');
+              if (context.mounted) {
+                final route = noticia.slug.isNotEmpty
+                    ? '/noticias/${noticia.slug}'
+                    : '/noticias';
+                context.go(route);
+              }
             },
             icon: const Icon(Icons.article_outlined),
             label: const Text('Ver noticia'),
@@ -246,45 +263,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _checkUnansweredConvocatorias(BuildContext context,
-      FirestoreService firestoreService, String cofradeId) async {
+  Future<void> _checkPendingEncuestas(
+      BuildContext context, Cofrade cofrade) async {
     try {
-      final activasSnapshot =
-          await firestoreService.getConvocatoriasActivas().first;
-      final unanswered = <Convocatoria>[];
-      for (final c in activasSnapshot) {
-        if (!c.isVigente) continue;
-        final resp = await firestoreService.getMiRespuesta(c.id, cofradeId);
-        if (resp == null) unanswered.add(c);
-      }
-      if (!context.mounted) return;
-      if (unanswered.isNotEmpty) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Row(
+      final encuestaService = context.read<EncuestaService>();
+      final unanswered = await encuestaService.getPendingEncuestas(cofrade);
+      if (!context.mounted || unanswered.isEmpty) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.how_to_vote, color: Colors.orange.shade700),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Encuestas pendientes')),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.how_to_vote, color: Colors.orange.shade700),
-                const SizedBox(width: 8),
-                const Expanded(child: Text('Encuestas pendientes')),
-              ],
-            ),
-            content: SizedBox(
-              width: 400,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Tienes ${unanswered.length} encuesta${unanswered.length > 1 ? 's' : ''} sin responder:',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 12),
-                  ...unanswered.map((c) {
-                    final dias =
-                        c.fechaLimite.difference(DateTime.now()).inDays;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                Text(
+                  'Tienes ${unanswered.length} encuesta${unanswered.length > 1 ? 's' : ''} sin responder:',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 12),
+                ...unanswered.map((enc) {
+                  final dias = enc.fechaLimite != null
+                      ? enc.fechaLimite!.difference(DateTime.now()).inDays
+                      : 999;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        context.go('/encuestas?surveyId=${enc.id}');
+                      },
                       child: Row(
                         children: [
                           Container(
@@ -301,14 +318,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(c.titulo,
+                                Text(enc.titulo,
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14)),
                                 Text(
                                   dias <= 0
                                       ? '\u00a1\u00daltimo d\u00eda!'
-                                      : 'Quedan $dias d\u00edas',
+                                      : dias > 900
+                                          ? 'Sin fecha l\u00edmite'
+                                          : 'Quedan $dias d\u00edas',
                                   style: TextStyle(
                                       fontSize: 12,
                                       color: dias <= 1
@@ -318,29 +337,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ],
                             ),
                           ),
+                          Icon(Icons.arrow_forward_ios,
+                              size: 14, color: AppTheme.textSecondary),
                         ],
                       ),
-                    );
-                  }),
-                ],
-              ),
+                    ),
+                  );
+                }),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('M\u00e1s tarde'),
-              ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('M\u00e1s tarde'),
+            ),
+            if (unanswered.length == 1)
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  context.go('/encuestas');
+                  context.go('/encuestas?surveyId=${unanswered.first.id}');
                 },
                 child: const Text('Responder ahora'),
               ),
-            ],
-          ),
-        );
-      }
+          ],
+        ),
+      );
     } catch (_) {}
   }
 
@@ -1452,11 +1474,15 @@ class _NovedadesSection extends StatefulWidget {
 class _NovedadesSectionState extends State<_NovedadesSection> {
   Set<String> _leidas = {};
   bool _leidasLoaded = false;
+  Set<String> _respondedSurveyIds = {};
+  Set<String> _respondedEventCampaignIds = {};
 
   @override
   void initState() {
     super.initState();
     _loadLeidas();
+    _loadRespondedSurveys();
+    _loadRespondedEventCampaigns();
   }
 
   @override
@@ -1465,7 +1491,47 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
     if (oldWidget.cofradeId != widget.cofradeId) {
       _leidas = {};
       _leidasLoaded = false;
+      _respondedSurveyIds = {};
+      _respondedEventCampaignIds = {};
       _loadLeidas();
+      _loadRespondedSurveys();
+      _loadRespondedEventCampaigns();
+    }
+  }
+
+  Future<void> _loadRespondedSurveys() async {
+    if (widget.cofradeId == null) return;
+    try {
+      final service = context.read<EncuestaService>();
+      final activas = await service.getEncuestasActivas().first;
+      final responded = <String>{};
+      for (final enc in activas) {
+        if (enc.estado != EncuestaEstado.activa) continue;
+        final resp = await service.getMiRespuesta(enc.id, widget.cofradeId!);
+        if (resp != null) responded.add(enc.id);
+      }
+      if (mounted) setState(() => _respondedSurveyIds = responded);
+    } catch (e) {
+      debugPrint('Error loading responded surveys: $e');
+    }
+  }
+
+  Future<void> _loadRespondedEventCampaigns() async {
+    if (widget.cofradeId == null) return;
+    try {
+      final eventsService = context.read<EventsService>();
+      final registrations = await eventsService
+          .watchMyRegistrations(widget.cofradeId!)
+          .first;
+      final responded = <String>{};
+      for (final reg in registrations) {
+        responded.add(reg.campaignId);
+      }
+      if (mounted) {
+        setState(() => _respondedEventCampaignIds = responded);
+      }
+    } catch (e) {
+      debugPrint('Error loading responded event campaigns: $e');
     }
   }
 
@@ -1570,8 +1636,8 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
         return StreamBuilder<List<Evento>>(
           stream: widget.firestoreService.getProximosEventos(),
           builder: (context, eventSnap) {
-            return StreamBuilder<List<Convocatoria>>(
-              stream: widget.firestoreService.getConvocatoriasActivas(),
+            return StreamBuilder<List<Encuesta>>(
+              stream: context.read<EncuestaService>().getEncuestasActivas(),
               builder: (context, convoSnap) {
                 return StreamBuilder<List<Noticia>>(
                   stream: widget.firestoreService
@@ -1583,6 +1649,11 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                               .getSugerenciasRespondidas(widget.cofradeId!)
                           : const Stream.empty(),
                       builder: (context, sugSnap) {
+                        return StreamBuilder<List<EventCampaign>>(
+                          stream: context
+                              .read<EventsService>()
+                              .watchCampaigns(),
+                          builder: (context, campaignSnap) {
                         final now = DateTime.now();
                         final sevenDaysAgo =
                             now.subtract(const Duration(days: 7));
@@ -1600,6 +1671,15 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                           }
                           final tipo = nov['tipo'] as String? ?? '';
                           final ruta = nov['ruta'] as String? ?? '/dashboard';
+                          // Skip event novedades the cofrade already responded to
+                          if (tipo == 'evento') {
+                            final campaignIdMatch = RegExp(r'campaignId=([^&]+)').firstMatch(ruta);
+                            if (campaignIdMatch != null &&
+                                _respondedEventCampaignIds.contains(
+                                    Uri.decodeComponent(campaignIdMatch.group(1)!))) {
+                              continue;
+                            }
+                          }
                           items.add(_NovedadItem(
                             id: 'nov_${nov['id']}',
                             icon: _iconForNovedadTipo(tipo),
@@ -1627,18 +1707,24 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                             ));
                           }
                         }
-                        for (final c in (convoSnap.data ?? <Convocatoria>[])) {
-                          if (c.isVigente) {
-                            final dias = c.fechaLimite.difference(now).inDays;
+                        for (final enc in (convoSnap.data ?? <Encuesta>[])) {
+                          if (enc.estado == EncuestaEstado.activa &&
+                              !enc.isDeleted &&
+                              !_respondedSurveyIds.contains(enc.id)) {
+                            final dias = enc.fechaLimite != null
+                                ? enc.fechaLimite!.difference(now).inDays
+                                : 999;
                             items.add(_NovedadItem(
-                              id: 'convo_${c.id}',
+                              id: 'convo_${enc.id}',
                               icon: Icons.how_to_vote,
                               color: Colors.orange.shade700,
-                              title: c.titulo,
+                              title: enc.titulo,
                               subtitle: dias <= 0
                                   ? '\u00a1\u00daltimo d\u00eda para responder!'
-                                  : 'Quedan $dias d\u00edas para responder',
-                              route: '/encuestas',
+                                  : dias > 900
+                                      ? 'Encuesta activa'
+                                      : 'Quedan $dias d\u00edas para responder',
+                              route: '/encuestas?surveyId=${enc.id}',
                             ));
                           }
                         }
@@ -1665,6 +1751,38 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                                 'Tu ${s.tipo} ha sido respondida por la Junta',
                             route: '/sugerencias',
                             isPriority: true,
+                          ));
+                        }
+
+                        // Event campaigns requiring action
+                        for (final campaign
+                            in (campaignSnap.data ?? <EventCampaign>[])) {
+                          if (!campaign.isOpen) continue;
+                          if (_respondedEventCampaignIds
+                              .contains(campaign.id)) {
+                            continue;
+                          }
+                          final definition =
+                              EventsService.definitionFor(campaign.type);
+                          final deadlineDays = campaign.endDate != null
+                              ? campaign.endDate!
+                                  .difference(now)
+                                  .inDays
+                              : 999;
+                          if (deadlineDays < 0) continue;
+                          items.add(_NovedadItem(
+                            id: 'campaign_${campaign.id}',
+                            icon: Icons.event,
+                            color: deadlineDays <= 3
+                                ? Colors.red.shade700
+                                : AppTheme.accentColor,
+                            title: campaign.name,
+                            subtitle: deadlineDays <= 0
+                                ? '\u00a1\u00daltimo d\u00eda! ${definition.shortTitle}'
+                                : deadlineDays <= 3
+                                    ? 'Quedan $deadlineDays d\u00edas \u00b7 ${definition.shortTitle}'
+                                    : '${definition.shortTitle} \u00b7 Requiere tu respuesta',
+                            route: EventsService.routeForCampaign(campaign),
                           ));
                         }
 
@@ -1877,6 +1995,8 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                               ],
                             ],
                           ),
+                        );
+                          },
                         );
                       },
                     );
@@ -3030,12 +3150,13 @@ class _Dot extends StatelessWidget {
   }
 }
 
-class _ActiveConvocatoriasSection extends StatelessWidget {
-  final FirestoreService firestoreService;
-  const _ActiveConvocatoriasSection({required this.firestoreService});
+class _ActiveEncuestasSection extends StatelessWidget {
+  final Cofrade cofrade;
+  const _ActiveEncuestasSection({required this.cofrade});
 
   @override
   Widget build(BuildContext context) {
+    final service = context.read<EncuestaService>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3058,14 +3179,14 @@ class _ActiveConvocatoriasSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        StreamBuilder<List<Convocatoria>>(
-          stream: firestoreService.getConvocatoriasActivas(),
+        StreamBuilder<List<Encuesta>>(
+          stream: service.getEncuestasParaCofrade(cofrade),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            final convocatorias = snapshot.data ?? [];
-            if (convocatorias.isEmpty) {
+            final encuestas = snapshot.data ?? [];
+            if (encuestas.isEmpty) {
               return Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -3077,9 +3198,11 @@ class _ActiveConvocatoriasSection extends StatelessWidget {
               );
             }
             return Column(
-              children: convocatorias.take(3).map((c) {
+              children: encuestas.take(3).map((enc) {
                 final fmt = DateFormat('dd/MM/yyyy');
-                final dias = c.fechaLimite.difference(DateTime.now()).inDays;
+                final dias = enc.fechaLimite != null
+                    ? enc.fechaLimite!.difference(DateTime.now()).inDays
+                    : 999;
                 return Card(
                   elevation: 0,
                   margin: const EdgeInsets.only(bottom: 8),
@@ -3093,17 +3216,19 @@ class _ActiveConvocatoriasSection extends StatelessWidget {
                           color: Colors.orange.withAlpha(20),
                           borderRadius: BorderRadius.circular(8)),
                       child: Icon(
-                          c.tipo == 'procesion'
+                          enc.tipo == 'procesion'
                               ? Icons.church
-                              : c.tipo == 'evento'
+                              : enc.tipo == 'evento'
                                   ? Icons.event
                                   : Icons.how_to_vote,
                           color: Colors.orange.shade700),
                     ),
-                    title: Text(c.titulo,
+                    title: Text(enc.titulo,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
-                      'L\u00edmite: ${fmt.format(c.fechaLimite)} \u00b7 ${c.totalRespuestas} resp.${dias <= 3 ? " \u00b7 \u00a1$dias d\u00edas!" : ""}',
+                      enc.fechaLimite != null
+                          ? 'L\u00edmite: ${fmt.format(enc.fechaLimite!)} \u00b7 ${enc.totalRespuestas} resp.${dias <= 3 ? " \u00b7 \u00a1$dias d\u00edas!" : ""}'
+                          : '${enc.totalRespuestas} respuestas',
                       style: TextStyle(
                           fontSize: 13,
                           color: dias <= 3
@@ -3112,7 +3237,8 @@ class _ActiveConvocatoriasSection extends StatelessWidget {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 16, color: AppTheme.textSecondary),
-                    onTap: () => context.go('/encuestas'),
+                    onTap: () =>
+                        context.go('/encuestas?surveyId=${enc.id}'),
                   ),
                 );
               }).toList(),
@@ -3124,12 +3250,286 @@ class _ActiveConvocatoriasSection extends StatelessWidget {
   }
 }
 
-class _PrivateNewsSection extends StatelessWidget {
-  final FirestoreService firestoreService;
-  const _PrivateNewsSection({required this.firestoreService});
+// =============================================================================
+// DASHBOARD ENCUESTA RESULTS BANNER (real-time)
+// =============================================================================
+
+class _DashboardEncuestaResultsBanner extends StatelessWidget {
+  final Cofrade cofrade;
+  const _DashboardEncuestaResultsBanner({required this.cofrade});
 
   @override
   Widget build(BuildContext context) {
+    final service = context.read<EncuestaService>();
+    return StreamBuilder<List<Encuesta>>(
+      stream: service.getEncuestasConResultadosVisibles(cofrade),
+      builder: (context, snapshot) {
+        final encuestas = snapshot.data ?? [];
+        if (encuestas.isEmpty) return const SizedBox.shrink();
+        // Show up to 3 with results
+        return Column(
+          children: [
+            ...encuestas.take(3).map((enc) =>
+                _DashboardResultCard(encuesta: enc, cofrade: cofrade)),
+            if (encuestas.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.go('/encuestas'),
+                    child: const Text('Ver todas las encuestas'),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DashboardResultCard extends StatelessWidget {
+  final Encuesta encuesta;
+  final Cofrade cofrade;
+  const _DashboardResultCard(
+      {required this.encuesta, required this.cofrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<EncuestaService>();
+    return StreamBuilder<Map<String, int>>(
+      stream: service.getResultCountsStream(encuesta.id),
+      builder: (context, countsSnap) {
+        final counts = countsSnap.data ?? {};
+        final total = counts.values.fold<int>(0, (a, b) => a + b);
+        if (total == 0) return const SizedBox.shrink();
+
+        String winnerLabel = '';
+        int winnerCount = 0;
+        if (encuesta.tipoRespuesta == EncuestaTipoRespuesta.reaccion) {
+          for (final emoji in encuesta.reactionEmojis) {
+            final cnt = counts[emoji] ?? 0;
+            if (cnt > winnerCount) {
+              winnerCount = cnt;
+              winnerLabel = emoji;
+            }
+          }
+        } else {
+          for (final opt in encuesta.opciones) {
+            final cnt = counts[opt.id] ?? 0;
+            if (cnt > winnerCount) {
+              winnerCount = cnt;
+              winnerLabel = opt.text;
+            }
+          }
+        }
+        final winnerPct =
+            total > 0 ? (winnerCount / total * 100).toStringAsFixed(0) : '0';
+
+        return Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: AppTheme.primaryColor.withAlpha(80)),
+          ),
+          color: AppTheme.primaryColor.withAlpha(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () =>
+                context.go('/encuestas?surveyId=${encuesta.id}'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withAlpha(20),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.bar_chart_rounded,
+                        color: AppTheme.primaryColor, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Resultados en directo',
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          encuesta.titulo,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$winnerLabel lidera con $winnerPct% \u00b7 $total respuestas',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios,
+                      size: 14, color: AppTheme.textSecondary),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---- Urgent News Banners (top of private zone) ----
+class _UrgentNewsBanners extends StatelessWidget {
+  final Cofrade cofrade;
+  const _UrgentNewsBanners({required this.cofrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<NoticiasService>();
+
+    return StreamBuilder<List<Noticia>>(
+      stream: service.getUrgentBanners(cofrade),
+      builder: (context, snapshot) {
+        final urgent = (snapshot.data ?? [])
+            .where((n) => !service.isBannerDismissed(n.id))
+            .toList();
+        if (urgent.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          children: urgent.map((n) => _UrgentBannerCard(
+            noticia: n,
+            onDismiss: () {
+              service.dismissBanner(n.id);
+              (context as Element).markNeedsBuild();
+            },
+          )).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _UrgentBannerCard extends StatelessWidget {
+  final Noticia noticia;
+  final VoidCallback onDismiss;
+  const _UrgentBannerCard({required this.noticia, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: Colors.red.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.red.shade200),
+      ),
+      child: InkWell(
+        onTap: () {
+          final route = noticia.slug.isNotEmpty
+              ? '/noticias/${noticia.slug}'
+              : '/noticias/detalle?id=${noticia.id}';
+          context.go(route);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.warning_amber, color: Colors.red),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: const Text('URGENTE',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(noticia.category,
+                            style: TextStyle(
+                                fontSize: 11, color: Colors.red.shade400)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(noticia.title,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                    if (noticia.shortDescription.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(noticia.shortDescription,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.red.shade700)),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onDismiss,
+                icon: Icon(Icons.close, size: 18, color: Colors.red.shade300),
+                tooltip: 'Cerrar',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---- Private News Section V2 (tag-aware, using NoticiasService) ----
+class _PrivateNewsSectionV2 extends StatelessWidget {
+  final Cofrade? cofrade;
+  const _PrivateNewsSectionV2({required this.cofrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<NoticiasService>();
+    final stream = cofrade != null
+        ? service.getNoticiasParaCofrade(cofrade!)
+        : service.getNoticiasActivas();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3148,12 +3548,18 @@ class _PrivateNewsSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         StreamBuilder<List<Noticia>>(
-          stream: firestoreService.getNoticiasCofrades(),
+          stream: stream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            final noticias = snapshot.data ?? [];
+            // Filter to private/segmented only
+            final noticias = (snapshot.data ?? [])
+                .where((n) =>
+                    n.visibility == NoticiaVisibility.privada ||
+                    n.visibility == NoticiaVisibility.segmentada)
+                .take(5)
+                .toList();
             if (noticias.isEmpty) {
               return Card(
                 elevation: 0,
@@ -3175,17 +3581,22 @@ class _PrivateNewsSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       side: BorderSide(color: Colors.grey.shade200)),
                   child: InkWell(
-                    onTap: () => context.go('/news'),
+                    onTap: () {
+                      final route = n.slug.isNotEmpty
+                          ? '/noticias/${n.slug}'
+                          : '/noticias/detalle?id=${n.id}';
+                      context.go(route);
+                    },
                     borderRadius: BorderRadius.circular(10),
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          if ((n.imagenUrl ?? '').isNotEmpty)
+                          if ((n.coverImageUrl ?? '').isNotEmpty)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(
-                                n.imagenUrl!,
+                                n.coverImageUrl!,
                                 width: 58,
                                 height: 58,
                                 fit: BoxFit.cover,
@@ -3195,7 +3606,7 @@ class _PrivateNewsSection extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withAlpha(15),
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
                                   borderRadius: BorderRadius.circular(8)),
                               child: const Icon(Icons.article,
                                   color: AppTheme.primaryColor),
@@ -3205,14 +3616,49 @@ class _PrivateNewsSection extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(n.titulo,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(n.title,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600)),
+                                    ),
+                                    if (n.requireReadConfirmation)
+                                      Icon(Icons.mark_email_unread,
+                                          size: 16,
+                                          color: Colors.orange.shade600),
+                                  ],
+                                ),
                                 const SizedBox(height: 3),
-                                Text(fmt.format(n.fecha),
-                                    style: const TextStyle(fontSize: 13)),
-                                if (n.adjuntos.isNotEmpty)
-                                  Text('${n.adjuntos.length} adjunto(s)',
+                                Row(
+                                  children: [
+                                    Text(fmt.format(n.createdAt),
+                                        style: const TextStyle(fontSize: 13)),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryColor
+                                            .withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                      child: Text(n.category,
+                                          style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppTheme.primaryColor)),
+                                    ),
+                                    if (n.visibility ==
+                                        NoticiaVisibility.segmentada) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(Icons.people,
+                                          size: 14,
+                                          color: Colors.grey.shade500),
+                                    ],
+                                  ],
+                                ),
+                                if (n.attachments.isNotEmpty)
+                                  Text('${n.attachments.length} adjunto(s)',
                                       style: const TextStyle(
                                           fontSize: 12,
                                           color: AppTheme.textSecondary)),
@@ -3446,5 +3892,211 @@ class _CofradeSelectorCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  Turnos de Andas card for Mi Zona dashboard
+// ---------------------------------------------------------------------------
+
+class _TurnosAndasCard extends StatelessWidget {
+  final String cofradeId;
+  const _TurnosAndasCard({required this.cofradeId});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<TurnosAndasService>();
+    return StreamBuilder<TurnoAndasEvento?>(
+      stream: service.watchEventoActivo(),
+      builder: (context, eventoSnap) {
+        final evento = eventoSnap.data;
+        if (evento == null) return const SizedBox.shrink();
+        return StreamBuilder<InscripcionTurno?>(
+          stream: service.watchMiInscripcion(evento.id, cofradeId),
+          builder: (context, inscSnap) {
+            final inscripcion = inscSnap.data;
+            final estadoLabel = inscripcion == null
+                ? 'No inscrito'
+                : _inscEstadoLabel(inscripcion.estado);
+            final estadoColor = inscripcion == null
+                ? AppTheme.textSecondary
+                : _inscEstadoColor(inscripcion.estado);
+            final ctaLabel = inscripcion == null && evento.acceptsInscriptions
+                ? 'QUIERO PORTAR'
+                : inscripcion == null
+                    ? 'Ver detalles'
+                    : 'Ver mi solicitud';
+            final hasAsignacion = inscripcion?.asignacion != null &&
+                (evento.isPublished || evento.mostrarAndaVisualACofrades);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: AppTheme.primaryColor.withAlpha(40)),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => GoRouter.of(context).go('/turnos-andas'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withAlpha(15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.fitness_center,
+                                  color: AppTheme.primaryColor, size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(evento.titulo,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15)),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: estadoColor.withAlpha(20),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                              color: estadoColor.withAlpha(80)),
+                                        ),
+                                        child: Text(estadoLabel,
+                                            style: TextStyle(
+                                                color: estadoColor,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 10)),
+                                      ),
+                                      if (evento.fechaProcesion != null) ...[
+                                        const SizedBox(width: 8),
+                                        Icon(Icons.calendar_today,
+                                            size: 12,
+                                            color: AppTheme.textSecondary),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          '${evento.fechaProcesion!.day}/${evento.fechaProcesion!.month}/${evento.fechaProcesion!.year}',
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textSecondary),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: inscripcion == null &&
+                                        evento.acceptsInscriptions
+                                    ? AppTheme.accentColor
+                                    : AppTheme.primaryColor.withAlpha(15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                ctaLabel,
+                                style: TextStyle(
+                                  color: inscripcion == null &&
+                                          evento.acceptsInscriptions
+                                      ? Colors.white
+                                      : AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (hasAsignacion) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Icon(
+                                inscripcion!.asignacion!.turno == 1
+                                    ? Icons.looks_one
+                                    : Icons.looks_two,
+                                size: 16,
+                                color: AppTheme.primaryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Turno ${inscripcion.asignacion!.turno} · Posición ${inscripcion.asignacion!.posicion}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                              const Spacer(),
+                              InkWell(
+                                onTap: () => GoRouter.of(context).go('/turnos-andas'),
+                                child: Text('Ver anda',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.accentColor,
+                                        fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _inscEstadoLabel(String estado) {
+    switch (estado) {
+      case 'solicitado':
+        return 'Solicitud enviada';
+      case 'asignado':
+        return 'Asignado';
+      case 'reserva':
+        return 'Reserva';
+      case 'sustituto':
+        return 'Sustitución';
+      case 'descartado':
+        return 'Descartado';
+      default:
+        return estado;
+    }
+  }
+
+  Color _inscEstadoColor(String estado) {
+    switch (estado) {
+      case 'solicitado':
+        return Colors.orange.shade700;
+      case 'asignado':
+        return AppTheme.accentColor;
+      case 'reserva':
+      case 'sustituto':
+        return Colors.blue.shade700;
+      case 'descartado':
+        return AppTheme.textSecondary;
+      default:
+        return AppTheme.textSecondary;
+    }
   }
 }
