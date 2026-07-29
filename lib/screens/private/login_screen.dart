@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/widgets/app_logo.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -39,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.church, size: 64, color: AppTheme.primaryColor),
+                const AppLogo(size: 64),
                 const SizedBox(height: 16),
                 Text(
                   'Cofradía de\nSan Juan Evangelista',

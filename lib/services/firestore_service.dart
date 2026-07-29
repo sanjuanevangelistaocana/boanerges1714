@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/evento.dart';
@@ -16,9 +17,11 @@ import 'package:boanerges1714/models/revista.dart';
 import 'package:boanerges1714/models/loteria.dart';
 import 'package:boanerges1714/models/tag_config.dart';
 import 'package:boanerges1714/models/cofrade_field_config.dart';
+import 'package:boanerges1714/utils/madrid_date.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final Map<String, Map<String, dynamic>?> _evangelioCache = {};
 
   // --- Cofrades ---
   Stream<List<Cofrade>> getCofrades() {
@@ -2613,14 +2616,102 @@ class FirestoreService {
 
   // --- Evangelio del Día ---
   Stream<Map<String, dynamic>?> getEvangelioDelDia() {
-    final hoy = DateTime.now();
-    final fechaStr =
-        '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
+    final fechaStr = MadridDate.key();
     return _db
         .collection('evangelio_dia')
         .doc(fechaStr)
         .snapshots()
-        .map((doc) => doc.exists ? doc.data() : null);
+        .asyncMap((doc) async {
+      final stored = doc.exists ? doc.data() : null;
+      if (_isUsableEvangelio(stored)) {
+        _evangelioCache[fechaStr] = stored;
+        return stored;
+      }
+      if (_evangelioCache.containsKey(fechaStr)) {
+        return _evangelioCache[fechaStr];
+      }
+      final fetched = await refreshEvangelioDelDia();
+      if (fetched != null) _evangelioCache[fechaStr] = fetched;
+      return fetched;
+    });
+  }
+
+  Future<Map<String, dynamic>?> refreshEvangelioDelDia({
+    bool persistIfAdmin = true,
+  }) async {
+    final fecha = MadridDate.key();
+    try {
+      final response = await http.get(
+        Uri.parse('https://publication.evangelizo.ws/SP/days/$fecha'),
+        headers: {'Accept': 'application/json'},
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) return null;
+      final raw = jsonDecode(response.body);
+      final data = raw is Map && raw['data'] is Map ? raw['data'] : raw;
+      final readings = data is Map ? data['readings'] : null;
+      final gospel = readings is List
+          ? readings.firstWhere(
+              (item) =>
+                  item is Map &&
+                  (item['type'] == 'gospel' ||
+                      item['reading_code'] == 'gospel'),
+              orElse: () => null,
+            )
+          : null;
+      final rawText = data is Map ? jsonEncode(data) : '';
+      final result = <String, dynamic>{
+        'fecha': fecha,
+        'titulo': gospel is Map
+            ? (gospel['title'] ?? 'Evangelio del día')
+            : 'Evangelio del día',
+        'texto': gospel is Map
+            ? (gospel['text'] ?? '')
+            : rawText.length > 2000
+                ? rawText.substring(0, 2000)
+                : rawText,
+        'referencia': gospel is Map ? (gospel['reference'] ?? '') : '',
+        'fuente': 'evangelizo.ws',
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+      };
+      _evangelioCache[fecha] = result;
+      if (persistIfAdmin) {
+        try {
+          await _db.collection('evangelio_dia').doc(fecha).set(result);
+        } catch (_) {
+          // The Firestore rule remains the final authorization check.
+        }
+      }
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveEvangelioDelDia({
+    required String titulo,
+    required String referencia,
+    required String texto,
+  }) async {
+    final fecha = MadridDate.key();
+    final data = {
+      'fecha': fecha,
+      'titulo': titulo.trim(),
+      'referencia': referencia.trim(),
+      'texto': texto.trim(),
+      'fuente': 'manual',
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    };
+    await _db.collection('evangelio_dia').doc(fecha).set(data);
+    _evangelioCache[fecha] = {...data, 'fecha_actualizacion': DateTime.now()};
+  }
+
+  bool _isUsableEvangelio(Map<String, dynamic>? data) {
+    if (data == null || data['texto'] is! String) return false;
+    if (data['fuente'] == 'manual' &&
+        (data['texto'] as String).toLowerCase().contains('no se pudo')) {
+      return false;
+    }
+    return (data['texto'] as String).trim().isNotEmpty;
   }
 
   // --- Contacto ---

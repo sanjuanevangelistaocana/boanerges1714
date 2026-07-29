@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+import 'package:boanerges1714/widgets/app_logo.dart';
 
 class ContactScreen extends StatefulWidget {
   const ContactScreen({super.key});
@@ -95,8 +96,10 @@ class _ContactScreenState extends State<ContactScreen> {
                       ),
                       _ContactCard(
                         icon: Icons.church,
+                        useLogo: true,
                         title: 'Parroquia',
-                        subtitle: 'Iglesia Parroquial de\nSanta María de la Asunción',
+                        subtitle:
+                            'Iglesia Parroquial de\nSanta María de la Asunción',
                         onTap: () {},
                       ),
                     ],
@@ -144,8 +147,9 @@ class _ContactScreenState extends State<ContactScreen> {
                             controller: _nombreController,
                             decoration:
                                 const InputDecoration(labelText: 'Nombre'),
-                            validator: (v) =>
-                                v == null || v.isEmpty ? 'Introduce tu nombre' : null,
+                            validator: (v) => v == null || v.isEmpty
+                                ? 'Introduce tu nombre'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -153,8 +157,9 @@ class _ContactScreenState extends State<ContactScreen> {
                             decoration: const InputDecoration(
                                 labelText: 'Email de contacto'),
                             keyboardType: TextInputType.emailAddress,
-                            validator: (v) =>
-                                v == null || !v.contains('@') ? 'Email no válido' : null,
+                            validator: (v) => v == null || !v.contains('@')
+                                ? 'Email no válido'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
@@ -167,7 +172,8 @@ class _ContactScreenState extends State<ContactScreen> {
                               if (v == null || v.trim().isEmpty) {
                                 return 'Introduce tu teléfono';
                               }
-                              final cleaned = v.replaceAll(RegExp(r'[\s\-]'), '');
+                              final cleaned =
+                                  v.replaceAll(RegExp(r'[\s\-]'), '');
                               if (cleaned.length < 9) {
                                 return 'Teléfono no válido (mín. 9 dígitos)';
                               }
@@ -180,8 +186,9 @@ class _ContactScreenState extends State<ContactScreen> {
                             decoration:
                                 const InputDecoration(labelText: 'Mensaje'),
                             maxLines: 5,
-                            validator: (v) =>
-                                v == null || v.isEmpty ? 'Escribe un mensaje' : null,
+                            validator: (v) => v == null || v.isEmpty
+                                ? 'Escribe un mensaje'
+                                : null,
                           ),
                           const SizedBox(height: 24),
                           SizedBox(
@@ -198,7 +205,8 @@ class _ContactScreenState extends State<ContactScreen> {
                                       ),
                                     )
                                   : const Icon(Icons.send),
-                              label: Text(_enviando ? 'Enviando...' : 'Enviar Mensaje'),
+                              label: Text(
+                                  _enviando ? 'Enviando...' : 'Enviar Mensaje'),
                             ),
                           ),
                         ],
@@ -293,12 +301,14 @@ class _ContactCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool useLogo;
 
   const _ContactCard({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.useLogo = false,
   });
 
   @override
@@ -313,7 +323,9 @@ class _ContactCard extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                Icon(icon, size: 36, color: AppTheme.primaryColor),
+                useLogo
+                    ? const AppLogo(size: 36)
+                    : Icon(icon, size: 36, color: AppTheme.primaryColor),
                 const SizedBox(height: 8),
                 Text(title,
                     style: const TextStyle(

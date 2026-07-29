@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/widgets/app_logo.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -40,7 +41,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.church, size: 64, color: AppTheme.primaryColor),
+                const AppLogo(size: 64),
                 const SizedBox(height: 16),
                 Text(
                   'Acceso de Cofrade',
@@ -136,10 +137,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               prefixIcon: Icon(Icons.lock_outlined),
                             ),
                             obscureText: true,
-                            validator: (v) =>
-                                v != _passwordController.text
-                                    ? 'Las contraseñas no coinciden'
-                                    : null,
+                            validator: (v) => v != _passwordController.text
+                                ? 'Las contraseñas no coinciden'
+                                : null,
                           ),
                           const SizedBox(height: 24),
                           SizedBox(

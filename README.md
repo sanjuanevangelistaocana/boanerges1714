@@ -92,6 +92,10 @@ inicio permanece oculto de los listados de galería, pero sus imágenes se
 guardan deliberadamente en `gallery/public` para que visitantes anónimos
 puedan verlas en la Home; no debe cambiarse ese prefijo por `admin`.
 
+El carrusel de inicio se alimenta de `watchCarouselImages()` y su orden se
+controla desde `carrusel_inicio`; si no hay fotos, la Home conserva el hero
+institucional de degradado.
+
 Las carpetas e imágenes públicas aprobadas pueden leerse sin iniciar sesión.
 El contenido privado requiere autenticación y las escrituras de carpetas e
 imágenes requieren administración. Cada cofrade puede crear y consultar sus
@@ -103,6 +107,7 @@ Rutas principales:
 - `/gallery/:folderId`: detalle paginado de una carpeta.
 - `/gallery/upload`: envío de un ZIP por un cofrade.
 - `/admin/galeria`: administración, importación y moderación.
+- `/admin/evangelio`: recarga y edición manual del Evangelio del día.
 
 Las miniaturas JPEG se generan en el cliente con calidad aproximada 80 y lado
 máximo de 600 px. Los ZIP se inspeccionan y descomprimen en el navegador del
@@ -130,6 +135,20 @@ Las consultas paginadas requieren los índices definidos en
 `orden`, y solicitudes propias por autor y fecha). El modelo ya deja espacio para tags, destacados, favoritos, búsqueda,
 filtros por evento/año/autor, enlaces públicos, vídeos, comentarios y
 reacciones.
+
+### Evangelio del día y marca
+
+La fecha civil del Evangelio se calcula siempre en `Europe/Madrid` y se usa
+como clave `evangelio_dia/{YYYY-MM-DD}` y como fecha visible. El cliente
+intenta recuperar la lectura desde Evangelizo cuando falta el documento o
+contiene un placeholder; si un administrador puede acceder a la fuente, la
+guarda para el resto de visitantes. La función programada depende de
+facturación activa y la descarga directa desde Flutter Web puede quedar
+bloqueada por CORS. `/admin/evangelio` permite recargar y editar manualmente.
+
+El logotipo definitivo debe colocarse en `assets/images/logo.png`. Después
+habrá que regenerar los iconos de `web/icons/` y los recursos `mipmap` de
+Android; esos binarios no se incluyen mientras no se reciba el logo.
 
 ## Métricas del dashboard privado
 

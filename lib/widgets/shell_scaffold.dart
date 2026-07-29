@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/widgets/app_logo.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/config/theme.dart';
 
@@ -24,7 +25,8 @@ class ShellScaffold extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.church, color: AppTheme.accentColor, size: 28),
+              const AppLogo(
+                  size: 28, compact: true, fallbackColor: AppTheme.accentColor),
               const SizedBox(width: 8),
               const Text('Cofradía San Juan Evangelista'),
             ],
@@ -91,7 +93,7 @@ class ShellScaffold extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Icon(Icons.church, color: AppTheme.accentColor, size: 40),
+                const AppLogo(size: 40, fallbackColor: AppTheme.accentColor),
                 const SizedBox(height: 8),
                 const Text(
                   'Cofradía de\nSan Juan Evangelista',

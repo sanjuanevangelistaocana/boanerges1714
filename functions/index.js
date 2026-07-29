@@ -1128,7 +1128,12 @@ exports.fetchEvangelioDelDia = functions
 
       // Check if already exists
       const existing = await db.collection("evangelio_dia").doc(fechaStr).get();
-      if (existing.exists) {
+      const existingData = existing.exists ? existing.data() : null;
+      const placeholder = existingData &&
+        existingData.fuente === "manual" &&
+        (!existingData.texto ||
+          existingData.texto.toLowerCase().includes("no se pudo"));
+      if (existing.exists && !placeholder) {
         console.log(`Evangelio for ${fechaStr} already exists.`);
         return null;
       }

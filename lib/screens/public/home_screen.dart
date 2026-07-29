@@ -7,9 +7,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/models/evento.dart';
+import 'package:boanerges1714/widgets/app_logo.dart';
+import 'package:boanerges1714/widgets/home_carousel.dart';
+import 'package:boanerges1714/utils/madrid_date.dart';
+import 'package:boanerges1714/widgets/app_surface_card.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
+  static const _contentWidth = 1120.0;
+  static const _sectionGap = 32.0;
+  static const _pagePadding = 24.0;
 
   @override
   Widget build(BuildContext context) {
@@ -20,15 +28,15 @@ class HomeScreen extends StatelessWidget {
         children: [
           _buildHeroBanner(context),
           _buildFeatureCards(context),
-          const SizedBox(height: 40),
+          const SizedBox(height: _sectionGap),
           _buildEvangelioDelDia(context, firestoreService),
-          const SizedBox(height: 40),
+          const SizedBox(height: _sectionGap),
           _buildCalendarioEventos(context, firestoreService),
-          const SizedBox(height: 40),
+          const SizedBox(height: _sectionGap),
           _buildUltimasNoticias(context, firestoreService),
-          const SizedBox(height: 40),
+          const SizedBox(height: _sectionGap),
           _buildAsistenciaSocial(context),
-          const SizedBox(height: 40),
+          const SizedBox(height: _sectionGap),
           _buildCtaSection(context),
           const SizedBox(height: 48),
         ],
@@ -37,30 +45,43 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildHeroBanner(BuildContext context) {
+    final content = _buildHeroContent(context);
+    return HomeCarousel(
+      overlay: content,
+      fallback: (context, _) => Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF3A0A14),
+              AppTheme.primaryDark,
+              AppTheme.primaryColor
+            ],
+          ),
+        ),
+        child: content,
+      ),
+    );
+  }
+
+  Widget _buildHeroContent(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 72, horizontal: 24),
-      decoration: const BoxDecoration(
+      padding:
+          const EdgeInsets.symmetric(vertical: 64, horizontal: _pagePadding),
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF3A0A14),
-            AppTheme.primaryDark,
-            AppTheme.primaryColor,
-          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.black.withAlpha(35), Colors.black.withAlpha(175)],
         ),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(25),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.church, size: 64, color: Colors.white),
-          ),
+          const AppLogo(size: 72, fallbackColor: Colors.white),
           const SizedBox(height: 20),
           Text(
             'Cofradía de San Juan Evangelista',
@@ -108,8 +129,10 @@ class HomeScreen extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  textStyle: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
               ElevatedButton.icon(
@@ -120,8 +143,10 @@ class HomeScreen extends StatelessWidget {
                   backgroundColor: Colors.white.withAlpha(30),
                   foregroundColor: Colors.white,
                   side: const BorderSide(color: Colors.white, width: 1.5),
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  textStyle: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -138,7 +163,7 @@ class HomeScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+          constraints: const BoxConstraints(maxWidth: _contentWidth),
           child: Wrap(
             spacing: 16,
             runSpacing: 16,
@@ -177,12 +202,13 @@ class HomeScreen extends StatelessWidget {
         color: Colors.white,
         border: Border(
           top: BorderSide(color: AppTheme.primaryColor.withAlpha(30), width: 1),
-          bottom: BorderSide(color: AppTheme.primaryColor.withAlpha(30), width: 1),
+          bottom:
+              BorderSide(color: AppTheme.primaryColor.withAlpha(30), width: 1),
         ),
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: const BoxConstraints(maxWidth: _contentWidth),
           child: Column(
             children: [
               Container(
@@ -191,7 +217,8 @@ class HomeScreen extends StatelessWidget {
                   color: AppTheme.primaryColor.withAlpha(15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.menu_book, size: 36, color: AppTheme.primaryColor),
+                child: const Icon(Icons.menu_book,
+                    size: 36, color: AppTheme.primaryColor),
               ),
               const SizedBox(height: 16),
               Text(
@@ -202,7 +229,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                DateFormat("EEEE d 'de' MMMM, yyyy", 'es_ES').format(DateTime.now()),
+                MadridDate.display(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppTheme.textSecondary,
                       fontStyle: FontStyle.italic,
@@ -227,11 +254,15 @@ class HomeScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            const Icon(Icons.auto_stories, size: 40, color: AppTheme.textSecondary),
+                            const Icon(Icons.auto_stories,
+                                size: 40, color: AppTheme.textSecondary),
                             const SizedBox(height: 12),
                             Text(
                               'El evangelio de hoy a\u00fan no est\u00e1 disponible.',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
                                     color: AppTheme.textSecondary,
                                   ),
                               textAlign: TextAlign.center,
@@ -239,7 +270,10 @@ class HomeScreen extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               'Se actualiza diariamente.',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
                                     color: AppTheme.textSecondary,
                                   ),
                             ),
@@ -251,7 +285,10 @@ class HomeScreen extends StatelessWidget {
                   final referencia = data['referencia'] as String? ?? '';
                   final textoRaw = data['texto'] as String? ?? '';
                   final titulo = data['titulo'] as String? ?? '';
-                  final texto = textoRaw.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+                  final texto = textoRaw
+                      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+                      .replaceAll(RegExp(r'\s+'), ' ')
+                      .trim();
                   if (texto.isEmpty && titulo.isEmpty) {
                     return Card(
                       elevation: 0,
@@ -260,11 +297,15 @@ class HomeScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            const Icon(Icons.auto_stories, size: 40, color: AppTheme.textSecondary),
+                            const Icon(Icons.auto_stories,
+                                size: 40, color: AppTheme.textSecondary),
                             const SizedBox(height: 12),
                             Text(
                               'El evangelio de hoy a\u00fan no tiene contenido.',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textSecondary),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: AppTheme.textSecondary),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -282,7 +323,10 @@ class HomeScreen extends StatelessWidget {
                           if (titulo.isNotEmpty) ...[
                             Text(
                               titulo.replaceAll(RegExp(r'<[^>]*>'), '').trim(),
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.primaryColor,
                                   ),
@@ -291,7 +335,8 @@ class HomeScreen extends StatelessWidget {
                           ],
                           if (referencia.isNotEmpty)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: AppTheme.accentColor.withAlpha(20),
                                 borderRadius: BorderRadius.circular(4),
@@ -308,10 +353,11 @@ class HomeScreen extends StatelessWidget {
                           if (referencia.isNotEmpty) const SizedBox(height: 16),
                           Text(
                             texto,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  height: 1.7,
-                                  fontStyle: FontStyle.italic,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      height: 1.7,
+                                      fontStyle: FontStyle.italic,
+                                    ),
                           ),
                         ],
                       ),
@@ -326,12 +372,13 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCalendarioEventos(BuildContext context, FirestoreService service) {
+  Widget _buildCalendarioEventos(
+      BuildContext context, FirestoreService service) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+          constraints: const BoxConstraints(maxWidth: _contentWidth),
           child: Column(
             children: [
               Row(
@@ -349,7 +396,10 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Text('Calendario de Eventos',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
                                 fontWeight: FontWeight.bold,
                               )),
                     ],
@@ -429,15 +479,18 @@ class HomeScreen extends StatelessWidget {
                                 ),
                               ),
                               title: Text(evento.titulo,
-                                  style: const TextStyle(fontWeight: FontWeight.w600)),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
                               subtitle: Text(
                                 [
                                   if (evento.hora != null) evento.hora!,
                                   if (evento.lugar != null) evento.lugar!,
                                 ].join(' \u00b7 '),
-                                style: const TextStyle(color: AppTheme.textSecondary),
+                                style: const TextStyle(
+                                    color: AppTheme.textSecondary),
                               ),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                              trailing:
+                                  const Icon(Icons.arrow_forward_ios, size: 14),
                               onTap: () => context.go('/events'),
                             ),
                           );
@@ -461,7 +514,7 @@ class HomeScreen extends StatelessWidget {
       color: Colors.white,
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+          constraints: const BoxConstraints(maxWidth: _contentWidth),
           child: Column(
             children: [
               Row(
@@ -479,7 +532,10 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 12),
                       Text('Últimas Noticias',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(
                                 fontWeight: FontWeight.bold,
                               )),
                     ],
@@ -554,7 +610,10 @@ class HomeScreen extends StatelessWidget {
                                 noticia.contenido.length > 200
                                     ? '${noticia.contenido.substring(0, 200)}...'
                                     : noticia.contenido,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
                                       color: AppTheme.textSecondary,
                                       height: 1.5,
                                     ),
@@ -565,10 +624,13 @@ class HomeScreen extends StatelessWidget {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: noticia.adjuntos.map((adj) {
-                                    final esImagen = (adj['tipo'] ?? '').startsWith('image/');
+                                    final esImagen = (adj['tipo'] ?? '')
+                                        .startsWith('image/');
                                     return ActionChip(
                                       avatar: Icon(
-                                        esImagen ? Icons.image : Icons.attach_file,
+                                        esImagen
+                                            ? Icons.image
+                                            : Icons.attach_file,
                                         size: 16,
                                         color: AppTheme.primaryColor,
                                       ),
@@ -578,7 +640,8 @@ class HomeScreen extends StatelessWidget {
                                         final url = adj['url'];
                                         if (url != null) {
                                           launchUrl(Uri.parse(url),
-                                              mode: LaunchMode.externalApplication);
+                                              mode: LaunchMode
+                                                  .externalApplication);
                                         }
                                       },
                                     );
@@ -605,7 +668,7 @@ class HomeScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
+          constraints: const BoxConstraints(maxWidth: _contentWidth),
           child: Card(
             color: AppTheme.primaryColor,
             child: Padding(
@@ -615,10 +678,11 @@ class HomeScreen extends StatelessWidget {
                   const Icon(Icons.people, size: 48, color: Colors.white),
                   const SizedBox(height: 16),
                   Text('Hazte Cofrade',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          )),
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              )),
                   const SizedBox(height: 12),
                   Text(
                     'Forma parte de nuestra hermandad. '
@@ -641,18 +705,21 @@ class HomeScreen extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: AppTheme.primaryColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 14),
                         ),
                       ),
                       ElevatedButton.icon(
                         onPressed: () => context.go('/contact'),
-                        icon: const Icon(Icons.mail_outline, color: Colors.white),
+                        icon:
+                            const Icon(Icons.mail_outline, color: Colors.white),
                         label: const Text('Enviar mensaje'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white.withAlpha(30),
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white70),
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 14),
                         ),
                       ),
                     ],
@@ -680,7 +747,8 @@ class HomeScreen extends StatelessWidget {
           children: [
             Icon(icon, size: 48, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
-            Text(message, style: const TextStyle(color: AppTheme.textSecondary)),
+            Text(message,
+                style: const TextStyle(color: AppTheme.textSecondary)),
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onTap, child: Text(buttonText)),
           ],
@@ -727,7 +795,9 @@ class HomeScreen extends StatelessWidget {
                           child: Text(d,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: d == 'D' ? AppTheme.primaryColor : AppTheme.textSecondary,
+                                color: d == 'D'
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.textSecondary,
                                 fontSize: 12,
                               )),
                         ),
@@ -741,7 +811,8 @@ class HomeScreen extends StatelessWidget {
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: List.generate(7, (dayIndex) {
-                    final dayNum = weekIndex * 7 + dayIndex + 1 - (startWeekday - 1);
+                    final dayNum =
+                        weekIndex * 7 + dayIndex + 1 - (startWeekday - 1);
                     if (dayNum < 1 || dayNum > lastDayOfMonth.day) {
                       return const SizedBox(width: 36, height: 36);
                     }
@@ -759,7 +830,8 @@ class HomeScreen extends StatelessWidget {
                                   : null,
                           shape: BoxShape.circle,
                           border: hasEvent && !isToday
-                              ? Border.all(color: AppTheme.accentColor, width: 1.5)
+                              ? Border.all(
+                                  color: AppTheme.accentColor, width: 1.5)
                               : null,
                         ),
                         child: Center(
@@ -767,7 +839,9 @@ class HomeScreen extends StatelessWidget {
                             '$dayNum',
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: isToday || hasEvent ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isToday || hasEvent
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               color: isToday
                                   ? Colors.white
                                   : hasEvent
@@ -792,12 +866,14 @@ class HomeScreen extends StatelessWidget {
                     height: 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.accentColor, width: 1.5),
+                      border:
+                          Border.all(color: AppTheme.accentColor, width: 1.5),
                     ),
                   ),
                   const SizedBox(width: 6),
                   const Text('Evento programado',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary)),
                   const SizedBox(width: 16),
                   Container(
                     width: 10,
@@ -809,7 +885,8 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   const Text('Hoy',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary)),
                 ],
               ),
             ],
@@ -824,7 +901,7 @@ class HomeScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
+          constraints: const BoxConstraints(maxWidth: _contentWidth),
           child: Column(
             children: [
               Row(
@@ -839,9 +916,10 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text('Asistencia Social',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          )),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              )),
                 ],
               ),
               const SizedBox(height: 16),
@@ -871,7 +949,10 @@ class HomeScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   'Compromiso con nuestra comunidad',
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
                                         fontWeight: FontWeight.bold,
                                       ),
                                 ),
@@ -880,7 +961,10 @@ class HomeScreen extends StatelessWidget {
                                   'La Cofrad\u00eda de San Juan Evangelista mantiene un firme compromiso '
                                   'con la asistencia social y la solidaridad. Colaboramos activamente '
                                   'con las necesidades de nuestra comunidad en Oca\u00f1a.',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
                                         color: AppTheme.textSecondary,
                                         height: 1.6,
                                       ),
@@ -908,7 +992,8 @@ class HomeScreen extends StatelessWidget {
                           _AsistenciaItem(
                             icon: Icons.diversity_3,
                             title: 'Acci\u00f3n Solidaria',
-                            subtitle: 'Campa\u00f1as ben\u00e9ficas y ayuda social',
+                            subtitle:
+                                'Campa\u00f1as ben\u00e9ficas y ayuda social',
                           ),
                         ],
                       ),
@@ -917,7 +1002,8 @@ class HomeScreen extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: () => context.go('/contact'),
                           icon: const Icon(Icons.mail_outline),
-                          label: const Text('\u00bfQuieres colaborar? Cont\u00e1ctanos'),
+                          label: const Text(
+                              '\u00bfQuieres colaborar? Cont\u00e1ctanos'),
                         ),
                       ),
                     ],
@@ -933,8 +1019,18 @@ class HomeScreen extends StatelessWidget {
 
   String _getMonthName(int month) {
     const months = [
-      'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
-      'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'
+      'ENE',
+      'FEB',
+      'MAR',
+      'ABR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AGO',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DIC'
     ];
     return months[month - 1];
   }
@@ -955,40 +1051,40 @@ class _FeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context).width;
+    final width = viewport < 600
+        ? viewport - 48
+        : viewport < 1000
+            ? (viewport - 64) / 2
+            : (viewport - 96) / 3;
     return SizedBox(
-      width: 300,
-      child: Card(
-        elevation: 4,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(20),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 36, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(height: 16),
-                Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text(subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                    textAlign: TextAlign.center),
-              ],
+      width: width.clamp(220, 360).toDouble(),
+      child: AppSurfaceCard(
+        onTap: onTap,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withAlpha(20),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 36, color: AppTheme.primaryColor),
             ),
-          ),
+            const SizedBox(height: 16),
+            Text(title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(subtitle,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                textAlign: TextAlign.center),
+          ],
         ),
       ),
     );

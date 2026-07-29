@@ -381,7 +381,7 @@ service cloud.firestore {
     // Evangelio del Día (populated by Cloud Functions)
     match /evangelio_dia/{fecha} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
     // Sugerencias / Peticiones
