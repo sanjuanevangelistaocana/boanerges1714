@@ -2492,6 +2492,7 @@ class _CofradiaStatsSection extends StatelessWidget {
                 .where((c) => c.edad != null && c.edad! > 0)
                 .map((c) => c.edad!)
                 .toList();
+            final edadSinDato = activos.length - edades.length;
             final mediaEdad = edades.isNotEmpty
                 ? (edades.reduce((a, b) => a + b) / edades.length)
                 : 0.0;
@@ -2508,17 +2509,49 @@ class _CofradiaStatsSection extends StatelessWidget {
                     c.genero?.toUpperCase() == 'F' ||
                     c.genero?.toUpperCase() == 'FEMENINO')
                 .length;
-            final aniosList = activos
-                .where((c) => c.aniosHermandad != null && c.aniosHermandad! > 0)
-                .map((c) => c.aniosHermandad!)
+            final currentYear = DateTime.now().year;
+            final aniosAlta = activos
+                .where((c) =>
+                    c.anioAlta != null &&
+                    c.anioAlta! >= 1700 &&
+                    c.anioAlta! <= currentYear)
+                .map((c) => c.anioAlta!)
                 .toList();
-            final maxAnios =
-                aniosList.isNotEmpty ? aniosList.reduce(math.max) : 0;
-            final gdprPapel = activos.where((c) => c.gdprFirmado).length;
+            final antiguedadMax = aniosAlta.isNotEmpty
+                ? currentYear - aniosAlta.reduce(math.min)
+                : (() {
+                    final fallback = activos
+                        .where((c) =>
+                            c.aniosHermandad != null &&
+                            c.aniosHermandad! > 0 &&
+                            c.aniosHermandad! <= 120)
+                        .map((c) => c.aniosHermandad!)
+                        .toList();
+                    return fallback.isNotEmpty
+                        ? fallback.reduce(math.max)
+                        : null;
+                  })();
+            final antiguedadMedia = aniosAlta.isNotEmpty
+                ? aniosAlta
+                        .map((year) => currentYear - year)
+                        .reduce((a, b) => a + b) /
+                    aniosAlta.length
+                : null;
+            final altasEsteAnio =
+                activos.where((c) => c.anioAlta == currentYear).length;
+            final gdprPapel =
+                activos.where((c) => c.gdprFirmado || c.gdprPapel).length;
             final gdprDigital =
                 activos.where((c) => c.gdprFirmadoDigital).length;
+            final gdprFirmado = activos
+                .where(
+                    (c) => c.gdprFirmado || c.gdprPapel || c.gdprFirmadoDigital)
+                .length;
+            final gdprPendientes = activos.length - gdprFirmado;
             final conTunica = activos.where((c) => c.tieneTunicaPropia).length;
             final conCuota = activos.where((c) => c.tieneCuota).length;
+            final menores30 = edades.where((edad) => edad < 30).length;
+            final menores18 = edades.where((edad) => edad < 18).length;
 
             final ageRanges = <String, int>{
               '0-9': 0,
@@ -2564,39 +2597,58 @@ class _CofradiaStatsSection extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(color: Colors.grey.shade200)),
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _MetricTile(
-                            value: '${activos.length}',
-                            label: 'Activos',
-                            icon: Icons.people,
-                            color: AppTheme.accentColor),
-                        Container(
-                            width: 1, height: 60, color: Colors.grey.shade200),
-                        _MetricTile(
-                            value: '${allCofrades.length}',
-                            label: 'Total',
-                            icon: Icons.groups,
-                            color: AppTheme.primaryColor),
-                        Container(
-                            width: 1, height: 60, color: Colors.grey.shade200),
-                        _MetricTile(
-                            value: mediaEdad > 0
-                                ? mediaEdad.toStringAsFixed(0)
-                                : '-',
-                            label: 'Media edad',
-                            icon: Icons.cake,
-                            color: Colors.brown.shade600),
-                        Container(
-                            width: 1, height: 60, color: Colors.grey.shade200),
-                        _MetricTile(
-                            value: maxAnios > 0 ? '$maxAnios' : '-',
-                            label: 'M\u00e1x. a\u00f1os',
-                            icon: Icons.emoji_events,
-                            color: Colors.amber.shade800),
-                      ],
+                    padding: const EdgeInsets.all(16),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 560 ? 4 : 2;
+                        final tileWidth =
+                            (constraints.maxWidth - (columns - 1) * 12) /
+                                columns;
+                        return Wrap(
+                          spacing: 12,
+                          runSpacing: 16,
+                          children: [
+                            SizedBox(
+                              width: tileWidth,
+                              child: _MetricTile(
+                                  value: '${activos.length}',
+                                  label: 'Activos',
+                                  icon: Icons.people,
+                                  color: AppTheme.accentColor),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: _MetricTile(
+                                  value: mediaEdad > 0
+                                      ? mediaEdad.toStringAsFixed(0)
+                                      : '-',
+                                  label: 'Media de edad',
+                                  icon: Icons.cake,
+                                  color: AppTheme.primaryColor),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: _MetricTile(
+                                  value: antiguedadMax != null
+                                      ? '$antiguedadMax'
+                                      : '-',
+                                  valueSuffix:
+                                      antiguedadMax != null ? 'años' : null,
+                                  label: 'Antigüedad máx.',
+                                  icon: Icons.emoji_events,
+                                  color: AppTheme.primaryDark),
+                            ),
+                            SizedBox(
+                              width: tileWidth,
+                              child: _MetricTile(
+                                  value: '$altasEsteAnio',
+                                  label: 'Altas $currentYear',
+                                  icon: Icons.person_add,
+                                  color: AppTheme.primaryLight),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -2614,11 +2666,17 @@ class _CofradiaStatsSection extends StatelessWidget {
                       Expanded(
                           child: _StatusCard(
                               conCuota: conCuota,
+                              gdprFirmado: gdprFirmado,
                               gdprPapel: gdprPapel,
                               gdprDigital: gdprDigital,
                               conTunica: conTunica,
                               totalActivos: activos.length,
-                              totalBajas: bajas.length)),
+                              totalBajas: bajas.length,
+                              gdprPendientes: gdprPendientes,
+                              antiguedadMedia: antiguedadMedia,
+                              menores30: menores30,
+                              menores18: menores18,
+                              edadesConocidas: edades.length)),
                     ],
                   )
                 else ...[
@@ -2629,14 +2687,23 @@ class _CofradiaStatsSection extends StatelessWidget {
                   const SizedBox(height: 16),
                   _StatusCard(
                       conCuota: conCuota,
+                      gdprFirmado: gdprFirmado,
                       gdprPapel: gdprPapel,
                       gdprDigital: gdprDigital,
                       conTunica: conTunica,
                       totalActivos: activos.length,
-                      totalBajas: bajas.length),
+                      totalBajas: bajas.length,
+                      gdprPendientes: gdprPendientes,
+                      antiguedadMedia: antiguedadMedia,
+                      menores30: menores30,
+                      menores18: menores18,
+                      edadesConocidas: edades.length),
                 ],
                 const SizedBox(height: 16),
-                _AgeDistCard(ageRanges: ageRanges),
+                _AgeDistCard(
+                    ageRanges: ageRanges,
+                    ageKnown: edades.length,
+                    ageUnknown: edadSinDato),
               ],
             );
           },
@@ -2789,11 +2856,13 @@ class _KpiChip extends StatelessWidget {
 
 class _MetricTile extends StatelessWidget {
   final String value;
+  final String? valueSuffix;
   final String label;
   final IconData icon;
   final Color color;
   const _MetricTile(
       {required this.value,
+      this.valueSuffix,
       required this.label,
       required this.icon,
       required this.color});
@@ -2810,9 +2879,22 @@ class _MetricTile extends StatelessWidget {
           child: Icon(icon, color: color, size: 22),
         ),
         const SizedBox(height: 8),
-        Text(value,
-            style: TextStyle(
-                fontSize: 26, fontWeight: FontWeight.bold, color: color)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(value,
+                style: TextStyle(
+                    fontSize: 26, fontWeight: FontWeight.bold, color: color)),
+            if (valueSuffix != null) ...[
+              const SizedBox(width: 4),
+              Text(valueSuffix!,
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+            ],
+          ],
+        ),
         Text(label,
             style:
                 const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
@@ -2865,9 +2947,15 @@ class _GenderCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _Dot(color: AppTheme.primaryColor, label: 'Hombres ($hombres)'),
+                _Dot(
+                    color: AppTheme.primaryColor,
+                    label:
+                        'Hombres ($hombres, ${total > 0 ? (hombres * 100 / total).toStringAsFixed(0) : 0}%)'),
                 const SizedBox(width: 16),
-                _Dot(color: AppTheme.accentColor, label: 'Mujeres ($mujeres)'),
+                _Dot(
+                    color: AppTheme.accentColor,
+                    label:
+                        'Mujeres ($mujeres, ${total > 0 ? (mujeres * 100 / total).toStringAsFixed(0) : 0}%)'),
               ],
             ),
             if (total - hombres - mujeres > 0) ...[
@@ -2885,18 +2973,30 @@ class _GenderCard extends StatelessWidget {
 
 class _StatusCard extends StatelessWidget {
   final int conCuota;
+  final int gdprFirmado;
   final int gdprPapel;
   final int gdprDigital;
   final int conTunica;
   final int totalActivos;
   final int totalBajas;
+  final int gdprPendientes;
+  final double? antiguedadMedia;
+  final int menores30;
+  final int menores18;
+  final int edadesConocidas;
   const _StatusCard(
       {required this.conCuota,
+      required this.gdprFirmado,
       required this.gdprPapel,
       required this.gdprDigital,
       required this.conTunica,
       required this.totalActivos,
-      required this.totalBajas});
+      required this.totalBajas,
+      required this.gdprPendientes,
+      required this.antiguedadMedia,
+      required this.menores30,
+      required this.menores18,
+      required this.edadesConocidas});
 
   @override
   Widget build(BuildContext context) {
@@ -2923,16 +3023,15 @@ class _StatusCard extends StatelessWidget {
                 color: AppTheme.accentColor),
             const SizedBox(height: 14),
             _Bar(
-                label: 'GDPR firmado (papel)',
-                value: gdprPapel,
+                label: 'GDPR firmado',
+                value: gdprFirmado,
                 total: totalActivos,
                 color: AppTheme.primaryColor),
-            const SizedBox(height: 14),
-            _Bar(
-                label: 'GDPR firmado (digital)',
-                value: gdprDigital,
-                total: totalActivos,
-                color: AppTheme.primaryLight),
+            const SizedBox(height: 4),
+            Text(
+                'Papel: $gdprPapel · Digital: $gdprDigital · Pendientes: $gdprPendientes',
+                style: const TextStyle(
+                    fontSize: 11, color: AppTheme.textSecondary)),
             const SizedBox(height: 14),
             _Bar(
                 label: 'T\u00fanica propia',
@@ -2948,6 +3047,28 @@ class _StatusCard extends StatelessWidget {
                 Text('$totalBajas bajas registradas',
                     style: const TextStyle(
                         fontSize: 13, color: AppTheme.textSecondary)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 20,
+              runSpacing: 10,
+              children: [
+                _SmallMetric(
+                    label: 'Antigüedad media',
+                    value: antiguedadMedia != null
+                        ? '${antiguedadMedia!.toStringAsFixed(1)} años'
+                        : '-'),
+                _SmallMetric(
+                    label: 'Menores de 30',
+                    value: edadesConocidas > 0
+                        ? '${(menores30 * 100 / edadesConocidas).toStringAsFixed(0)}%'
+                        : '-'),
+                if (edadesConocidas > 0)
+                  _SmallMetric(
+                      label: 'Menores de 18',
+                      value:
+                          '${(menores18 * 100 / edadesConocidas).toStringAsFixed(0)}%'),
               ],
             ),
           ],
@@ -2999,24 +3120,27 @@ class _Bar extends StatelessWidget {
 
 class _AgeDistCard extends StatelessWidget {
   final Map<String, int> ageRanges;
-  const _AgeDistCard({required this.ageRanges});
+  final int ageKnown;
+  final int ageUnknown;
+  const _AgeDistCard(
+      {required this.ageRanges,
+      required this.ageKnown,
+      required this.ageUnknown});
 
   @override
   Widget build(BuildContext context) {
-    final maxVal = ageRanges.values.fold(0, math.max);
-    if (maxVal == 0) return const SizedBox.shrink();
-    final colors = [
-      AppTheme.accentColor,
-      Colors.teal.shade400,
-      AppTheme.primaryLight,
-      AppTheme.primaryColor,
-      AppTheme.primaryDark,
-      Colors.brown.shade400,
-      Colors.brown.shade600,
-      Colors.brown.shade800,
-      Colors.blueGrey.shade600,
-      Colors.grey.shade700
-    ];
+    final entries = ageRanges.entries.toList();
+    while (entries.isNotEmpty && entries.first.value == 0) {
+      entries.removeAt(0);
+    }
+    while (entries.isNotEmpty && entries.last.value == 0) {
+      entries.removeLast();
+    }
+    if (entries.isEmpty && ageUnknown == 0) return const SizedBox.shrink();
+    final colors = List.generate(
+        10,
+        (index) => Color.lerp(
+            AppTheme.primaryLight, AppTheme.primaryDark, index / 9)!);
 
     return Card(
       elevation: 0,
@@ -3028,55 +3152,152 @@ class _AgeDistCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Distribuci\u00f3n por Edad',
+            const Text('Distribución por Edad',
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                     color: AppTheme.textPrimary)),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 140,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children:
-                    ageRanges.entries.toList().asMap().entries.map((entry) {
-                  final idx = entry.key;
-                  final range = entry.value;
-                  final fraction = maxVal > 0 ? range.value / maxVal : 0.0;
-                  return Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text('${range.value}',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: colors[idx % colors.length])),
-                          const SizedBox(height: 4),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 500),
-                            height: 80 * fraction,
-                            decoration: BoxDecoration(
-                                color: colors[idx % colors.length],
-                                borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(4))),
+            if (ageUnknown > 0) ...[
+              const SizedBox(height: 4),
+              Text('$ageUnknown sin dato de edad',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.textSecondary)),
+            ],
+            if (entries.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 600) {
+                    return Column(
+                      children: entries.map((entry) {
+                        final pct =
+                            ageKnown > 0 ? entry.value * 100 / ageKnown : 0.0;
+                        final idx = ageRanges.keys.toList().indexOf(entry.key);
+                        final color = colors[idx.clamp(0, colors.length - 1)];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                  width: 42,
+                                  child: Text(entry.key,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary))),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                      value: ageKnown > 0
+                                          ? entry.value / ageKnown
+                                          : 0,
+                                      minHeight: 10,
+                                      backgroundColor: Colors.grey.shade200,
+                                      color: color),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text('${pct.toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: color)),
+                              const SizedBox(width: 5),
+                              Text('(${entry.value})',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary)),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(range.key,
-                              style: const TextStyle(
-                                  fontSize: 10, color: AppTheme.textSecondary)),
-                        ],
-                      ),
+                        );
+                      }).toList(),
+                    );
+                  }
+                  final maxVal = entries.map((e) => e.value).reduce(math.max);
+                  return SizedBox(
+                    height: 155,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: entries.map((entry) {
+                        final idx = ageRanges.keys.toList().indexOf(entry.key);
+                        final color = colors[idx.clamp(0, colors.length - 1)];
+                        final fraction =
+                            maxVal > 0 ? entry.value / maxVal : 0.0;
+                        final pct =
+                            ageKnown > 0 ? entry.value * 100 / ageKnown : 0.0;
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text('${pct.toStringAsFixed(0)}%',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: color)),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 500),
+                                      height: 80 * fraction,
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                          color: color,
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                  top: Radius.circular(4))),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(entry.key,
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        color: AppTheme.textSecondary)),
+                                Text('(${entry.value})',
+                                    style: const TextStyle(
+                                        fontSize: 9,
+                                        color: AppTheme.textSecondary)),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   );
-                }).toList(),
+                },
               ),
-            ),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SmallMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  const _SmallMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value,
+            style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor)),
+        Text(label,
+            style:
+                const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+      ],
     );
   }
 }

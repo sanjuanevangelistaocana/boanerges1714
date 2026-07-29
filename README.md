@@ -59,6 +59,31 @@ El proyecto usa el proyecto Firebase `boanerges1714`. La configuración está en
 - **Hosting** — Hosting web + PWA
 - **Storage** — Archivos y fotos
 
+## Métricas del dashboard privado
+
+La sección **Tu Cofradía en Cifras** calcula sus indicadores en el cliente a partir
+del stream de cofrades activos; no requiere cambios en Firebase ni en el backend.
+
+- **Activos** y **Altas <año actual>** cuentan cofrades con estado activo y alta
+  en el año en curso, respectivamente.
+- **Media de edad** y la distribución por edad ignoran edades nulas o iguales a
+  cero. La distribución usa como denominador únicamente las edades conocidas y
+  muestra aparte los activos sin dato.
+- **Antigüedad máxima** calcula `año actual - mínimo anioAlta` entre altas
+  plausibles (1700–año actual). Si no hay ninguna, usa `aniosHermandad` como
+  respaldo solo cuando está entre 1 y 120 años. La antigüedad media usa el mismo
+  filtro de altas plausibles.
+- **GDPR firmado** cuenta cofrades con consentimiento en papel o digital; el
+  texto secundario conserva el desglose por canal y muestra los pendientes.
+- **Relevo generacional** indica el porcentaje de activos menores de 30 y de 18
+  años, usando como denominador las edades conocidas.
+
+La distribución por edad oculta tramos vacíos al principio y al final para evitar
+ruido visual. En pantallas estrechas cambia a barras horizontales (tramo,
+porcentaje y absoluto); en anchas usa barras verticales. La paleta emplea
+intensidades monocromas de los granates de la marca y las tarjetas mantienen
+elevación cero, radio 12 y borde gris claro.
+
 ## Despliegue
 
 ### Web (Firebase Hosting)
