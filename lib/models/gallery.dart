@@ -159,6 +159,8 @@ class GalleryImage {
   final String? eventId;
   final int? anio;
   final String? autor;
+  final String? sourceRequestId;
+  final String? sourceEntryName;
 
   const GalleryImage({
     required this.id,
@@ -182,6 +184,8 @@ class GalleryImage {
     this.eventId,
     this.anio,
     this.autor,
+    this.sourceRequestId,
+    this.sourceEntryName,
   });
 
   factory GalleryImage.fromFirestore(DocumentSnapshot doc) {
@@ -212,6 +216,8 @@ class GalleryImage {
       eventId: data['event_id'] as String?,
       anio: (data['anio'] as num?)?.toInt(),
       autor: data['autor'] as String?,
+      sourceRequestId: data['source_request_id'] as String?,
+      sourceEntryName: data['source_entry_name'] as String?,
     );
   }
 
@@ -236,6 +242,8 @@ class GalleryImage {
         'event_id': eventId,
         'anio': anio,
         'autor': autor,
+        'source_request_id': sourceRequestId,
+        'source_entry_name': sourceEntryName,
       };
 
   GalleryImage copyWith({
@@ -260,6 +268,8 @@ class GalleryImage {
     String? eventId,
     int? anio,
     String? autor,
+    String? sourceRequestId,
+    String? sourceEntryName,
   }) =>
       GalleryImage(
         id: id ?? this.id,
@@ -283,6 +293,8 @@ class GalleryImage {
         eventId: eventId ?? this.eventId,
         anio: anio ?? this.anio,
         autor: autor ?? this.autor,
+        sourceRequestId: sourceRequestId ?? this.sourceRequestId,
+        sourceEntryName: sourceEntryName ?? this.sourceEntryName,
       );
 }
 

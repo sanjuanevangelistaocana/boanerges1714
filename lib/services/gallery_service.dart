@@ -650,8 +650,56 @@ class GalleryService {
         .map((snapshot) => snapshot.docs
             .map(GalleryUploadRequest.fromFirestore)
             .where((request) =>
-                request.estado == GalleryUploadRequestStatus.pendiente)
+                request.estado == GalleryUploadRequestStatus.pendiente ||
+                request.estado == GalleryUploadRequestStatus.aprobado)
             .toList());
+  }
+
+  Future<Uint8List> downloadUploadRequestZip(
+    GalleryUploadRequest request,
+  ) =>
+      _storage.downloadBytes(request.zipPath);
+
+  Future<GalleryImage> importModeratedImage({
+    required GalleryUploadRequest request,
+    required String folderId,
+    required Uint8List bytes,
+    required String fileName,
+    String? uploadedByNombre,
+  }) async {
+    final existing = await _images
+        .where('source_request_id', isEqualTo: request.id)
+        .get();
+    for (final document in existing.docs) {
+      final image = GalleryImage.fromFirestore(document);
+      if (!image.deleted && image.sourceEntryName == fileName) {
+        return image;
+      }
+    }
+    final image = await uploadImage(
+      folderId: folderId,
+      bytes: bytes,
+      fileName: fileName,
+      uploadedByNombre: uploadedByNombre ?? request.createdByNombre,
+      estado: GalleryImageStatus.aprobada,
+    );
+    await _images.doc(image.id).update({
+      'source_request_id': request.id,
+      'source_entry_name': fileName,
+    });
+    return image.copyWith(
+      sourceRequestId: request.id,
+      sourceEntryName: fileName,
+    );
+  }
+
+  Future<void> setRequestDestinationFolders(
+    String requestId,
+    Iterable<String> folderIds,
+  ) async {
+    await _requests.doc(requestId).update({
+      'folder_destino_ids': folderIds.toSet().toList(),
+    });
   }
 
   Future<void> approveRequest({
@@ -686,7 +734,7 @@ class GalleryService {
     await _createRequestNovedad(
       request,
       'Solicitud de galería rechazada',
-      'Tu envío «${request.titulo}» ha sido rechazado.',
+      'Tu envío «${request.titulo}» ha sido rechazado. Motivo: $motivo',
       'gallery_request_rejected_${request.id}',
     );
   }

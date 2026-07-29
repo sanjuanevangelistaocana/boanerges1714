@@ -59,6 +59,68 @@ El proyecto usa el proyecto Firebase `boanerges1714`. La configuración está en
 - **Hosting** — Hosting web + PWA
 - **Storage** — Archivos y fotos
 
+## Módulo Galería
+
+La Galería usa tres colecciones raíz de Firestore:
+
+- `gallery_folders`: carpetas, orden, portada, contador `num_fotos`, visibilidad
+  `publica`, borrado lógico y estado temporal `relocating`.
+- `gallery_images`: fotografías con `folder_id`, metadatos, miniatura, orden,
+  estado de moderación, visibilidad desnormalizada y campos preparados para
+  tags, evento, año, autor y origen de una importación moderada.
+- `gallery_upload_requests`: envíos ZIP de cofrades, con título, descripción,
+  fecha del evento, autor, tamaño, número estimado de imágenes, estado,
+  motivo de rechazo y carpetas destino.
+
+Los originales y miniaturas se separan físicamente para que las reglas de
+Storage puedan aplicar privacidad sin consultar Firestore:
+
+```text
+gallery/public/{folderId}/{fileName}
+gallery/public/{folderId}/thumbs/{fileName}
+gallery/private/{folderId}/{fileName}
+gallery/private/{folderId}/thumbs/{fileName}
+gallery_uploads/{uid}/{fileName}.zip
+```
+
+Las carpetas e imágenes públicas aprobadas pueden leerse sin iniciar sesión.
+El contenido privado requiere autenticación y las escrituras de carpetas e
+imágenes requieren administración. Cada cofrade puede crear y consultar sus
+propios envíos; la moderación es exclusiva del administrador.
+
+Rutas principales:
+
+- `/gallery`: carpetas públicas o todas las carpetas para usuarios autenticados.
+- `/gallery/:folderId`: detalle paginado de una carpeta.
+- `/gallery/upload`: envío de un ZIP por un cofrade.
+- `/admin/galeria`: administración, importación y moderación.
+
+Las miniaturas JPEG se generan en el cliente con calidad aproximada 80 y lado
+máximo de 600 px. Los ZIP se inspeccionan y descomprimen en el navegador del
+administrador, sin Cloud Functions nuevas. La importación permite asignar
+fotografías a varias carpetas y guarda el origen para evitar duplicados al
+reintentar una operación interrumpida. La pantalla de administración admite
+arrastre real de ficheros con `super_drag_and_drop` y mantiene `file_picker`
+como alternativa. La bandeja de moderación permite previsualizar, renombrar,
+repartir por carpetas, importar con progreso y reanudar importaciones parciales.
+El callable existente `sendNotification`
+no se utiliza para avisos individuales: solo trabaja con topics. Un futuro
+push individual requeriría gestionar tokens por dispositivo.
+
+Límites configurables actuales:
+
+- 15 MB por imagen.
+- 50 MB por ZIP.
+- 1000 imágenes por envío.
+- 400 operaciones por batch de Firestore.
+
+Las consultas paginadas requieren los índices definidos en
+`firestore.indexes.json` (carpetas por visibilidad/orden, imágenes por
+`folder_id`, visibilidad, estado y orden, y solicitudes propias por autor y
+fecha). El modelo ya deja espacio para tags, destacados, favoritos, búsqueda,
+filtros por evento/año/autor, enlaces públicos, vídeos, comentarios y
+reacciones.
+
 ## Métricas del dashboard privado
 
 La sección **Tu Cofradía en Cifras** calcula sus indicadores en el cliente a partir
