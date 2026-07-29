@@ -61,6 +61,38 @@
     <p>Cargando...</p>
   </div>
 
+  <script>
+    (function () {
+      var loading = document.getElementById('loading');
+      var observer;
+      var hideLoading = function () {
+        if (loading) {
+          loading.remove();
+          loading = null;
+        }
+        if (observer) {
+          observer.disconnect();
+        }
+      };
+      observer = new MutationObserver(function () {
+        if (document.querySelector('flt-glass-pane, flutter-view')) {
+          hideLoading();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      // Flutter 3.x dispatches this event after the first frame. The timeout
+      // prevents a broken bootstrap from leaving the static loader forever.
+      window.addEventListener('flutter-first-frame', hideLoading);
+      window.setTimeout(function () {
+        if (loading) {
+          console.error('Flutter no emitió flutter-first-frame en 20 segundos.');
+          hideLoading();
+        }
+      }, 20000);
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

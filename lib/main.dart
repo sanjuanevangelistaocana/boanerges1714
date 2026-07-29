@@ -25,16 +25,86 @@ import 'package:boanerges1714/services/encuesta_service.dart';
 import 'package:boanerges1714/services/noticias_service.dart';
 import 'package:boanerges1714/services/turnos_andas_service.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const AppBootstrap());
+}
 
-  await Firebase.initializeApp(
-    options: FirebaseConfig.currentPlatformOptions,
-  );
+class AppBootstrap extends StatefulWidget {
+  const AppBootstrap({super.key});
 
-  await initializeDateFormatting('es_ES', null);
+  @override
+  State<AppBootstrap> createState() => _AppBootstrapState();
+}
 
-  runApp(const BoanergesApp());
+class _AppBootstrapState extends State<AppBootstrap> {
+  late Future<void> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialization = _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await Firebase.initializeApp(
+      options: FirebaseConfig.currentPlatformOptions,
+    ).timeout(const Duration(seconds: 15));
+    await initializeDateFormatting('es_ES', null);
+  }
+
+  void _retry() {
+    setState(() => _initialization = _initialize());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            home: Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.cloud_off, size: 48),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No se pudo iniciar la aplicación.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: _retry,
+                        child: const Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            home: const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        return const BoanergesApp();
+      },
+    );
+  }
 }
 
 class BoanergesApp extends StatefulWidget {
@@ -98,7 +168,9 @@ class _BoanergesAppState extends State<BoanergesApp> {
     _encuestaService = EncuestaService();
     _noticiasService = NoticiasService();
     _turnosAndasService = TurnosAndasService();
-    _notificationService.initialize();
+    _notificationService.initialize().catchError((error, _) {
+      debugPrint('FCM no disponible: $error');
+    });
     goRouter = createRouter(_authService);
   }
 
