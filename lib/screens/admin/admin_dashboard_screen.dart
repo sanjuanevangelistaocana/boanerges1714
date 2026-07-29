@@ -204,6 +204,11 @@ class AdminDashboardScreen extends StatelessWidget {
                           title: 'Encuestas',
                           subtitle: 'Crear y gestionar',
                           onTap: () => context.go('/admin/encuestas')),
+                      _AdminActionCard(
+                          icon: Icons.photo_library,
+                          title: 'Galería',
+                          subtitle: 'Carpetas y fotografías',
+                          onTap: () => context.go('/admin/galeria')),
                       StreamBuilder<int>(
                         stream: firestoreService
                             .getPendingConversationsForAdminCountStream(),

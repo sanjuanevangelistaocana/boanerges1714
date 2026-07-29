@@ -44,6 +44,7 @@ class GalleryService {
   static const int maxZipSizeBytes = 50 * 1024 * 1024;
   static const int maxBatchOperations = 400;
   static const int thumbnailMaxSide = 600;
+  static const int maxZipImages = 1000;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final StorageService _storage;
@@ -142,15 +143,12 @@ class GalleryService {
       final snapshot =
           await _images.where('folder_id', isEqualTo: folderId).get();
       await _commitInChunks(snapshot.docs, (batch, _, doc) {
-        batch.update(doc.reference, {'publica': publica});
+        // Hide while paths are being moved so public clients never receive
+        // an image whose Storage URL still belongs to the old privacy prefix.
+        batch.update(doc.reference, {'publica': false});
       });
 
-      // TODO(fase-3): mover físicamente original y thumbnail entre
-      // gallery/public y gallery/private antes de finalizar la reubicación.
-      await _folders.doc(folderId).update({
-        'relocating': false,
-        'fecha_actualizacion': FieldValue.serverTimestamp(),
-      });
+      await relocateFolderFiles(folderId: folderId, publica: publica);
     } catch (_) {
       // Keep relocating=true so a later maintenance operation can retry it.
       rethrow;
@@ -274,6 +272,8 @@ class GalleryService {
     required GalleryImage image,
     required String destinationFolderId,
   }) async {
+    var destinationPublic = false;
+    var moved = false;
     await _db.runTransaction((transaction) async {
       final imageRef = _images.doc(image.id);
       final sourceRef = _folders.doc(image.folderId);
@@ -286,9 +286,11 @@ class GalleryService {
       final current = GalleryImage.fromFirestore(imageSnapshot);
       final destination = GalleryFolder.fromFirestore(destinationSnapshot);
       if (current.deleted || current.folderId == destinationFolderId) return;
+      destinationPublic = destination.publica;
+      moved = true;
       transaction.update(imageRef, {
         'folder_id': destinationFolderId,
-        'publica': destination.publica,
+        'publica': false,
       });
       transaction.update(sourceRef, {
         'num_fotos': FieldValue.increment(-1),
@@ -298,15 +300,165 @@ class GalleryService {
         'num_fotos': FieldValue.increment(1),
         'fecha_actualizacion': FieldValue.serverTimestamp(),
       });
-      // TODO(fase-3): si cambia entre privada/pública, reubicar original y
-      // thumbnail al nuevo prefijo Storage, igual que setFolderVisibility.
     });
+    if (!moved) return;
+    await _folders.doc(destinationFolderId).update({'relocating': true});
+    try {
+      await relocateImageFiles(
+        imageId: image.id,
+        folderId: destinationFolderId,
+        publica: destinationPublic,
+      );
+      await _folders.doc(destinationFolderId).update({'relocating': false});
+    } catch (_) {
+      rethrow;
+    }
+  }
+
+  Future<void> relocateFolderFiles({
+    required String folderId,
+    required bool publica,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    await _folders.doc(folderId).update({'relocating': true});
+    final snapshot = await _images
+        .where('folder_id', isEqualTo: folderId)
+        .where('deleted', isEqualTo: false)
+        .get();
+    for (var index = 0; index < snapshot.docs.length; index++) {
+      await _relocateImageDocument(
+        snapshot.docs[index],
+        folderId: folderId,
+        publica: publica,
+      );
+      onProgress?.call(index + 1, snapshot.docs.length);
+    }
+    await _commitInChunks(snapshot.docs, (batch, _, doc) {
+      batch.update(doc.reference, {'publica': publica});
+    });
+    await _folders.doc(folderId).update({
+      'relocating': false,
+      'fecha_actualizacion': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> relocateImageFiles({
+    required String imageId,
+    required String folderId,
+    required bool publica,
+  }) async {
+    final snapshot = await _images.doc(imageId).get();
+    if (!snapshot.exists) return;
+    await _relocateImageDocument(
+      snapshot,
+      folderId: folderId,
+      publica: publica,
+    );
+    await _images.doc(imageId).update({'publica': publica});
+  }
+
+  Future<void> _relocateImageDocument(
+    DocumentSnapshot<Map<String, dynamic>> snapshot, {
+    required String folderId,
+    required bool publica,
+  }) async {
+    final image = GalleryImage.fromFirestore(snapshot);
+    final prefix = 'gallery/${publica ? 'public' : 'private'}/$folderId';
+    final oldOriginalPath = image.storagePath;
+    final oldThumbPath = image.thumbPath;
+    final originalName = oldOriginalPath.split('/').last;
+    final thumbName = (oldThumbPath ?? originalName).split('/').last;
+    final newOriginalPath = '$prefix/$originalName';
+    final newThumbPath = '$prefix/thumbs/$thumbName';
+
+    if (oldOriginalPath == newOriginalPath &&
+        (oldThumbPath == null || oldThumbPath == newThumbPath)) {
+      return;
+    }
+
+    final originalBytes = oldOriginalPath == newOriginalPath
+        ? null
+        : await _storage.downloadBytes(oldOriginalPath);
+    final thumbBytes = oldThumbPath == null || oldThumbPath == newThumbPath
+        ? null
+        : await _storage.downloadBytes(oldThumbPath);
+    final newOriginal = originalBytes == null
+        ? {'storage_path': newOriginalPath, 'url': image.url}
+        : await _storage.uploadBytesAtPath(
+            fullPath: newOriginalPath,
+            bytes: originalBytes,
+            contentType: _contentTypeForPath(oldOriginalPath),
+          );
+    final newThumb = thumbBytes == null
+        ? null
+        : await _storage.uploadBytesAtPath(
+            fullPath: newThumbPath,
+            bytes: thumbBytes,
+            contentType: 'image/jpeg',
+          );
+
+    await _images.doc(image.id).update({
+      'storage_path': newOriginal['storage_path'],
+      'url': newOriginal['url'],
+      'thumb_path': newThumb?['storage_path'],
+      'thumb_url': newThumb?['url'],
+      'publica': false,
+    });
+    if (oldOriginalPath != newOriginalPath) {
+      await _deleteStorageFile(oldOriginalPath, image.url);
+    }
+    if (oldThumbPath != null && oldThumbPath != newThumbPath) {
+      await _deleteStorageFile(oldThumbPath, image.thumbUrl);
+    }
+  }
+
+  String _contentTypeForPath(String path) {
+    final extension = path.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'jpg':
+      case 'jpeg':
+      default:
+        return 'image/jpeg';
+    }
   }
 
   Future<void> reorderImages(List<String> imageIds) async {
     await _commitInChunks(imageIds, (batch, index, id) {
       batch.update(_images.doc(id), {'orden': index});
     });
+  }
+
+  Future<Uint8List> downloadFolderZip({
+    required String folderId,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    final archive = Archive();
+    DocumentSnapshot? cursor;
+    final images = <GalleryImage>[];
+    do {
+      final page = await fetchImagesPageWithCursor(
+        folderId: folderId,
+        startAfter: cursor,
+        limit: 100,
+      );
+      images.addAll(page.images);
+      cursor = page.lastDocument;
+      if (!page.hasMore) break;
+    } while (cursor != null);
+
+    for (var index = 0; index < images.length; index++) {
+      final image = images[index];
+      final bytes = await _storage.downloadBytes(image.storagePath);
+      archive.addFile(ArchiveFile(image.nombre, bytes.length, bytes));
+      onProgress?.call(index + 1, images.length);
+    }
+    final encoded = ZipEncoder().encode(archive);
+    if (encoded == null) throw StateError('No se pudo generar el ZIP.');
+    return Uint8List.fromList(encoded);
   }
 
   Future<GalleryImage> uploadImage({
@@ -415,6 +567,12 @@ class GalleryService {
     for (final file in archive.files) {
       if (!file.isFile) continue;
       final name = file.name;
+      final baseName = name.split('/').last;
+      if (name.startsWith('__MACOSX/') ||
+          baseName == '.DS_Store' ||
+          baseName.startsWith('.')) {
+        continue;
+      }
       final extension =
           name.contains('.') ? name.split('.').last.toLowerCase() : '';
       if (!extensions.contains(extension)) {
@@ -422,16 +580,50 @@ class GalleryService {
           'El ZIP contiene «$name», que no es una imagen JPG, JPEG, PNG o WebP.',
         );
       }
-      final image = img.decodeImage(file.content as List<int>);
-      if (image == null) {
-        throw StateError('No se pudo leer la imagen «$name».');
+      if (!_hasSupportedImageHeader(file.content as List<int>)) {
+        throw StateError('La imagen «$name» no tiene una cabecera válida.');
       }
       count++;
+      if (count > maxZipImages) {
+        throw StateError(
+          'El ZIP contiene más de $maxZipImages imágenes. '
+          'Divide el envío en varios ZIPs.',
+        );
+      }
     }
     if (count == 0) {
       throw StateError('El ZIP no contiene imágenes válidas.');
     }
     return GalleryZipValidationResult(imageCount: count);
+  }
+
+  bool _hasSupportedImageHeader(List<int> bytes) {
+    if (bytes.length >= 3 &&
+        bytes[0] == 0xFF &&
+        bytes[1] == 0xD8 &&
+        bytes[2] == 0xFF) {
+      return true;
+    }
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47 &&
+        bytes[4] == 0x0D &&
+        bytes[5] == 0x0A &&
+        bytes[6] == 0x1A &&
+        bytes[7] == 0x0A) {
+      return true;
+    }
+    return bytes.length >= 12 &&
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50;
   }
 
   Future<String> createUploadRequest(GalleryUploadRequest request) async {

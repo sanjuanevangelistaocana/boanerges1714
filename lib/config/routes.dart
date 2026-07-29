@@ -66,6 +66,7 @@ import 'package:boanerges1714/screens/treasury/treasury_invoice_detail_screen.da
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 import 'package:boanerges1714/screens/admin/manage_encuestas_screen.dart';
+import 'package:boanerges1714/screens/admin/manage_gallery_screen.dart';
 import 'package:boanerges1714/screens/private/encuestas_screen.dart';
 import 'package:boanerges1714/screens/private/turnos_andas/turnos_andas_screen.dart';
 import 'package:boanerges1714/screens/admin/turnos_andas/turnos_andas_admin_screen.dart';
@@ -262,6 +263,9 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/admin/encuestas',
               builder: (context, state) => const ManageEncuestasScreen()),
+          GoRoute(
+              path: '/admin/galeria',
+              builder: (context, state) => const ManageGalleryScreen()),
           GoRoute(
               path: '/admin/turnos-andas',
               builder: (context, state) => const TurnosAndasAdminScreen()),

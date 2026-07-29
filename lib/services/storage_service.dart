@@ -135,6 +135,22 @@ class StorageService {
     } catch (_) {}
   }
 
+  Future<Uint8List> downloadBytes(
+    String storagePath, {
+    int maxSizeBytes = 30 * 1024 * 1024,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('Debes iniciar sesión para descargar archivos.');
+    }
+    await user.getIdToken(true);
+    final data = await _storage.ref().child(storagePath).getData(maxSizeBytes);
+    if (data == null) {
+      throw Exception('No se pudo descargar el archivo.');
+    }
+    return data;
+  }
+
   Future<String> getDownloadUrlFromPath(String storagePath) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
