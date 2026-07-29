@@ -81,7 +81,21 @@ class HomeScreen extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const AppLogo(size: 72, fallbackColor: Colors.white),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(235),
+              shape: BoxShape.circle,
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black38,
+                  blurRadius: 14,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const AppLogo(size: 72, fallbackColor: AppTheme.primaryColor),
+          ),
           const SizedBox(height: 20),
           Text(
             'Cofradía de San Juan Evangelista',

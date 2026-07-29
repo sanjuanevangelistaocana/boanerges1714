@@ -146,9 +146,10 @@ guarda para el resto de visitantes. La función programada depende de
 facturación activa y la descarga directa desde Flutter Web puede quedar
 bloqueada por CORS. `/admin/evangelio` permite recargar y editar manualmente.
 
-El logotipo definitivo debe colocarse en `assets/images/logo.png`. Después
-habrá que regenerar los iconos de `web/icons/` y los recursos `mipmap` de
-Android; esos binarios no se incluyen mientras no se reciba el logo.
+El logotipo oficial ya está integrado en `assets/images/logo.png` (transparente)
+y `assets/images/logo_bg.png` (fondo blanco). Los iconos web de `web/icons/`,
+el favicon y los recursos `mipmap` de Android se han generado con margen de
+seguridad; si se sustituye el logo, hay que regenerarlos de nuevo.
 
 ## Métricas del dashboard privado
 
