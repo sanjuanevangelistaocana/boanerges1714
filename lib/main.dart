@@ -9,6 +9,7 @@ import 'package:boanerges1714/config/routes.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/events_service.dart';
+import 'package:boanerges1714/services/gallery_service.dart';
 import 'package:boanerges1714/services/notification_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_accounting_service.dart';
@@ -47,6 +48,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
   late final AuthService _authService;
   late final FirestoreService _firestoreService;
   late final EventsService _eventsService;
+  late final GalleryService _galleryService;
   late final StorageService _storageService;
   late final NotificationService _notificationService;
   late final TreasuryRepository _treasuryRepository;
@@ -70,6 +72,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
     _firestoreService = FirestoreService();
     _eventsService = EventsService();
     _storageService = StorageService();
+    _galleryService = GalleryService(storage: _storageService);
     _notificationService = NotificationService();
     _treasuryRepository = TreasuryRepository();
     _treasurySettingsService =
@@ -106,6 +109,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
         ChangeNotifierProvider.value(value: _authService),
         Provider.value(value: _firestoreService),
         Provider.value(value: _eventsService),
+        Provider.value(value: _galleryService),
         Provider.value(value: _storageService),
         Provider.value(value: _notificationService),
         Provider.value(value: _treasuryRepository),

@@ -723,5 +723,35 @@ service cloud.firestore {
         allow create, update, delete: if isAdmin();
       }
     }
+
+    // Galería pública y gestión administrativa.
+    match /gallery_folders/{folderId} {
+      allow get: if resource.data.publica == true || isAuth();
+      allow list: if isAuth() || resource.data.publica == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /gallery_images/{imageId} {
+      allow get: if isAuth() ||
+        (resource.data.publica == true &&
+         resource.data.estado == 'aprobada' &&
+         resource.data.deleted == false);
+      allow list: if isAuth() ||
+        (resource.data.publica == true &&
+         resource.data.estado == 'aprobada' &&
+         resource.data.deleted == false);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /gallery_upload_requests/{requestId} {
+      allow create: if isAuth() &&
+        request.resource.data.created_by == request.auth.uid &&
+        request.resource.data.estado == 'pendiente';
+      allow get: if isAdmin() ||
+        (isAuth() && resource.data.created_by == request.auth.uid);
+      allow list: if isAdmin() ||
+        (isAuth() && resource.data.created_by == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
   }
 }

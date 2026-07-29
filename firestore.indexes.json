@@ -136,6 +136,53 @@
         { "fieldPath": "vendedor_id", "order": "ASCENDING" },
         { "fieldPath": "ultima_actualizacion", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "gallery_folders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gallery_folders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "publica", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gallery_images",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "folder_id", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gallery_images",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "folder_id", "order": "ASCENDING" },
+        { "fieldPath": "publica", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gallery_upload_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "created_by", "order": "ASCENDING" },
+        { "fieldPath": "fecha_creacion", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
