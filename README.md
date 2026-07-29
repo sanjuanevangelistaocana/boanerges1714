@@ -74,7 +74,8 @@ del stream de cofrades activos; no requiere cambios en Firebase ni en el backend
   respaldo solo cuando está entre 1 y 120 años. La antigüedad media usa el mismo
   filtro de altas plausibles.
 - **GDPR firmado** cuenta cofrades con consentimiento en papel o digital; el
-  texto secundario conserva el desglose por canal y muestra los pendientes.
+  texto secundario conserva el desglose por canal y muestra los pendientes. El
+  recuento de papel incluye `gdpr_firmado` y los alias `gdpr_papel`/`gdprFirmadoPapel`.
 - **Relevo generacional** indica el porcentaje de activos menores de 30 y de 18
   años, usando como denominador las edades conocidas.
 

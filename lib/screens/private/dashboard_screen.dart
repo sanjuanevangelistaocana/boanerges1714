@@ -2870,6 +2870,7 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
           padding: const EdgeInsets.all(8),
@@ -2879,25 +2880,36 @@ class _MetricTile extends StatelessWidget {
           child: Icon(icon, color: color, size: 22),
         ),
         const SizedBox(height: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(value,
-                style: TextStyle(
-                    fontSize: 26, fontWeight: FontWeight.bold, color: color)),
-            if (valueSuffix != null) ...[
-              const SizedBox(width: 4),
-              Text(valueSuffix!,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(value,
                   style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                      fontSize: 26, fontWeight: FontWeight.bold, color: color)),
+              if (valueSuffix != null) ...[
+                const SizedBox(width: 4),
+                Text(valueSuffix!,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: color)),
+              ],
             ],
-          ],
+          ),
         ),
-        Text(label,
-            style:
-                const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+        SizedBox(
+          width: double.infinity,
+          child: Text(label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+        ),
       ],
     );
   }
@@ -3064,11 +3076,11 @@ class _StatusCard extends StatelessWidget {
                     value: edadesConocidas > 0
                         ? '${(menores30 * 100 / edadesConocidas).toStringAsFixed(0)}%'
                         : '-'),
-                if (edadesConocidas > 0)
-                  _SmallMetric(
-                      label: 'Menores de 18',
-                      value:
-                          '${(menores18 * 100 / edadesConocidas).toStringAsFixed(0)}%'),
+                _SmallMetric(
+                    label: 'Menores de 18',
+                    value: edadesConocidas > 0
+                        ? '${(menores18 * 100 / edadesConocidas).toStringAsFixed(0)}%'
+                        : '-'),
               ],
             ),
           ],
