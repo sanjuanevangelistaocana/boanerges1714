@@ -1,10 +1,11 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'dart:math' as math;
 
+import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/storage_service.dart';
 
@@ -18,6 +19,24 @@ class GalleryThumbnail {
     required this.width,
     required this.height,
   });
+}
+
+class GalleryImagePage {
+  final List<GalleryImage> images;
+  final DocumentSnapshot<Map<String, dynamic>>? lastDocument;
+  final bool hasMore;
+
+  const GalleryImagePage({
+    required this.images,
+    required this.lastDocument,
+    required this.hasMore,
+  });
+}
+
+class GalleryZipValidationResult {
+  final int imageCount;
+
+  const GalleryZipValidationResult({required this.imageCount});
 }
 
 class GalleryService {
@@ -144,6 +163,21 @@ class GalleryService {
     int limit = 30,
     bool onlyPublic = false,
   }) async {
+    final page = await fetchImagesPageWithCursor(
+      folderId: folderId,
+      startAfter: startAfter,
+      limit: limit,
+      onlyPublic: onlyPublic,
+    );
+    return page.images;
+  }
+
+  Future<GalleryImagePage> fetchImagesPageWithCursor({
+    required String folderId,
+    DocumentSnapshot? startAfter,
+    int limit = 30,
+    bool onlyPublic = false,
+  }) async {
     Query<Map<String, dynamic>> query = _images
         .where('folder_id', isEqualTo: folderId)
         .where('deleted', isEqualTo: false)
@@ -164,7 +198,11 @@ class GalleryService {
       query = query.startAfterDocument(startAfter);
     }
     final snapshot = await query.get();
-    return snapshot.docs.map(GalleryImage.fromFirestore).toList();
+    return GalleryImagePage(
+      images: snapshot.docs.map(GalleryImage.fromFirestore).toList(),
+      lastDocument: snapshot.docs.isEmpty ? null : snapshot.docs.last,
+      hasMore: snapshot.docs.length == limit,
+    );
   }
 
   Stream<List<GalleryImage>> watchImagesPreview(
@@ -260,6 +298,8 @@ class GalleryService {
         'num_fotos': FieldValue.increment(1),
         'fecha_actualizacion': FieldValue.serverTimestamp(),
       });
+      // TODO(fase-3): si cambia entre privada/pública, reubicar original y
+      // thumbnail al nuevo prefijo Storage, igual que setFolderVisibility.
     });
   }
 
@@ -298,7 +338,7 @@ class GalleryService {
     final thumb = await _storage.uploadBytesAtPath(
       fullPath: thumbPath,
       bytes: thumbnail.bytes,
-      contentType: 'image/png',
+      contentType: 'image/jpeg',
     );
     final user = FirebaseAuth.instance.currentUser;
     final image = GalleryImage(
@@ -342,9 +382,10 @@ class GalleryService {
   }
 
   Future<GalleryThumbnail> createThumbnail(Uint8List bytes) async {
-    final originalCodec = await ui.instantiateImageCodec(bytes);
-    final originalFrame = await originalCodec.getNextFrame();
-    final original = originalFrame.image;
+    final original = img.decodeImage(bytes);
+    if (original == null) {
+      throw StateError('No se pudo decodificar la imagen.');
+    }
     final originalWidth = original.width;
     final originalHeight = original.height;
     final scale = thumbnailMaxSide / (original.width > original.height
@@ -353,25 +394,44 @@ class GalleryService {
     final width = scale < 1 ? (original.width * scale).round() : original.width;
     final height =
         scale < 1 ? (original.height * scale).round() : original.height;
-    original.dispose();
-    originalCodec.dispose();
-
-    final codec = await ui.instantiateImageCodec(
-      bytes,
-      targetWidth: width,
-      targetHeight: height,
+    final resized = img.copyResize(
+      original,
+      width: width,
+      height: height,
+      interpolation: img.Interpolation.average,
     );
-    final frame = await codec.getNextFrame();
-    final data = await frame.image.toByteData(format: ui.ImageByteFormat.png);
-    final image = frame.image;
-    image.dispose();
-    codec.dispose();
-    if (data == null) throw StateError('No se pudo generar la miniatura.');
+    final data = img.encodeJpg(resized, quality: 80);
     return GalleryThumbnail(
-      bytes: data.buffer.asUint8List(),
+      bytes: Uint8List.fromList(data),
       width: originalWidth,
       height: originalHeight,
     );
+  }
+
+  Future<GalleryZipValidationResult> validateZip(Uint8List bytes) async {
+    final archive = ZipDecoder().decodeBytes(bytes);
+    const extensions = {'jpg', 'jpeg', 'png', 'webp'};
+    var count = 0;
+    for (final file in archive.files) {
+      if (!file.isFile) continue;
+      final name = file.name;
+      final extension =
+          name.contains('.') ? name.split('.').last.toLowerCase() : '';
+      if (!extensions.contains(extension)) {
+        throw StateError(
+          'El ZIP contiene «$name», que no es una imagen JPG, JPEG, PNG o WebP.',
+        );
+      }
+      final image = img.decodeImage(file.content as List<int>);
+      if (image == null) {
+        throw StateError('No se pudo leer la imagen «$name».');
+      }
+      count++;
+    }
+    if (count == 0) {
+      throw StateError('El ZIP no contiene imágenes válidas.');
+    }
+    return GalleryZipValidationResult(imageCount: count);
   }
 
   Future<String> createUploadRequest(GalleryUploadRequest request) async {

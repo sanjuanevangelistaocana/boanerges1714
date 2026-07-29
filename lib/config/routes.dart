@@ -8,6 +8,8 @@ import 'package:boanerges1714/screens/events/events_admin_screen.dart';
 import 'package:boanerges1714/screens/public/news_screen.dart';
 import 'package:boanerges1714/screens/public/contact_screen.dart';
 import 'package:boanerges1714/screens/public/gallery_screen.dart';
+import 'package:boanerges1714/screens/public/gallery_folder_screen.dart';
+import 'package:boanerges1714/screens/public/gallery_upload_screen.dart';
 import 'package:boanerges1714/screens/private/login_screen.dart';
 import 'package:boanerges1714/screens/private/register_screen.dart';
 import 'package:boanerges1714/screens/private/profile_screen.dart';
@@ -193,6 +195,14 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/gallery',
               builder: (context, state) => const GalleryScreen()),
+          GoRoute(
+              path: '/gallery/upload',
+              builder: (context, state) => const GalleryUploadScreen()),
+          GoRoute(
+              path: '/gallery/:folderId',
+              builder: (context, state) => GalleryFolderScreen(
+                    folderId: state.pathParameters['folderId']!,
+                  )),
           GoRoute(
               path: '/contact',
               builder: (context, state) => const ContactScreen()),
