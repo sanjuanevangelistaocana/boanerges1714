@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/gallery.dart';
@@ -26,7 +25,6 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
   DocumentSnapshot? _lastImage;
   bool _loadingImages = false;
   bool _hasMoreImages = true;
-  bool _dropActive = false;
   String _progress = '';
 
   GalleryFolder? _selectedFolder(List<GalleryFolder> folders) {
@@ -448,59 +446,23 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        DropRegion(
-          formats: Formats.standardFormats,
-          onDropEnter: (_) => setState(() => _dropActive = true),
-          onDropLeave: (_) => setState(() => _dropActive = false),
-          onDropOver: (_) => DropOperation.copy,
-          onPerformDrop: (event) async {
-            setState(() => _dropActive = false);
-            final files = <PlatformFile>[];
-            for (final item in event.session.items) {
-              final reader = item.dataReader;
-              if (reader == null) continue;
-              final file = await reader.getFile(Formats.fileUri);
-              if (file == null) continue;
-              final bytes = await file.readAll();
-              files.add(PlatformFile(
-                name: item.suggestedName ?? 'fotografia',
-                size: bytes.length,
-                bytes: bytes,
-              ));
-            }
-            if (files.isNotEmpty && mounted) {
-              await _uploadFiles(folder, files);
-            }
-          },
-          child: InkWell(
-            onTap: () => _uploadImages(folder),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: _dropActive
-                      ? AppTheme.primaryColor
-                      : AppTheme.primaryColor.withAlpha(80),
-                  width: _dropActive ? 2 : 1,
-                ),
-                borderRadius: BorderRadius.circular(10),
-                color: _dropActive
-                    ? AppTheme.primaryColor.withAlpha(25)
-                    : AppTheme.primaryColor.withAlpha(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(_dropActive
-                      ? Icons.file_download
-                      : Icons.cloud_upload_outlined),
-                  const SizedBox(width: 8),
-                  Text(_dropActive
-                      ? 'Suelta las fotografías aquí'
-                      : 'Arrastra fotografías aquí o pulsa para seleccionarlas'),
-                ],
-              ),
+        InkWell(
+          onTap: () => _uploadImages(folder),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.primaryColor.withAlpha(80)),
+              borderRadius: BorderRadius.circular(10),
+              color: AppTheme.primaryColor.withAlpha(8),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cloud_upload_outlined),
+                SizedBox(width: 8),
+                Text('Pulsa para seleccionar fotografías'),
+              ],
             ),
           ),
         ),

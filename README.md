@@ -99,9 +99,10 @@ Las miniaturas JPEG se generan en el cliente con calidad aproximada 80 y lado
 máximo de 600 px. Los ZIP se inspeccionan y descomprimen en el navegador del
 administrador, sin Cloud Functions nuevas. La importación permite asignar
 fotografías a varias carpetas y guarda el origen para evitar duplicados al
-reintentar una operación interrumpida. La pantalla de administración admite
-arrastre real de ficheros con `super_drag_and_drop` y mantiene `file_picker`
-como alternativa. La bandeja de moderación permite previsualizar, renombrar,
+reintentar una operación interrumpida. La pantalla de administración mantiene
+una zona visual de subida basada en `file_picker`; el arrastre real queda
+preparado como ampliación pendiente de una dependencia compatible y verificable.
+La bandeja de moderación permite previsualizar, renombrar,
 repartir por carpetas, importar con progreso y reanudar importaciones parciales.
 El callable existente `sendNotification`
 no se utiliza para avisos individuales: solo trabaja con topics. Un futuro
