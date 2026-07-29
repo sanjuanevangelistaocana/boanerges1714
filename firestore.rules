@@ -726,17 +726,41 @@ service cloud.firestore {
 
     // Galería pública y gestión administrativa.
     match /gallery_folders/{folderId} {
-      allow get: if resource.data.publica == true || isAuth();
-      allow list: if isAuth() || resource.data.publica == true;
-      allow create, update, delete: if isAdmin();
+      allow get: if (resource.data.get('solo_admin', false) == true && isAdmin()) ||
+        (resource.data.get('solo_admin', false) != true &&
+         (resource.data.publica == true || isAuth()));
+      allow list: if isAdmin() ||
+        (resource.data.get('solo_admin', false) != true &&
+         (isAuth() || resource.data.publica == true));
+      allow create: if isAdmin();
+      allow update: if isAdmin() &&
+        (resource.data.get('sistema', 'ninguno') == 'ninguno' ||
+         (request.resource.data.get('solo_admin', false) == true &&
+          request.resource.data.get('slug', '') ==
+              resource.data.get('slug', '') &&
+          request.resource.data.get('sistema', 'ninguno') ==
+              resource.data.get('sistema', 'ninguno') &&
+          request.resource.data.get('publica', false) ==
+              resource.data.get('publica', false) &&
+          request.resource.data.get('parent_id', '') ==
+              resource.data.get('parent_id', '')));
+      allow delete: if isAdmin() &&
+        resource.data.get('sistema', 'ninguno') == 'ninguno';
     }
 
     match /gallery_images/{imageId} {
-      allow get: if isAuth() ||
+      allow get: if (resource.data.get('solo_admin', false) == true &&
+        resource.data.get('carrusel', false) != true && isAdmin()) ||
+        (resource.data.get('carrusel', false) == true &&
+         resource.data.deleted == false) ||
+        (resource.data.get('solo_admin', false) != true && isAuth()) ||
         (resource.data.publica == true &&
          resource.data.estado == 'aprobada' &&
          resource.data.deleted == false);
-      allow list: if isAuth() ||
+      allow list: if isAdmin() ||
+        (resource.data.get('carrusel', false) == true &&
+         resource.data.deleted == false) ||
+        (resource.data.get('solo_admin', false) != true && isAuth()) ||
         (resource.data.publica == true &&
          resource.data.estado == 'aprobada' &&
          resource.data.deleted == false);

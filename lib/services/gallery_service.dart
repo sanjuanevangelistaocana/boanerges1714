@@ -59,20 +59,76 @@ class GalleryService {
   CollectionReference<Map<String, dynamic>> get _requests =>
       _db.collection('gallery_upload_requests');
 
-  Stream<List<GalleryFolder>> watchFolders({bool onlyPublic = false}) {
-    Query<Map<String, dynamic>> query = _folders
-        .where('deleted', isEqualTo: false)
-        .orderBy('orden');
+  Stream<List<GalleryFolder>> watchFolders({
+    bool onlyPublic = false,
+    bool includeAdmin = false,
+  }) {
+    Query<Map<String, dynamic>> query =
+        _folders.where('deleted', isEqualTo: false).orderBy('orden');
+    if (!includeAdmin) {
+      query = _folders
+          .where('solo_admin', isEqualTo: false)
+          .where('deleted', isEqualTo: false)
+          .orderBy('orden');
+    }
     if (onlyPublic) {
       query = _folders
           .where('publica', isEqualTo: true)
+          .where('solo_admin', isEqualTo: false)
           .where('deleted', isEqualTo: false)
           .orderBy('orden');
     }
     return query.snapshots().map((snapshot) => snapshot.docs
         .map(GalleryFolder.fromFirestore)
-        .where((folder) => !folder.deleted)
+        .where(
+            (folder) => !folder.deleted && (includeAdmin || !folder.soloAdmin))
         .toList());
+  }
+
+  Future<void> ensureSystemFolders() async {
+    final root = await _ensureSystemFolder(
+      slug: 'admin_root',
+      system: GalleryFolderSystem.adminRoot,
+      name: 'Administración interna',
+    );
+    await _ensureSystemFolder(
+      slug: 'banco_interno',
+      system: GalleryFolderSystem.bancoInterno,
+      name: 'Banco interno',
+      parentId: root.id,
+    );
+    await _ensureSystemFolder(
+      slug: 'carrusel_inicio',
+      system: GalleryFolderSystem.carruselInicio,
+      name: 'Carrusel de inicio',
+      parentId: root.id,
+    );
+  }
+
+  Future<GalleryFolder> _ensureSystemFolder({
+    required String slug,
+    required GalleryFolderSystem system,
+    required String name,
+    String? parentId,
+  }) async {
+    final existing =
+        await _folders.where('slug', isEqualTo: slug).limit(1).get();
+    if (existing.docs.isNotEmpty)
+      return GalleryFolder.fromFirestore(existing.docs.first);
+    final now = DateTime.now();
+    final ref = _folders.doc();
+    final folder = GalleryFolder(
+      id: ref.id,
+      nombre: name,
+      parentId: parentId,
+      slug: slug,
+      soloAdmin: true,
+      sistema: system,
+      fechaCreacion: now,
+      fechaActualizacion: now,
+    );
+    await ref.set(folder.toFirestore());
+    return folder;
   }
 
   Stream<GalleryFolder?> watchFolder(String id) {
@@ -95,6 +151,19 @@ class GalleryService {
   }
 
   Future<void> updateFolder(String id, Map<String, dynamic> data) async {
+    final snapshot = await _folders.doc(id).get();
+    if (snapshot.exists) {
+      final folder = GalleryFolder.fromFirestore(snapshot);
+      if (folder.sistema != GalleryFolderSystem.ninguno &&
+          (data.containsKey('nombre') ||
+              data.containsKey('slug') ||
+              data.containsKey('sistema') ||
+              data.containsKey('solo_admin') ||
+              data.containsKey('publica'))) {
+        throw StateError(
+            'Las carpetas de sistema no se pueden renombrar ni modificar.');
+      }
+    }
     await _folders.doc(id).update({
       ...data,
       'fecha_actualizacion': FieldValue.serverTimestamp(),
@@ -102,6 +171,12 @@ class GalleryService {
   }
 
   Future<void> deleteFolder(String id) async {
+    final snapshot = await _folders.doc(id).get();
+    if (snapshot.exists &&
+        GalleryFolder.fromFirestore(snapshot).sistema !=
+            GalleryFolderSystem.ninguno) {
+      throw StateError('Las carpetas de sistema no se pueden eliminar.');
+    }
     await _folders.doc(id).update({
       'deleted': true,
       'fecha_actualizacion': FieldValue.serverTimestamp(),
@@ -133,6 +208,13 @@ class GalleryService {
     required String folderId,
     required bool publica,
   }) async {
+    final snapshot = await _folders.doc(folderId).get();
+    if (snapshot.exists &&
+        GalleryFolder.fromFirestore(snapshot).sistema !=
+            GalleryFolderSystem.ninguno) {
+      throw StateError(
+          'Las carpetas de sistema no pueden cambiar de visibilidad.');
+    }
     await _folders.doc(folderId).update({
       'publica': publica,
       'relocating': true,
@@ -229,6 +311,17 @@ class GalleryService {
         );
   }
 
+  Stream<List<GalleryImage>> watchCarouselImages({int limit = 20}) {
+    return _images
+        .where('carrusel', isEqualTo: true)
+        .where('deleted', isEqualTo: false)
+        .orderBy('orden')
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map(GalleryImage.fromFirestore).toList());
+  }
+
   Future<String> addImage(GalleryImage image) async {
     final ref = image.id.isEmpty ? _images.doc() : _images.doc(image.id);
     final folderRef = _folders.doc(image.folderId);
@@ -249,9 +342,8 @@ class GalleryService {
     await _db.runTransaction((transaction) async {
       final imageRef = _images.doc(image.id);
       final snapshot = await transaction.get(imageRef);
-      final current = snapshot.exists
-          ? GalleryImage.fromFirestore(snapshot)
-          : image;
+      final current =
+          snapshot.exists ? GalleryImage.fromFirestore(snapshot) : image;
       if (current.deleted) return;
       deletedNow = true;
       transaction.update(imageRef, {
@@ -271,8 +363,15 @@ class GalleryService {
   Future<void> moveImage({
     required GalleryImage image,
     required String destinationFolderId,
+    bool allowPublishingFromInternalBank = false,
   }) async {
-    var destinationPublic = false;
+    var destinationFolder = GalleryFolder(
+      id: '',
+      nombre: '',
+      fechaCreacion: DateTime.now(),
+      fechaActualizacion: DateTime.now(),
+    );
+    var sourceFolder = destinationFolder;
     var moved = false;
     await _db.runTransaction((transaction) async {
       final imageRef = _images.doc(image.id);
@@ -284,13 +383,24 @@ class GalleryService {
         throw StateError('La imagen o la carpeta de destino no existe.');
       }
       final current = GalleryImage.fromFirestore(imageSnapshot);
+      sourceFolder =
+          GalleryFolder.fromFirestore(await transaction.get(sourceRef));
       final destination = GalleryFolder.fromFirestore(destinationSnapshot);
       if (current.deleted || current.folderId == destinationFolderId) return;
-      destinationPublic = destination.publica;
+      if (sourceFolder.sistema == GalleryFolderSystem.bancoInterno &&
+          !destination.soloAdmin &&
+          !allowPublishingFromInternalBank) {
+        throw StateError(
+          'Confirma explícitamente la publicación de una foto del Banco interno.',
+        );
+      }
+      destinationFolder = destination;
       moved = true;
       transaction.update(imageRef, {
         'folder_id': destinationFolderId,
         'publica': false,
+        'solo_admin': destination.soloAdmin,
+        'carrusel': destination.sistema == GalleryFolderSystem.carruselInicio,
       });
       transaction.update(sourceRef, {
         'num_fotos': FieldValue.increment(-1),
@@ -306,8 +416,7 @@ class GalleryService {
     try {
       await relocateImageFiles(
         imageId: image.id,
-        folderId: destinationFolderId,
-        publica: destinationPublic,
+        folder: destinationFolder,
       );
       await _folders.doc(destinationFolderId).update({'relocating': false});
     } catch (_) {
@@ -320,6 +429,9 @@ class GalleryService {
     required bool publica,
     void Function(int completed, int total)? onProgress,
   }) async {
+    final folderSnapshot = await _folders.doc(folderId).get();
+    if (!folderSnapshot.exists) throw StateError('La carpeta no existe.');
+    final folder = GalleryFolder.fromFirestore(folderSnapshot);
     await _folders.doc(folderId).update({'relocating': true});
     final snapshot = await _images
         .where('folder_id', isEqualTo: folderId)
@@ -328,13 +440,18 @@ class GalleryService {
     for (var index = 0; index < snapshot.docs.length; index++) {
       await _relocateImageDocument(
         snapshot.docs[index],
-        folderId: folderId,
-        publica: publica,
+        folder: folder,
       );
       onProgress?.call(index + 1, snapshot.docs.length);
     }
     await _commitInChunks(snapshot.docs, (batch, _, doc) {
-      batch.update(doc.reference, {'publica': publica});
+      batch.update(doc.reference, {
+        'publica': folder.sistema == GalleryFolderSystem.carruselInicio
+            ? true
+            : publica,
+        'solo_admin': folder.soloAdmin,
+        'carrusel': folder.sistema == GalleryFolderSystem.carruselInicio,
+      });
     });
     await _folders.doc(folderId).update({
       'relocating': false,
@@ -344,26 +461,29 @@ class GalleryService {
 
   Future<void> relocateImageFiles({
     required String imageId,
-    required String folderId,
-    required bool publica,
+    required GalleryFolder folder,
   }) async {
     final snapshot = await _images.doc(imageId).get();
     if (!snapshot.exists) return;
     await _relocateImageDocument(
       snapshot,
-      folderId: folderId,
-      publica: publica,
+      folder: folder,
     );
-    await _images.doc(imageId).update({'publica': publica});
+    await _images.doc(imageId).update({
+      'publica': folder.sistema == GalleryFolderSystem.carruselInicio
+          ? true
+          : folder.publica,
+      'solo_admin': folder.soloAdmin,
+      'carrusel': folder.sistema == GalleryFolderSystem.carruselInicio,
+    });
   }
 
   Future<void> _relocateImageDocument(
     DocumentSnapshot<Map<String, dynamic>> snapshot, {
-    required String folderId,
-    required bool publica,
+    required GalleryFolder folder,
   }) async {
     final image = GalleryImage.fromFirestore(snapshot);
-    final prefix = 'gallery/${publica ? 'public' : 'private'}/$folderId';
+    final prefix = 'gallery/${_storagePrefixFor(folder)}/${folder.id}';
     final oldOriginalPath = image.storagePath;
     final oldThumbPath = image.thumbPath;
     final originalName = oldOriginalPath.split('/').last;
@@ -402,7 +522,11 @@ class GalleryService {
       'url': newOriginal['url'],
       'thumb_path': newThumb?['storage_path'],
       'thumb_url': newThumb?['url'],
-      'publica': false,
+      'publica': folder.sistema == GalleryFolderSystem.carruselInicio
+          ? true
+          : folder.publica,
+      'solo_admin': folder.soloAdmin,
+      'carrusel': folder.sistema == GalleryFolderSystem.carruselInicio,
     });
     if (oldOriginalPath != newOriginalPath) {
       await _deleteStorageFile(oldOriginalPath, image.url);
@@ -410,6 +534,15 @@ class GalleryService {
     if (oldThumbPath != null && oldThumbPath != newThumbPath) {
       await _deleteStorageFile(oldThumbPath, image.thumbUrl);
     }
+  }
+
+  String _storagePrefixFor(GalleryFolder folder) {
+    if (folder.sistema == GalleryFolderSystem.carruselInicio) {
+      // El carrusel está oculto de los listados, pero sus imágenes son públicas.
+      return 'public';
+    }
+    if (folder.soloAdmin) return 'admin';
+    return folder.publica ? 'public' : 'private';
   }
 
   String _contentTypeForPath(String path) {
@@ -475,9 +608,9 @@ class GalleryService {
     final folder = await _folders.doc(folderId).get();
     if (!folder.exists) throw StateError('La carpeta no existe.');
     final folderModel = GalleryFolder.fromFirestore(folder);
-    final visibility = folderModel.publica ? 'public' : 'private';
+    final prefix = 'gallery/${_storagePrefixFor(folderModel)}';
     final original = await _storage.uploadFile(
-      path: 'gallery/$visibility/$folderId',
+      path: '$prefix/$folderId',
       bytes: bytes,
       fileName: fileName,
       allowedExtensions: {'jpg', 'jpeg', 'png', 'webp'},
@@ -486,7 +619,7 @@ class GalleryService {
     final thumbnail = await createThumbnail(bytes);
     final originalPath = original['storage_path'] ?? '';
     final baseName = originalPath.split('/').last;
-    final thumbPath = 'gallery/$visibility/$folderId/thumbs/$baseName';
+    final thumbPath = '$prefix/$folderId/thumbs/$baseName';
     final thumb = await _storage.uploadBytesAtPath(
       fullPath: thumbPath,
       bytes: thumbnail.bytes,
@@ -508,7 +641,11 @@ class GalleryService {
       width: thumbnail.width,
       height: thumbnail.height,
       estado: estado,
-      publica: folderModel.publica,
+      publica: folderModel.sistema == GalleryFolderSystem.carruselInicio
+          ? true
+          : folderModel.publica,
+      soloAdmin: folderModel.soloAdmin,
+      carrusel: folderModel.sistema == GalleryFolderSystem.carruselInicio,
       tags: tags,
       eventId: eventId,
       anio: anio,
@@ -540,9 +677,8 @@ class GalleryService {
     }
     final originalWidth = original.width;
     final originalHeight = original.height;
-    final scale = thumbnailMaxSide / (original.width > original.height
-        ? original.width
-        : original.height);
+    final scale = thumbnailMaxSide /
+        (original.width > original.height ? original.width : original.height);
     final width = scale < 1 ? (original.width * scale).round() : original.width;
     final height =
         scale < 1 ? (original.height * scale).round() : original.height;
@@ -627,7 +763,8 @@ class GalleryService {
   }
 
   Future<String> createUploadRequest(GalleryUploadRequest request) async {
-    final ref = request.id.isEmpty ? _requests.doc() : _requests.doc(request.id);
+    final ref =
+        request.id.isEmpty ? _requests.doc() : _requests.doc(request.id);
     await ref.set(request
         .copyWith(id: ref.id, estado: GalleryUploadRequestStatus.pendiente)
         .toFirestore());
@@ -667,9 +804,8 @@ class GalleryService {
     required String fileName,
     String? uploadedByNombre,
   }) async {
-    final existing = await _images
-        .where('source_request_id', isEqualTo: request.id)
-        .get();
+    final existing =
+        await _images.where('source_request_id', isEqualTo: request.id).get();
     for (final document in existing.docs) {
       final image = GalleryImage.fromFirestore(document);
       if (!image.deleted && image.sourceEntryName == fileName) {

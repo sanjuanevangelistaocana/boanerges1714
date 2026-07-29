@@ -20,6 +20,13 @@ enum GalleryUploadRequestStatus {
   procesado,
 }
 
+enum GalleryFolderSystem {
+  ninguno,
+  adminRoot,
+  bancoInterno,
+  carruselInicio,
+}
+
 class GalleryFolder {
   final String id;
   final String nombre;
@@ -37,6 +44,10 @@ class GalleryFolder {
   final List<String> tags;
   final bool destacada;
   final int? anio;
+  final String? parentId;
+  final String? slug;
+  final bool soloAdmin;
+  final GalleryFolderSystem sistema;
 
   const GalleryFolder({
     required this.id,
@@ -55,6 +66,10 @@ class GalleryFolder {
     this.tags = const [],
     this.destacada = false,
     this.anio,
+    this.parentId,
+    this.slug,
+    this.soloAdmin = false,
+    this.sistema = GalleryFolderSystem.ninguno,
   });
 
   factory GalleryFolder.fromFirestore(DocumentSnapshot doc) {
@@ -62,8 +77,8 @@ class GalleryFolder {
     return GalleryFolder(
       id: doc.id,
       nombre: '${data['nombre'] ?? data['name'] ?? ''}',
-      descripcion: data['descripcion'] as String? ??
-          data['description'] as String?,
+      descripcion:
+          data['descripcion'] as String? ?? data['description'] as String?,
       coverImageId: data['cover_image_id'] as String?,
       coverImageUrl: data['cover_image_url'] as String?,
       publica: data['publica'] == true || data['public'] == true,
@@ -78,6 +93,15 @@ class GalleryFolder {
       tags: _galleryStrings(data['tags']),
       destacada: data['destacada'] == true,
       anio: (data['anio'] as num?)?.toInt(),
+      parentId: data['parent_id'] as String?,
+      slug: data['slug'] as String?,
+      soloAdmin: data['solo_admin'] == true,
+      sistema: GalleryFolderSystem.values.firstWhere(
+        (item) =>
+            item.name ==
+            '${data['sistema'] ?? GalleryFolderSystem.ninguno.name}',
+        orElse: () => GalleryFolderSystem.ninguno,
+      ),
     );
   }
 
@@ -97,6 +121,10 @@ class GalleryFolder {
         'tags': tags,
         'destacada': destacada,
         'anio': anio,
+        'parent_id': parentId,
+        'slug': slug,
+        'solo_admin': soloAdmin,
+        'sistema': sistema.name,
       };
 
   GalleryFolder copyWith({
@@ -116,6 +144,10 @@ class GalleryFolder {
     List<String>? tags,
     bool? destacada,
     int? anio,
+    String? parentId,
+    String? slug,
+    bool? soloAdmin,
+    GalleryFolderSystem? sistema,
   }) =>
       GalleryFolder(
         id: id ?? this.id,
@@ -134,6 +166,10 @@ class GalleryFolder {
         tags: tags ?? this.tags,
         destacada: destacada ?? this.destacada,
         anio: anio ?? this.anio,
+        parentId: parentId ?? this.parentId,
+        slug: slug ?? this.slug,
+        soloAdmin: soloAdmin ?? this.soloAdmin,
+        sistema: sistema ?? this.sistema,
       );
 }
 
@@ -161,6 +197,8 @@ class GalleryImage {
   final String? autor;
   final String? sourceRequestId;
   final String? sourceEntryName;
+  final bool soloAdmin;
+  final bool carrusel;
 
   const GalleryImage({
     required this.id,
@@ -186,6 +224,8 @@ class GalleryImage {
     this.autor,
     this.sourceRequestId,
     this.sourceEntryName,
+    this.soloAdmin = false,
+    this.carrusel = false,
   });
 
   factory GalleryImage.fromFirestore(DocumentSnapshot doc) {
@@ -218,6 +258,8 @@ class GalleryImage {
       autor: data['autor'] as String?,
       sourceRequestId: data['source_request_id'] as String?,
       sourceEntryName: data['source_entry_name'] as String?,
+      soloAdmin: data['solo_admin'] == true,
+      carrusel: data['carrusel'] == true,
     );
   }
 
@@ -244,6 +286,8 @@ class GalleryImage {
         'autor': autor,
         'source_request_id': sourceRequestId,
         'source_entry_name': sourceEntryName,
+        'solo_admin': soloAdmin,
+        'carrusel': carrusel,
       };
 
   GalleryImage copyWith({
@@ -270,6 +314,8 @@ class GalleryImage {
     String? autor,
     String? sourceRequestId,
     String? sourceEntryName,
+    bool? soloAdmin,
+    bool? carrusel,
   }) =>
       GalleryImage(
         id: id ?? this.id,
@@ -295,6 +341,8 @@ class GalleryImage {
         autor: autor ?? this.autor,
         sourceRequestId: sourceRequestId ?? this.sourceRequestId,
         sourceEntryName: sourceEntryName ?? this.sourceEntryName,
+        soloAdmin: soloAdmin ?? this.soloAdmin,
+        carrusel: carrusel ?? this.carrusel,
       );
 }
 
@@ -339,7 +387,8 @@ class GalleryUploadRequest {
 
   factory GalleryUploadRequest.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? {};
-    final rawStatus = '${data['estado'] ?? GalleryUploadRequestStatus.pendiente.name}';
+    final rawStatus =
+        '${data['estado'] ?? GalleryUploadRequestStatus.pendiente.name}';
     return GalleryUploadRequest(
       id: doc.id,
       titulo: '${data['titulo'] ?? ''}',

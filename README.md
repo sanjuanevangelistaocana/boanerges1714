@@ -80,8 +80,17 @@ gallery/public/{folderId}/{fileName}
 gallery/public/{folderId}/thumbs/{fileName}
 gallery/private/{folderId}/{fileName}
 gallery/private/{folderId}/thumbs/{fileName}
+gallery/admin/{folderId}/{fileName}
+gallery/admin/{folderId}/thumbs/{fileName}
 gallery_uploads/{uid}/{fileName}.zip
 ```
+
+La administración interna crea de forma idempotente las carpetas de sistema
+`admin_root`, `banco_interno` y `carrusel_inicio`. El Banco interno usa el
+prefijo `gallery/admin` y solo es legible por administradores. El Carrusel de
+inicio permanece oculto de los listados de galería, pero sus imágenes se
+guardan deliberadamente en `gallery/public` para que visitantes anónimos
+puedan verlas en la Home; no debe cambiarse ese prefijo por `admin`.
 
 Las carpetas e imágenes públicas aprobadas pueden leerse sin iniciar sesión.
 El contenido privado requiere autenticación y las escrituras de carpetas e
@@ -117,8 +126,8 @@ Límites configurables actuales:
 
 Las consultas paginadas requieren los índices definidos en
 `firestore.indexes.json` (carpetas por visibilidad/orden, imágenes por
-`folder_id`, visibilidad, estado y orden, y solicitudes propias por autor y
-fecha). El modelo ya deja espacio para tags, destacados, favoritos, búsqueda,
+`folder_id`, visibilidad, estado y orden, carrusel por `carrusel`, `deleted` y
+`orden`, y solicitudes propias por autor y fecha). El modelo ya deja espacio para tags, destacados, favoritos, búsqueda,
 filtros por evento/año/autor, enlaces públicos, vídeos, comentarios y
 reacciones.
 

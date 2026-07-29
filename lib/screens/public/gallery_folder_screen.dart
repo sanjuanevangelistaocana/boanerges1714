@@ -56,10 +56,11 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
     if (_initialRequested) return;
     _initialRequested = true;
     try {
-      final page = await context.read<GalleryService>().fetchImagesPageWithCursor(
-            folderId: widget.folderId,
-            onlyPublic: onlyPublic,
-          );
+      final page =
+          await context.read<GalleryService>().fetchImagesPageWithCursor(
+                folderId: widget.folderId,
+                onlyPublic: onlyPublic,
+              );
       if (!mounted) return;
       setState(() {
         _images
@@ -110,15 +111,17 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
     final auth = context.watch<AuthService>();
     final service = context.read<GalleryService>();
     final isLoggedIn = auth.isLoggedIn;
+    final isAdmin = auth.isAdmin;
 
     return StreamBuilder<GalleryFolder?>(
       stream: service.watchFolder(widget.folderId),
       builder: (context, folderSnapshot) {
-        if (folderSnapshot.hasError && !isLoggedIn) {
+        if (folderSnapshot.hasError && !isAdmin) {
           return _FolderState(
-            icon: Icons.lock_outline,
-            title: 'Contenido solo para cofrades',
-            message: 'Inicia sesión para acceder a este álbum privado.',
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Contenido reservado',
+            message:
+                'Este espacio está disponible únicamente para administradores.',
             action: FilledButton(
               onPressed: () => context.go('/login'),
               child: const Text('Iniciar sesión'),
@@ -141,6 +144,14 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
             icon: Icons.photo_library_outlined,
             title: 'Álbum no disponible',
             message: 'Este álbum ya no está disponible.',
+          );
+        }
+        if (folder.soloAdmin && !isAdmin) {
+          return _FolderState(
+            icon: Icons.admin_panel_settings_outlined,
+            title: 'Contenido reservado',
+            message:
+                'Este espacio está disponible únicamente para administradores.',
           );
         }
         if (!folder.publica && !isLoggedIn) {
@@ -233,9 +244,8 @@ class _FolderContent extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(folder.nombre,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium),
+                              style:
+                                  Theme.of(context).textTheme.headlineMedium),
                           if (folder.descripcion?.isNotEmpty == true) ...[
                             const SizedBox(height: 6),
                             Text(folder.descripcion!,
@@ -345,9 +355,8 @@ class _GalleryImageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final source = image.thumbUrl?.isNotEmpty == true
-        ? image.thumbUrl!
-        : image.url;
+    final source =
+        image.thumbUrl?.isNotEmpty == true ? image.thumbUrl! : image.url;
     return InkWell(
       onTap: onTap,
       child: CachedNetworkImage(
@@ -397,8 +406,7 @@ class _GalleryLightboxState extends State<_GalleryLightbox> {
   }
 
   void _change(int delta) {
-    final next =
-        (_index + delta).clamp(0, widget.images.length - 1).toInt();
+    final next = (_index + delta).clamp(0, widget.images.length - 1).toInt();
     if (next == _index) return;
     _controller.animateToPage(next,
         duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
@@ -433,8 +441,8 @@ class _GalleryLightboxState extends State<_GalleryLightbox> {
                         imageUrl: widget.images[index].url,
                         fit: BoxFit.contain,
                         memCacheWidth: 1800,
-                        placeholder: (_, __) => const Center(
-                            child: CircularProgressIndicator()),
+                        placeholder: (_, __) =>
+                            const Center(child: CircularProgressIndicator()),
                       ),
                     ),
                   ),
@@ -510,8 +518,7 @@ class _PhotoInfo extends StatelessWidget {
     final details = [
       image.nombre,
       DateFormat('d MMM yyyy', 'es_ES').format(image.fechaSubida),
-      if (image.autor?.isNotEmpty == true)
-        'Autor: ${image.autor}',
+      if (image.autor?.isNotEmpty == true) 'Autor: ${image.autor}',
       if (image.autor?.isNotEmpty != true &&
           image.uploadedByNombre?.isNotEmpty == true)
         image.uploadedByNombre!,

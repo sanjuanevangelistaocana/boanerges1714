@@ -27,11 +27,31 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
   bool _hasMoreImages = true;
   String _progress = '';
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context
+            .read<GalleryService>()
+            .ensureSystemFolders()
+            .catchError((error) {
+          if (mounted)
+            setState(() => _progress =
+                'No se pudieron preparar las carpetas internas: $error');
+        });
+      }
+    });
+  }
+
   GalleryFolder? _selectedFolder(List<GalleryFolder> folders) {
-    if (folders.isEmpty) return null;
-    return folders.firstWhere(
+    final selectable = folders
+        .where((folder) => folder.sistema != GalleryFolderSystem.adminRoot)
+        .toList();
+    if (selectable.isEmpty) return null;
+    return selectable.firstWhere(
       (folder) => folder.id == _selectedFolderId,
-      orElse: () => folders.first,
+      orElse: () => selectable.first,
     );
   }
 
@@ -39,11 +59,12 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     if (_loadingImages) return;
     setState(() => _loadingImages = true);
     try {
-      final page = await context.read<GalleryService>().fetchImagesPageWithCursor(
-            folderId: folder.id,
-            startAfter: append ? _lastImage : null,
-            limit: 40,
-          );
+      final page =
+          await context.read<GalleryService>().fetchImagesPageWithCursor(
+                folderId: folder.id,
+                startAfter: append ? _lastImage : null,
+                limit: 40,
+              );
       if (!mounted) return;
       setState(() {
         if (!append) _images = [];
@@ -93,8 +114,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Carpeta pública'),
                   value: isPublic,
-                  onChanged: (value) =>
-                      setDialogState(() => isPublic = value),
+                  onChanged: (value) => setDialogState(() => isPublic = value),
                 ),
               ],
             ),
@@ -119,6 +139,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     name.dispose();
     description.dispose();
     if (result == null || result['name'] == '') return;
+    if (folder?.sistema != GalleryFolderSystem.ninguno) return;
     final service = context.read<GalleryService>();
     try {
       if (folder == null) {
@@ -149,6 +170,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
   }
 
   Future<void> _deleteFolder(GalleryFolder folder) async {
+    if (folder.sistema != GalleryFolderSystem.ninguno) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -190,8 +212,8 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     for (var index = 0; index < files.length; index++) {
       final file = files[index];
       final bytes = file.bytes;
-      setState(() => _progress =
-          'Subiendo ${index + 1}/${files.length}: ${file.name}');
+      setState(() =>
+          _progress = 'Subiendo ${index + 1}/${files.length}: ${file.name}');
       if (bytes == null) {
         failures.add('${file.name}: no se pudieron leer los bytes');
         continue;
@@ -209,9 +231,9 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       }
     }
     if (!mounted) return;
-    setState(() => _progress =
-        'Completadas: $success · Fallidas: ${failures.length}'
-        '${failures.isEmpty ? '' : '\n${failures.join('\n')}'}');
+    setState(
+        () => _progress = 'Completadas: $success · Fallidas: ${failures.length}'
+            '${failures.isEmpty ? '' : '\n${failures.join('\n')}'}');
     _lastImage = null;
     _hasMoreImages = true;
     await _loadImages(folder);
@@ -257,14 +279,49 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
   Future<void> _moveSelected(GalleryFolder destination) async {
     final selected =
         _images.where((image) => _selectedImages.contains(image.id)).toList();
+    final source = await context
+        .read<GalleryService>()
+        .watchFolder(
+          _selectedFolderId!,
+        )
+        .first;
+    if (source == null) return;
+    var allowPublishing = false;
+    if (source.sistema == GalleryFolderSystem.bancoInterno &&
+        !destination.soloAdmin) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Publicar fotografías internas'),
+          content: const Text(
+            'Estas fotografías proceden del Banco interno y pasarán a una '
+            'carpeta visible para cofrades o visitantes. Esta acción las hará '
+            'públicas fuera del espacio exclusivo de administradores. ¿Continuar?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Confirmar publicación'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      allowPublishing = true;
+    }
     for (final image in selected) {
       await context.read<GalleryService>().moveImage(
             image: image,
             destinationFolderId: destination.id,
+            allowPublishingFromInternalBank: allowPublishing,
           );
     }
     setState(() => _selectedImages.clear());
-    await _loadImages(folder);
+    await _loadImages(source);
   }
 
   Future<void> _downloadFolder(GalleryFolder folder) async {
@@ -291,11 +348,12 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     if (proceed != true) return;
     try {
       final bytes = await context.read<GalleryService>().downloadFolderZip(
-        folderId: folder.id,
-        onProgress: (done, total) {
-          if (mounted) setState(() => _progress = 'Comprimiendo $done/$total');
-        },
-      );
+            folderId: folder.id,
+            onProgress: (done, total) {
+              if (mounted)
+                setState(() => _progress = 'Comprimiendo $done/$total');
+            },
+          );
       final downloaded =
           await downloadGalleryBytes(bytes, '${folder.nombre}.zip');
       if (mounted) {
@@ -312,10 +370,16 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
   Widget build(BuildContext context) {
     final service = context.read<GalleryService>();
     return StreamBuilder<List<GalleryFolder>>(
-      stream: service.watchFolders(),
+      stream: service.watchFolders(includeAdmin: true),
       builder: (context, snapshot) {
-        final folders = snapshot.data ?? const [];
-        final folder = _selectedFolder(folders);
+        final allFolders = snapshot.data ?? const [];
+        final folders = allFolders
+            .where((item) => item.sistema == GalleryFolderSystem.ninguno)
+            .toList();
+        final systemFolders = allFolders
+            .where((item) => item.sistema != GalleryFolderSystem.ninguno)
+            .toList();
+        final folder = _selectedFolder(allFolders);
         if (folder != null && _selectedFolderId != folder.id) {
           _selectedFolderId = folder.id;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -407,10 +471,12 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  _buildInternalAdministration(context, systemFolders),
+                  const SizedBox(height: 20),
                   GalleryModerationSection(folders: folders),
                   if (folder != null) ...[
                     const SizedBox(height: 24),
-                    _buildImageManagement(context, folder, folders),
+                    _buildImageManagement(context, folder, allFolders),
                   ],
                   if (_progress.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -479,7 +545,9 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
               PopupMenuButton<GalleryFolder>(
                 onSelected: _moveSelected,
                 itemBuilder: (_) => folders
-                    .where((item) => item.id != folder.id)
+                    .where((item) =>
+                        item.id != folder.id &&
+                        item.sistema != GalleryFolderSystem.adminRoot)
                     .map((item) => PopupMenuItem(
                           value: item,
                           child: Text('Mover a ${item.nombre}'),
@@ -525,8 +593,9 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                 final reordered = [..._images]
                   ..insert(newIndex, _images.removeAt(oldIndex));
                 setState(() => _images = reordered);
-                await context.read<GalleryService>().reorderImages(
-                    reordered.map((image) => image.id).toList());
+                await context
+                    .read<GalleryService>()
+                    .reorderImages(reordered.map((image) => image.id).toList());
               },
               itemBuilder: (context, index) {
                 final image = _images[index];
@@ -597,13 +666,12 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                             ),
                             IconButton(
                               tooltip: 'Usar como portada',
-                              onPressed: () => context
-                                  .read<GalleryService>()
-                                  .setFolderCover(
-                                    folderId: folder.id,
-                                    imageId: image.id,
-                                    imageUrl: image.url,
-                                  ),
+                              onPressed: () =>
+                                  context.read<GalleryService>().setFolderCover(
+                                        folderId: folder.id,
+                                        imageId: image.id,
+                                        imageUrl: image.url,
+                                      ),
                               icon: const Icon(Icons.star_border,
                                   color: Colors.white),
                             ),
@@ -627,6 +695,78 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildInternalAdministration(
+    BuildContext context,
+    List<GalleryFolder> systemFolders,
+  ) {
+    final internal = systemFolders
+        .where((folder) =>
+            folder.sistema == GalleryFolderSystem.bancoInterno ||
+            folder.sistema == GalleryFolderSystem.carruselInicio)
+        .toList();
+    if (internal.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryDark.withAlpha(12),
+        border: Border.all(color: AppTheme.primaryDark.withAlpha(50)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.admin_panel_settings,
+                  color: AppTheme.primaryDark),
+              const SizedBox(width: 8),
+              Text(
+                'Administración interna',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppTheme.primaryDark,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Espacio exclusivo de administradores. Estas carpetas no aparecen '
+            'en la galería pública ni en la galería de cofrades.',
+          ),
+          const SizedBox(height: 12),
+          ...internal.map(
+            (folder) => Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: Icon(
+                  folder.sistema == GalleryFolderSystem.bancoInterno
+                      ? Icons.lock
+                      : Icons.view_carousel,
+                  color: AppTheme.primaryColor,
+                ),
+                title: Text(folder.nombre),
+                subtitle: Text(
+                  folder.sistema == GalleryFolderSystem.carruselInicio
+                      ? '${folder.numFotos} fotos · El orden define el carrusel de inicio'
+                      : '${folder.numFotos} fotos · Solo administradores',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => setState(() {
+                  _selectedFolderId = folder.id;
+                  _images = [];
+                  _lastImage = null;
+                  _hasMoreImages = true;
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -215,6 +215,30 @@ service firebase.storage {
         ];
       allow delete: if isAdmin();
     }
+    match /gallery/admin/{folderId}/{fileName} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size <= 15 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        ];
+      allow delete: if isAdmin();
+    }
+    match /gallery/admin/{folderId}/thumbs/{fileName} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() &&
+        request.resource != null &&
+        request.resource.size <= 15 * 1024 * 1024 &&
+        request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp'
+        ];
+      allow delete: if isAdmin();
+    }
     match /gallery_uploads/{uid}/{fileName} {
       allow read: if isAdmin() || (isAuth() && request.auth.uid == uid);
       allow create, update: if isAuth() &&

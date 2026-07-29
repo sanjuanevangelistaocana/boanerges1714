@@ -168,6 +168,15 @@
       "collectionGroup": "gallery_images",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "carrusel", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gallery_images",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "folder_id", "order": "ASCENDING" },
         { "fieldPath": "publica", "order": "ASCENDING" },
         { "fieldPath": "estado", "order": "ASCENDING" },
