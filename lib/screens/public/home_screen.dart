@@ -12,7 +12,6 @@ import 'package:boanerges1714/widgets/home_carousel.dart';
 import 'package:boanerges1714/utils/madrid_date.dart';
 import 'package:boanerges1714/widgets/app_surface_card.dart';
 import 'package:boanerges1714/utils/liturgical_calendar.dart';
-import 'package:boanerges1714/widgets/aztecofrade_support.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -42,8 +41,6 @@ class HomeScreen extends StatelessWidget {
           _buildAsistenciaSocial(context),
           const SizedBox(height: _sectionGap),
           _buildCtaSection(context),
-          const SizedBox(height: _sectionGap),
-          const AztecofradeSupport(),
           const SizedBox(height: 48),
         ],
       ),

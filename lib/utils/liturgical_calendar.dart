@@ -16,7 +16,9 @@ class LiturgicalCelebration {
 
 /// Calcula una selección del calendario romano general sin depender de red.
 ///
-/// No modela el calendario propio de España ni los traslados de solemnidades.
+/// Aplica los traslados españoles de Ascensión y Corpus al domingo.
+///
+/// No modela los calendarios propios diocesanos ni otros traslados.
 class LiturgicalCalendar {
   static List<LiturgicalCelebration> forYear(int year) {
     final easter = _easter(year);
@@ -36,16 +38,15 @@ class LiturgicalCalendar {
         color: 'Blanco',
       ),
       _mobile(easter, -46, 'Miércoles de Ceniza', 'Cuaresma', 'Morado'),
-      _mobile(easter, -46, 'Inicio de la Cuaresma', 'Cuaresma', 'Morado'),
       _mobile(easter, -7, 'Domingo de Ramos', 'Semana Santa', 'Rojo'),
       _mobile(easter, -3, 'Jueves Santo', 'Triduo Pascual', 'Blanco'),
       _mobile(easter, -2, 'Viernes Santo', 'Triduo Pascual', 'Rojo'),
       _mobile(easter, -1, 'Vigilia Pascual', 'Triduo Pascual', 'Blanco'),
       _mobile(easter, 0, 'Domingo de Pascua', 'Pascua', 'Blanco'),
-      _mobile(easter, 39, 'Ascensión del Señor', 'Pascua', 'Blanco'),
+      _mobile(easter, 42, 'Ascensión del Señor', 'Pascua', 'Blanco'),
       _mobile(easter, 49, 'Pentecostés', 'Pascua', 'Rojo'),
       _mobile(easter, 56, 'Santísima Trinidad', 'Tiempo ordinario', 'Blanco'),
-      _mobile(easter, 60, 'Corpus Christi', 'Tiempo ordinario', 'Blanco'),
+      _mobile(easter, 63, 'Corpus Christi', 'Tiempo ordinario', 'Blanco'),
       _mobile(
           easter, 68, 'Sagrado Corazón de Jesús', 'Tiempo ordinario', 'Blanco'),
       ..._advent(year),
@@ -60,7 +61,6 @@ class LiturgicalCalendar {
   }) {
     final start = _dateOnly(from ?? MadridDate.now());
     final candidates = <LiturgicalCelebration>[
-      ...forYear(start.year - 1),
       ...forYear(start.year),
       ...forYear(start.year + 1),
     ]..sort((a, b) => a.date.compareTo(b.date));
