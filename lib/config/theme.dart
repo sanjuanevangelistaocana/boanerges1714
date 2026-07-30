@@ -12,7 +12,21 @@ class AppTheme {
   static const Color backgroundColor = Color(0xFFF7F6F3);
   static const Color surfaceColor = Color(0xFFFFFEFC);
   static const Color surfaceMutedColor = Color(0xFFEDEDEA);
+  static const Color surfaceContainerLowestColor = Color(0xFFFFFEFC);
+  static const Color surfaceContainerLowColor = Color(0xFFF5F4F1);
+  static const Color surfaceContainerColor = Color(0xFFF0EFEC);
+  static const Color surfaceContainerHighColor = Color(0xFFEAE9E5);
+  static const Color surfaceContainerHighestColor = Color(0xFFE4E2DE);
+  static const Color surfaceBrightColor = Color(0xFFFFFEFC);
+  static const Color surfaceDimColor = Color(0xFFE3E1DD);
   static const Color borderColor = Color(0xFFE1DFDA);
+  static const Color borderMutedColor = Color(0xFFD2D0CB);
+  static const Color primaryContainerColor = Color(0xFFE3D8D9);
+  static const Color primaryFixedDimColor = Color(0xFFD2BEC3);
+  static const Color secondaryContainerColor = Color(0xFFDDE8DF);
+  static const Color secondaryFixedDimColor = Color(0xFFC4D6C8);
+  static const Color onSurfaceVariantColor = Color(0xFF595752);
+  static const Color inverseSurfaceColor = Color(0xFF2D2C29);
   static const Color errorColor = Color(0xFFB71C1C);
   static const Color textPrimary = Color(0xFF212121);
   static const Color textSecondary = Color(0xFF757575);
@@ -26,6 +40,42 @@ class AppTheme {
         secondary: accentColor,
         surface: surfaceColor,
         error: errorColor,
+      ).copyWith(
+        background: backgroundColor,
+        onBackground: textPrimary,
+        surface: surfaceColor,
+        onSurface: textPrimary,
+        surfaceVariant: surfaceMutedColor,
+        onSurfaceVariant: onSurfaceVariantColor,
+        surfaceContainerLowest: surfaceContainerLowestColor,
+        surfaceContainerLow: surfaceContainerLowColor,
+        surfaceContainer: surfaceContainerColor,
+        surfaceContainerHigh: surfaceContainerHighColor,
+        surfaceContainerHighest: surfaceContainerHighestColor,
+        surfaceBright: surfaceBrightColor,
+        surfaceDim: surfaceDimColor,
+        surfaceTint: Colors.transparent,
+        outline: borderColor,
+        outlineVariant: borderMutedColor,
+        primaryContainer: primaryContainerColor,
+        onPrimaryContainer: primaryDark,
+        primaryFixed: primaryContainerColor,
+        primaryFixedDim: primaryFixedDimColor,
+        onPrimaryFixed: primaryDark,
+        onPrimaryFixedVariant: primaryDark,
+        secondaryContainer: secondaryContainerColor,
+        onSecondaryContainer: const Color(0xFF173A22),
+        secondaryFixed: secondaryContainerColor,
+        secondaryFixedDim: secondaryFixedDimColor,
+        onSecondaryFixed: const Color(0xFF173A22),
+        onSecondaryFixedVariant: const Color(0xFF173A22),
+        tertiaryContainer: surfaceMutedColor,
+        onTertiaryContainer: textPrimary,
+        inverseSurface: inverseSurfaceColor,
+        onInverseSurface: surfaceColor,
+        inversePrimary: primaryLight,
+        shadow: Colors.black,
+        scrim: Colors.black,
       ),
       scaffoldBackgroundColor: backgroundColor,
       textTheme: GoogleFonts.latoTextTheme().copyWith(
