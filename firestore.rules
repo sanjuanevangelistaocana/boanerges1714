@@ -351,6 +351,39 @@ service cloud.firestore {
       }
     }
 
+    // Contenido institucional público editable únicamente por administración.
+    match /content_sections/{sectionId} {
+      allow get: if isAdmin() ||
+        (resource.data.published == true && resource.data.deleted == false);
+      allow list: if isAdmin() ||
+        (resource.data.published == true && resource.data.deleted == false);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /content_articles/{articleId} {
+      allow get: if isAdmin() || resource.data.status == 'published';
+      allow list: if isAdmin() || resource.data.status == 'published';
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /patrimonio_fichas/{fichaId} {
+      allow get: if isAdmin() || resource.data.published == true;
+      allow list: if isAdmin() || resource.data.published == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /junta_miembros/{miembroId} {
+      allow get: if isAdmin() || resource.data.active == true;
+      allow list: if isAdmin() || resource.data.active == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /grupos/{grupoId} {
+      allow get: if isAdmin() || resource.data.published == true;
+      allow list: if isAdmin() || resource.data.published == true;
+      allow create, update, delete: if isAdmin();
+    }
+
     // Documentos collection
     match /documentos/{documentoId} {
       // Only authenticated users can read documents

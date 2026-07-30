@@ -1,6 +1,61 @@
 {
   "indexes": [
     {
+      "collectionGroup": "content_sections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "content_sections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parent_id", "order": "ASCENDING" },
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "content_articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "section_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "patrimonio_fichas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "section_id", "order": "ASCENDING" },
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "junta_miembros",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "section_id", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "grupos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "section_id", "order": "ASCENDING" },
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "eventos",
       "queryScope": "COLLECTION",
       "fields": [

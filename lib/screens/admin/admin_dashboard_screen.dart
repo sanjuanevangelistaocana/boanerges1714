@@ -214,6 +214,11 @@ class AdminDashboardScreen extends StatelessWidget {
                           title: 'Evangelio',
                           subtitle: 'Editar la lectura del día',
                           onTap: () => context.go('/admin/evangelio')),
+                      _AdminActionCard(
+                          icon: Icons.account_tree_outlined,
+                          title: 'Contenido',
+                          subtitle: 'Cofradía y patrimonio',
+                          onTap: () => context.go('/admin/contenido')),
                       StreamBuilder<int>(
                         stream: firestoreService
                             .getPendingConversationsForAdminCountStream(),

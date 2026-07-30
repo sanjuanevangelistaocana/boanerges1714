@@ -68,6 +68,7 @@ import 'package:boanerges1714/widgets/shell_scaffold.dart';
 import 'package:boanerges1714/screens/admin/manage_encuestas_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_gallery_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_evangelio_screen.dart';
+import 'package:boanerges1714/screens/admin/content_admin_screen.dart';
 import 'package:boanerges1714/screens/private/encuestas_screen.dart';
 import 'package:boanerges1714/screens/private/turnos_andas/turnos_andas_screen.dart';
 import 'package:boanerges1714/screens/admin/turnos_andas/turnos_andas_admin_screen.dart';
@@ -270,6 +271,9 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/admin/evangelio',
               builder: (context, state) => const ManageEvangelioScreen()),
+          GoRoute(
+              path: '/admin/contenido',
+              builder: (context, state) => const ContentAdminScreen()),
           GoRoute(
               path: '/admin/turnos-andas',
               builder: (context, state) => const TurnosAndasAdminScreen()),
