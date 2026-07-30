@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
@@ -23,7 +24,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
   Timer? _timer;
   int _index = 0;
   int _virtualIndex = _initialPage;
-  int _knownImageCount = 0;
+  List<String> _knownImageIds = const [];
   bool _paused = false;
   List<GalleryImage> _images = const [];
 
@@ -74,11 +75,18 @@ class _HomeCarouselState extends State<HomeCarousel> {
   }
 
   void _prepareImages(List<GalleryImage> images) {
-    if (_knownImageCount == images.length && _images.isNotEmpty) return;
-    _knownImageCount = images.length;
+    final ids = images.map((image) => image.id).toList(growable: false);
+    if (listEquals(_knownImageIds, ids) && _images.isNotEmpty) return;
+    final currentId = _images.isNotEmpty && _index < _images.length
+        ? _images[_index].id
+        : null;
+    final nextIndex = currentId == null
+        ? 0
+        : ids.indexOf(currentId).clamp(0, images.length - 1).toInt();
+    _knownImageIds = ids;
     _images = images;
-    _index = 0;
-    _virtualIndex = _initialPage;
+    _index = nextIndex;
+    _virtualIndex = _initialPage + nextIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_controller.hasClients) return;
       _controller.jumpToPage(_virtualIndex);
@@ -95,7 +103,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
         final images = snapshot.data ?? const <GalleryImage>[];
         if (images.isEmpty) {
           _images = const [];
-          _knownImageCount = 0;
+          _knownImageIds = const [];
           return widget.fallback(context, const SizedBox());
         }
         _prepareImages(images);

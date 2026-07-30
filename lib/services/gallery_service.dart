@@ -717,6 +717,7 @@ class GalleryService {
   Future<Map<String, String>> uploadZip({
     required Uint8List bytes,
     required String fileName,
+    void Function(int transferred, int total)? onProgress,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw StateError('Debes iniciar sesión.');
@@ -729,6 +730,7 @@ class GalleryService {
       bytes: bytes,
       fileName: normalizedName,
       contentType: 'application/zip',
+      onProgress: onProgress,
       allowedExtensions: {'zip'},
       maxSizeBytes: maxZipSizeBytes,
     );

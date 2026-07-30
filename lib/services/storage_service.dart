@@ -13,6 +13,7 @@ class StorageService {
     int maxSizeBytes = 20 * 1024 * 1024,
     Set<String>? allowedExtensions,
     Map<String, String>? customMetadata,
+    void Function(int transferred, int total)? onProgress,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -52,7 +53,17 @@ class StorageService {
     debugPrint('[Storage] uploadFile: path=$path, file=$safeName, ct=$ct');
     for (int attempt = 0; attempt < 3; attempt++) {
       try {
-        await ref.putData(bytes, metadata);
+        final task = ref.putData(bytes, metadata);
+        final progressSubscription = onProgress == null
+            ? null
+            : task.snapshotEvents.listen((snapshot) {
+                onProgress(snapshot.bytesTransferred, snapshot.totalBytes);
+              });
+        try {
+          await task;
+        } finally {
+          await progressSubscription?.cancel();
+        }
         final url = await ref.getDownloadURL();
         debugPrint('[Storage] uploadFile: OK → $url');
         return {

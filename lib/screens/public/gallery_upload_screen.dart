@@ -26,6 +26,8 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
   bool _working = false;
   String? _error;
   int? _detectedImages;
+  int _uploadTransferred = 0;
+  int _uploadTotal = 0;
   String _progressLabel = '';
 
   @override
@@ -91,6 +93,8 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
     setState(() {
       _working = true;
       _error = null;
+      _uploadTransferred = 0;
+      _uploadTotal = 0;
       _progressLabel = 'Subiendo el ZIP...';
     });
     try {
@@ -98,6 +102,17 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
       final upload = await service.uploadZip(
         bytes: zip!.bytes!,
         fileName: zip.name,
+        onProgress: (transferred, total) {
+          if (!mounted) return;
+          setState(() {
+            _uploadTransferred = transferred;
+            _uploadTotal = total;
+            _progressLabel = total > 0
+                ? 'Subiendo el ZIP... '
+                    '${(transferred * 100 / total).round()}%'
+                : 'Subiendo el ZIP...';
+          });
+        },
       );
       final zipPath = upload['storage_path'];
       final zipUrl = upload['url'];
@@ -107,6 +122,12 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
           zipUrl.isEmpty) {
         throw StateError(
             'Storage no devolvió una referencia válida para el ZIP.');
+      }
+      if (mounted) {
+        setState(() {
+          _uploadTotal = 0;
+          _progressLabel = 'Registrando el envío...';
+        });
       }
       await service.createUploadRequest(
         GalleryUploadRequest(
@@ -130,6 +151,8 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
       if (!mounted) return;
       setState(() {
         _working = false;
+        _uploadTransferred = 0;
+        _uploadTotal = 0;
         _progressLabel = '';
         _zip = null;
         _detectedImages = null;
@@ -276,6 +299,14 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
                             child: Text(_progressLabel,
                                 style: Theme.of(context).textTheme.bodySmall),
                           ),
+                          if (_uploadTotal > 0) ...[
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: _uploadTransferred / _uploadTotal,
+                              minHeight: 6,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ],
                         ],
                         const SizedBox(height: 20),
                         SizedBox(
