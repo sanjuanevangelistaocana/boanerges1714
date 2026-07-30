@@ -169,6 +169,17 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "folder_id", "order": "ASCENDING" },
+        { "fieldPath": "solo_admin", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gallery_images",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "folder_id", "order": "ASCENDING" },
         { "fieldPath": "deleted", "order": "ASCENDING" },
         { "fieldPath": "orden", "order": "ASCENDING" },
         { "fieldPath": "__name__", "order": "ASCENDING" }

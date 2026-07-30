@@ -260,6 +260,7 @@ class GalleryService {
     DocumentSnapshot? startAfter,
     int limit = 30,
     bool onlyPublic = false,
+    bool includeAdmin = false,
   }) async {
     Query<Map<String, dynamic>> query = _images
         .where('folder_id', isEqualTo: folderId)
@@ -267,6 +268,15 @@ class GalleryService {
         .orderBy('orden')
         .orderBy(FieldPath.documentId)
         .limit(limit);
+    if (!onlyPublic && !includeAdmin) {
+      query = _images
+          .where('folder_id', isEqualTo: folderId)
+          .where('solo_admin', isEqualTo: false)
+          .where('deleted', isEqualTo: false)
+          .orderBy('orden')
+          .orderBy(FieldPath.documentId)
+          .limit(limit);
+    }
     if (onlyPublic) {
       query = _images
           .where('folder_id', isEqualTo: folderId)
@@ -292,6 +302,7 @@ class GalleryService {
     String folderId, {
     int limit = 12,
     bool onlyPublic = false,
+    bool includeAdmin = false,
   }) {
     Query<Map<String, dynamic>> query = _images
         .where('folder_id', isEqualTo: folderId)
@@ -299,6 +310,15 @@ class GalleryService {
         .orderBy('orden')
         .orderBy(FieldPath.documentId)
         .limit(limit);
+    if (!onlyPublic && !includeAdmin) {
+      query = _images
+          .where('folder_id', isEqualTo: folderId)
+          .where('solo_admin', isEqualTo: false)
+          .where('deleted', isEqualTo: false)
+          .orderBy('orden')
+          .orderBy(FieldPath.documentId)
+          .limit(limit);
+    }
     if (onlyPublic) {
       query = _images
           .where('folder_id', isEqualTo: folderId)
@@ -326,6 +346,14 @@ class GalleryService {
   }
 
   Future<String> addImage(GalleryImage image) async {
+    if (image.storagePath.trim().isEmpty || image.url.trim().isEmpty) {
+      throw StateError('La imagen no tiene una referencia válida en Storage.');
+    }
+    if (image.thumbPath?.trim().isEmpty != false ||
+        image.thumbUrl?.trim().isEmpty != false) {
+      throw StateError(
+          'La miniatura no tiene una referencia válida en Storage.');
+    }
     final ref = image.id.isEmpty ? _images.doc() : _images.doc(image.id);
     final folderRef = _folders.doc(image.folderId);
     final batch = _db.batch();
@@ -570,6 +598,7 @@ class GalleryService {
 
   Future<Uint8List> downloadFolderZip({
     required String folderId,
+    bool includeAdmin = false,
     void Function(int completed, int total)? onProgress,
   }) async {
     final archive = Archive();
@@ -580,6 +609,7 @@ class GalleryService {
         folderId: folderId,
         startAfter: cursor,
         limit: 100,
+        includeAdmin: includeAdmin,
       );
       images.addAll(page.images);
       cursor = page.lastDocument;
@@ -620,42 +650,68 @@ class GalleryService {
       maxSizeBytes: maxImageSizeBytes,
     );
     final thumbnail = await createThumbnail(bytes);
-    final originalPath = original['storage_path'] ?? '';
-    final baseName = originalPath.split('/').last;
-    final thumbPath = '$prefix/$folderId/thumbs/$baseName';
-    final thumb = await _storage.uploadBytesAtPath(
-      fullPath: thumbPath,
-      bytes: thumbnail.bytes,
-      contentType: 'image/jpeg',
-    );
-    final user = FirebaseAuth.instance.currentUser;
-    final image = GalleryImage(
-      id: '',
-      folderId: folderId,
-      nombre: fileName,
-      storagePath: originalPath,
-      url: original['url'] ?? '',
-      thumbPath: thumb['storage_path'],
-      thumbUrl: thumb['url'],
-      uploadedBy: user?.uid ?? '',
-      uploadedByNombre: uploadedByNombre,
-      fechaSubida: DateTime.now(),
-      tamanoBytes: bytes.length,
-      width: thumbnail.width,
-      height: thumbnail.height,
-      estado: estado,
-      publica: folderModel.sistema == GalleryFolderSystem.carruselInicio
-          ? true
-          : folderModel.publica,
-      soloAdmin: folderModel.soloAdmin,
-      carrusel: folderModel.sistema == GalleryFolderSystem.carruselInicio,
-      tags: tags,
-      eventId: eventId,
-      anio: anio,
-      autor: autor,
-    );
-    final id = await addImage(image);
-    return image.copyWith(id: id);
+    final originalPath = original['storage_path'];
+    final originalUrl = original['url'];
+    if (originalPath == null ||
+        originalPath.isEmpty ||
+        originalUrl == null ||
+        originalUrl.isEmpty) {
+      throw StateError(
+          'Storage no devolvió una referencia válida para la imagen.');
+    }
+    String? thumbUrl;
+    try {
+      final baseName = originalPath.split('/').last;
+      final thumbStoragePath = '$prefix/$folderId/thumbs/$baseName';
+      final thumb = await _storage.uploadBytesAtPath(
+        fullPath: thumbStoragePath,
+        bytes: thumbnail.bytes,
+        contentType: 'image/jpeg',
+      );
+      final thumbPath = thumb['storage_path'];
+      thumbUrl = thumb['url'];
+      if (thumbPath == null ||
+          thumbPath.isEmpty ||
+          thumbUrl == null ||
+          thumbUrl.isEmpty) {
+        throw StateError(
+            'Storage no devolvió una referencia válida para la miniatura.');
+      }
+      final user = FirebaseAuth.instance.currentUser;
+      final image = GalleryImage(
+        id: '',
+        folderId: folderId,
+        nombre: fileName,
+        storagePath: originalPath,
+        url: originalUrl,
+        thumbPath: thumbPath,
+        thumbUrl: thumbUrl,
+        uploadedBy: user?.uid ?? '',
+        uploadedByNombre: uploadedByNombre,
+        fechaSubida: DateTime.now(),
+        tamanoBytes: bytes.length,
+        width: thumbnail.width,
+        height: thumbnail.height,
+        estado: estado,
+        publica: folderModel.sistema == GalleryFolderSystem.carruselInicio
+            ? true
+            : folderModel.publica,
+        soloAdmin: folderModel.soloAdmin,
+        carrusel: folderModel.sistema == GalleryFolderSystem.carruselInicio,
+        tags: tags,
+        eventId: eventId,
+        anio: anio,
+        autor: autor,
+      );
+      final id = await addImage(image);
+      return image.copyWith(id: id);
+    } catch (_) {
+      await _storage.deleteFile(originalUrl);
+      if (thumbUrl != null && thumbUrl!.isNotEmpty) {
+        await _storage.deleteFile(thumbUrl!);
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, String>> uploadZip({

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/screens/admin/gallery_moderation_section.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
 import 'package:boanerges1714/utils/gallery_download.dart';
+import 'package:boanerges1714/utils/gallery_error.dart';
 
 class ManageGalleryScreen extends StatefulWidget {
   const ManageGalleryScreen({super.key});
@@ -88,6 +90,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                 folderId: folder.id,
                 startAfter: append ? _lastImage : null,
                 limit: 40,
+                includeAdmin: true,
               );
       if (!mounted) return;
       setState(() {
@@ -101,8 +104,12 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       if (!mounted) return;
       setState(() {
         _loadingImages = false;
-        _progress = 'No se pudieron cargar las fotografías: $error';
+        _progress = 'No se pudieron cargar las fotografías: '
+            '${galleryErrorMessage(error)}';
       });
+      debugPrint(
+          '[ManageGalleryScreen] query gallery_images folder_id=${folder.id} '
+          'deleted=false orderBy=orden,__name__ includeAdmin=true error: $error');
     }
   }
 
@@ -428,6 +435,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     try {
       final bytes = await context.read<GalleryService>().downloadFolderZip(
             folderId: folder.id,
+            includeAdmin: true,
             onProgress: (done, total) {
               if (mounted)
                 setState(() => _progress = 'Comprimiendo $done/$total');
@@ -490,7 +498,8 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                   ),
                   const SizedBox(height: 20),
                   if (snapshot.hasError)
-                    Text('Error cargando carpetas: ${snapshot.error}'),
+                    Text('Error cargando carpetas: '
+                        '${galleryErrorMessage(snapshot.error!)}'),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12),

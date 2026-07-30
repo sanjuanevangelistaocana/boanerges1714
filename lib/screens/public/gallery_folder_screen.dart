@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
+import 'package:boanerges1714/utils/gallery_error.dart';
 
 class GalleryFolderScreen extends StatefulWidget {
   final String folderId;
@@ -72,6 +74,9 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
         _loading = false;
       });
     } catch (error) {
+      debugPrint(
+          '[GalleryFolderScreen] query gallery_images folder_id=${widget.folderId} '
+          'onlyPublic=$onlyPublic error: $error');
       if (!mounted) return;
       setState(() {
         _error = error;
@@ -99,6 +104,10 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
         _loadingMore = false;
       });
     } catch (error) {
+      debugPrint(
+          '[GalleryFolderScreen] query gallery_images folder_id=${widget.folderId} '
+          'pagination onlyPublic=${!context.read<AuthService>().isLoggedIn} '
+          'error: $error');
       if (!mounted) return;
       setState(() {
         _error = error;
@@ -118,6 +127,8 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
       stream: service.watchFolder(widget.folderId),
       builder: (context, folderSnapshot) {
         if (folderSnapshot.hasError && !isAdmin) {
+          debugPrint(
+              '[GalleryFolderScreen] folder error: ${folderSnapshot.error}');
           return _FolderState(
             icon: Icons.admin_panel_settings_outlined,
             title: 'Contenido reservado',
@@ -130,10 +141,12 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
           );
         }
         if (folderSnapshot.hasError) {
+          debugPrint(
+              '[GalleryFolderScreen] folder error: ${folderSnapshot.error}');
           return _FolderState(
             icon: Icons.error_outline,
             title: 'No se ha podido cargar el álbum',
-            message: 'Comprueba tu conexión e inténtalo de nuevo.',
+            message: galleryErrorMessage(folderSnapshot.error!),
           );
         }
         if (folderSnapshot.connectionState == ConnectionState.waiting) {
@@ -178,7 +191,7 @@ class _GalleryFolderScreenState extends State<GalleryFolderScreen> {
           loading: _loading,
           loadingMore: _loadingMore,
           hasMore: _hasMore,
-          error: _error,
+          error: _error == null ? null : galleryErrorMessage(_error!),
           onRetry: () {
             setState(() {
               _images.clear();
@@ -210,7 +223,7 @@ class _FolderContent extends StatelessWidget {
   final bool loading;
   final bool loadingMore;
   final bool hasMore;
-  final Object? error;
+  final String? error;
   final VoidCallback onRetry;
   final ValueChanged<int> onImageTap;
 
@@ -282,7 +295,7 @@ class _FolderContent extends StatelessWidget {
             child: _FolderState(
               icon: Icons.error_outline,
               title: 'No se han podido cargar las fotografías',
-              message: 'Comprueba tu conexión e inténtalo de nuevo.',
+              message: error!,
               action: OutlinedButton(
                 onPressed: onRetry,
                 child: const Text('Reintentar'),

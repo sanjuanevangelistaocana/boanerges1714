@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
+import 'package:boanerges1714/utils/gallery_error.dart';
 
 class GalleryScreen extends StatelessWidget {
   const GalleryScreen({super.key});
@@ -42,11 +44,14 @@ class GalleryScreen extends StatelessWidget {
                       stream: service.watchFolders(onlyPublic: !isLoggedIn),
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
-                          return const _GalleryMessage(
+                          debugPrint('[GalleryScreen] query gallery_folders '
+                              'onlyPublic=${!isLoggedIn} '
+                              'solo_admin=false deleted=false orderBy=orden '
+                              'error: ${snapshot.error}');
+                          return _GalleryMessage(
                             icon: Icons.error_outline,
                             title: 'No se ha podido cargar la galería',
-                            message:
-                                'Inténtalo de nuevo dentro de unos instantes.',
+                            message: galleryErrorMessage(snapshot.error!),
                           );
                         }
                         if (snapshot.connectionState ==

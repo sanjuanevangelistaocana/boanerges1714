@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
+import 'package:boanerges1714/utils/gallery_error.dart';
 
 class GalleryUploadScreen extends StatefulWidget {
   const GalleryUploadScreen({super.key});
@@ -66,6 +68,7 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
         _progressLabel = '';
       });
     } catch (error) {
+      debugPrint('[GalleryUploadScreen] ZIP validation error: $error');
       if (!mounted) return;
       setState(() {
         _zip = null;
@@ -109,9 +112,8 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
           zipSizeBytes: zip.size,
           numFotosEstimadas: _detectedImages,
           createdBy: auth.user!.uid,
-          createdByNombre: auth.cofrade?.nombreCompleto ??
-              auth.user!.displayName ??
-              '',
+          createdByNombre:
+              auth.cofrade?.nombreCompleto ?? auth.user!.displayName ?? '',
           createdByEmail: auth.user!.email ?? '',
           fechaCreacion: DateTime.now(),
         ),
@@ -129,6 +131,7 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
         content: Text('Envío recibido. Queda pendiente de revisión.'),
       ));
     } catch (error) {
+      debugPrint('[GalleryUploadScreen] ZIP submission error: $error');
       if (!mounted) return;
       setState(() {
         _working = false;
@@ -139,10 +142,7 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
   }
 
   String _messageForError(Object error) {
-    final message = error.toString();
-    return message.startsWith('Bad state: ')
-        ? message.substring('Bad state: '.length)
-        : message;
+    return galleryErrorMessage(error);
   }
 
   @override
@@ -191,10 +191,10 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
                           controller: _titleController,
                           decoration:
                               const InputDecoration(labelText: 'Título *'),
-                          validator: (value) => value == null ||
-                                  value.trim().isEmpty
-                              ? 'Indica un título para el envío.'
-                              : null,
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                                  ? 'Indica un título para el envío.'
+                                  : null,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
@@ -234,9 +234,8 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
                         OutlinedButton.icon(
                           onPressed: _working ? null : _pickZip,
                           icon: const Icon(Icons.folder_zip_outlined),
-                          label: Text(_zip == null
-                              ? 'Seleccionar ZIP'
-                              : _zip!.name),
+                          label: Text(
+                              _zip == null ? 'Seleccionar ZIP' : _zip!.name),
                         ),
                         if (_detectedImages != null) ...[
                           const SizedBox(height: 8),
@@ -282,8 +281,7 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              Text('Mis envíos',
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text('Mis envíos', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 10),
               StreamBuilder<List<GalleryUploadRequest>>(
                 stream: service.watchMyRequests(auth.user!.uid),
