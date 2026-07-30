@@ -9,7 +9,6 @@ import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
 import 'package:boanerges1714/utils/gallery_error.dart';
-import 'package:boanerges1714/widgets/aztecofrade_support.dart';
 
 class GalleryScreen extends StatelessWidget {
   const GalleryScreen({super.key});
@@ -103,8 +102,6 @@ class GalleryScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          const AztecofradeSupport(),
         ],
       ),
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:boanerges1714/config/theme.dart';
-import 'package:boanerges1714/widgets/aztecofrade_support.dart';
 
 class HistoryScreen extends StatelessWidget {
   const HistoryScreen({super.key});
@@ -125,8 +124,6 @@ class HistoryScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          const AztecofradeSupport(),
           const SizedBox(height: 48),
         ],
       ),

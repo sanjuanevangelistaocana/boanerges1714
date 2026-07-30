@@ -20,6 +20,7 @@ class ShellScaffold extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 72,
         title: GestureDetector(
           onTap: () => context.go('/'),
           child: Row(
@@ -59,28 +60,47 @@ class ShellScaffold extends StatelessWidget {
   List<Widget> _buildDesktopNav(
       BuildContext context, bool isLoggedIn, bool isAdmin) {
     return [
-      _NavButton(label: 'Inicio', route: '/'),
-      _NavButton(label: 'Historia', route: '/history'),
-      _NavButton(label: 'Eventos', route: isLoggedIn ? '/eventos' : '/events'),
-      _NavButton(label: 'Noticias', route: '/news'),
-      _NavButton(label: 'Galería', route: '/gallery'),
-      _NavButton(label: 'Contacto', route: '/contact'),
-      _NavButton(label: 'Redes Sociales', route: '/social-media'),
-      _NavButton(label: 'La Rosa', route: '/la-rosa'),
-      _NavButton(label: 'Revista Boanerges', route: '/boanerges'),
+      _NavGroup(
+        children: [
+          _NavButton(label: 'Inicio', route: '/'),
+          _NavButton(label: 'Historia', route: '/history'),
+          _NavButton(
+              label: 'Eventos', route: isLoggedIn ? '/eventos' : '/events'),
+          _NavButton(label: 'Noticias', route: '/news'),
+          _NavButton(label: 'Galería', route: '/gallery'),
+          _NavButton(label: 'Contacto', route: '/contact'),
+        ],
+      ),
+      const SizedBox(width: 10),
+      _NavGroup(
+        secondary: true,
+        children: [
+          _NavButton(label: 'Redes Sociales', route: '/social-media'),
+          _NavButton(label: 'La Rosa', route: '/la-rosa'),
+          _NavButton(label: 'Revista Boanerges', route: '/boanerges'),
+        ],
+      ),
       if (isLoggedIn) ...[
-        _NavButton(label: 'Mi Zona', route: '/dashboard'),
-        if (context.watch<AuthService>().canViewTreasury)
-          _NavButton(label: 'Tesorería', route: '/treasury'),
-        _PrivateZoneMenu(),
-        if (isAdmin) _NavButton(label: 'Admin', route: '/admin'),
-        IconButton(
-          icon: const Icon(Icons.logout, color: Colors.white70),
-          onPressed: () => context.read<AuthService>().signOut(),
-          tooltip: 'Cerrar sesión',
+        const SizedBox(width: 10),
+        _NavGroup(
+          secondary: true,
+          children: [
+            _NavButton(label: 'Mi Zona', route: '/dashboard'),
+            if (context.watch<AuthService>().canViewTreasury)
+              _NavButton(label: 'Tesorería', route: '/treasury'),
+            _PrivateZoneMenu(),
+            if (isAdmin) _NavButton(label: 'Admin', route: '/admin'),
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white70),
+              onPressed: () => context.read<AuthService>().signOut(),
+              tooltip: 'Cerrar sesión',
+            ),
+          ],
         ),
-      ] else
+      ] else ...[
+        const SizedBox(width: 10),
         _NavButton(label: 'Acceder', route: '/login'),
+      ],
       const SizedBox(width: 8),
     ];
   }
@@ -372,32 +392,60 @@ class _NavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
     final selected = path == route || path.startsWith('$route/');
+    final disableAnimations =
+        MediaQuery.maybeDisableAnimationsOf(context) == true;
     return TextButton(
       onPressed: () => context.go(route),
       style: TextButton.styleFrom(
         foregroundColor: Colors.white,
         minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        overlayColor: Colors.white.withAlpha(18),
       ),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+        duration: disableAnimations
+            ? Duration.zero
+            : const Duration(milliseconds: 160),
         padding: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
               color: selected ? AppTheme.accentColor : Colors.transparent,
-              width: 2,
+              width: 2.5,
             ),
           ),
         ),
         child: Text(label,
             style: TextStyle(
               color: Colors.white,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              fontSize: 12.5,
             )),
       ),
+    );
+  }
+}
+
+class _NavGroup extends StatelessWidget {
+  final List<Widget> children;
+  final bool secondary;
+
+  const _NavGroup({
+    required this.children,
+    this.secondary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+      decoration: BoxDecoration(
+        color: secondary ? Colors.white.withAlpha(10) : Colors.black12,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withAlpha(22)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 }

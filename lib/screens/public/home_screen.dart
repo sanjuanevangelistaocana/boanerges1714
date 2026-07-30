@@ -205,6 +205,12 @@ class HomeScreen extends StatelessWidget {
                 subtitle: 'Fotos y recuerdos de nuestra cofradía',
                 onTap: () => context.go('/gallery'),
               ),
+              _FeatureCard(
+                icon: Icons.person_add_alt_1,
+                title: 'Hazte Cofrade',
+                subtitle: 'Forma parte de nuestra hermandad',
+                onTap: () => context.go('/solicitud-alta'),
+              ),
             ],
           ),
         ),
@@ -234,6 +240,7 @@ class HomeScreen extends StatelessWidget {
               Text(
                 'Evangelio del D\u00eda',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
               ),
@@ -252,7 +259,12 @@ class HomeScreen extends StatelessWidget {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
                     );
                   }
                   final data = snapshot.data;
@@ -386,7 +398,7 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.event_note_outlined,
+                    const Icon(Icons.calendar_month_outlined,
                         color: AppTheme.primaryColor),
                     const SizedBox(width: 10),
                     Expanded(
@@ -404,43 +416,33 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                for (final celebration in celebrations)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 52,
-                          child: Text(
-                            '${celebration.date.day}/${celebration.date.month}',
-                            style: const TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            celebration.name,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        Text(
-                          celebration.season,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                        ),
-                      ],
-                    ),
+                for (var index = 0; index < celebrations.length; index++) ...[
+                  _LiturgicalRow(
+                    celebration: celebrations[index],
+                    accent: _liturgicalColor(celebrations[index].color),
                   ),
+                  if (index < celebrations.length - 1)
+                    const Divider(height: 20),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Color _liturgicalColor(String? color) {
+    switch (color) {
+      case 'Morado':
+        return const Color(0xFF6A4C93);
+      case 'Rojo':
+        return const Color(0xFFB3261E);
+      case 'Blanco':
+        return AppTheme.accentColor;
+      default:
+        return AppTheme.primaryColor;
+    }
   }
 
   Widget _buildCalendarioEventos(
@@ -1127,9 +1129,9 @@ class _FeatureCard extends StatelessWidget {
         ? viewport - 48
         : viewport < 1000
             ? (viewport - 64) / 2
-            : (viewport - 96) / 3;
+            : (viewport - 96) / 4;
     return SizedBox(
-      width: width.clamp(220, 360).toDouble(),
+      width: width.clamp(220, 280).toDouble(),
       child: AppSurfaceCard(
         onTap: onTap,
         padding: const EdgeInsets.all(24),
@@ -1158,6 +1160,89 @@ class _FeatureCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LiturgicalRow extends StatelessWidget {
+  final LiturgicalCelebration celebration;
+  final Color accent;
+
+  const _LiturgicalRow({
+    required this.celebration,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final date = celebration.date;
+    final month = DateFormat('MMM', 'es_ES')
+        .format(date)
+        .replaceAll('.', '')
+        .toUpperCase();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 58,
+          height: 52,
+          decoration: BoxDecoration(
+            color: accent.withAlpha(18),
+            borderRadius: BorderRadius.circular(10),
+            border: Border(left: BorderSide(color: accent, width: 3)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${date.day}',
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                month,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: .4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                celebration.name,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+              ),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  Icon(Icons.circle, size: 8, color: accent),
+                  const SizedBox(width: 6),
+                  Text(
+                    celebration.season,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.textSecondary,
+                        ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
