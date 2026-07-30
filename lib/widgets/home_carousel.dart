@@ -18,11 +18,20 @@ class HomeCarousel extends StatefulWidget {
 }
 
 class _HomeCarouselState extends State<HomeCarousel> {
-  final _controller = PageController();
+  static const _initialPage = 10000;
+  late final PageController _controller;
   Timer? _timer;
   int _index = 0;
+  int _virtualIndex = _initialPage;
+  int _knownImageCount = 0;
   bool _paused = false;
   List<GalleryImage> _images = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(initialPage: _initialPage);
+  }
 
   @override
   void dispose() {
@@ -64,6 +73,19 @@ class _HomeCarouselState extends State<HomeCarousel> {
     precacheImage(CachedNetworkImageProvider(source), context);
   }
 
+  void _prepareImages(List<GalleryImage> images) {
+    if (_knownImageCount == images.length && _images.isNotEmpty) return;
+    _knownImageCount = images.length;
+    _images = images;
+    _index = 0;
+    _virtualIndex = _initialPage;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.hasClients) return;
+      _controller.jumpToPage(_virtualIndex);
+      _precacheNext(context);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = context.read<GalleryService>();
@@ -71,8 +93,12 @@ class _HomeCarouselState extends State<HomeCarousel> {
       stream: service.watchCarouselImages(),
       builder: (context, snapshot) {
         final images = snapshot.data ?? const <GalleryImage>[];
-        if (images.isEmpty) return widget.fallback(context, const SizedBox());
-        _images = images;
+        if (images.isEmpty) {
+          _images = const [];
+          _knownImageCount = 0;
+          return widget.fallback(context, const SizedBox());
+        }
+        _prepareImages(images);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _syncTimer();
@@ -96,13 +122,13 @@ class _HomeCarouselState extends State<HomeCarousel> {
                   children: [
                     PageView.builder(
                       controller: _controller,
-                      itemCount: images.length,
                       onPageChanged: (value) {
-                        setState(() => _index = value);
+                        _virtualIndex = value;
+                        setState(() => _index = value % images.length);
                         _precacheNext(context);
                       },
                       itemBuilder: (context, index) {
-                        final image = images[index];
+                        final image = images[index % images.length];
                         final source = wide
                             ? image.url
                             : (image.thumbUrl?.isNotEmpty == true

@@ -720,10 +720,15 @@ class GalleryService {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw StateError('Debes iniciar sesión.');
+    final normalizedName = fileName.replaceFirst(
+      RegExp(r'\.zip$', caseSensitive: false),
+      '.zip',
+    );
     return _storage.uploadFile(
       path: 'gallery_uploads/${user.uid}',
       bytes: bytes,
-      fileName: fileName,
+      fileName: normalizedName,
+      contentType: 'application/zip',
       allowedExtensions: {'zip'},
       maxSizeBytes: maxZipSizeBytes,
     );

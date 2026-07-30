@@ -99,6 +99,15 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
         bytes: zip!.bytes!,
         fileName: zip.name,
       );
+      final zipPath = upload['storage_path'];
+      final zipUrl = upload['url'];
+      if (zipPath == null ||
+          zipPath.isEmpty ||
+          zipUrl == null ||
+          zipUrl.isEmpty) {
+        throw StateError(
+            'Storage no devolvió una referencia válida para el ZIP.');
+      }
       await service.createUploadRequest(
         GalleryUploadRequest(
           id: '',
@@ -107,8 +116,8 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
               ? null
               : _descriptionController.text.trim(),
           fechaEvento: _eventDate,
-          zipPath: upload['storage_path'] ?? '',
-          zipUrl: upload['url'] ?? '',
+          zipPath: zipPath,
+          zipUrl: zipUrl,
           zipSizeBytes: zip.size,
           numFotosEstimadas: _detectedImages,
           createdBy: auth.user!.uid,
@@ -231,11 +240,22 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
                           },
                         ),
                         const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: _working ? null : _pickZip,
-                          icon: const Icon(Icons.folder_zip_outlined),
-                          label: Text(
-                              _zip == null ? 'Seleccionar ZIP' : _zip!.name),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withAlpha(10),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withAlpha(90),
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: OutlinedButton.icon(
+                            onPressed: _working ? null : _pickZip,
+                            icon: const Icon(Icons.folder_zip_outlined),
+                            label: Text(
+                                _zip == null ? 'Seleccionar ZIP' : _zip!.name),
+                          ),
                         ),
                         if (_detectedImages != null) ...[
                           const SizedBox(height: 8),
@@ -286,13 +306,23 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
               StreamBuilder<List<GalleryUploadRequest>>(
                 stream: service.watchMyRequests(auth.user!.uid),
                 builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    debugPrint('[GalleryUploadScreen] watchMyRequests error: '
+                        '${snapshot.error}');
+                    return _UploadStateMessage(
+                      icon: Icons.error_outline,
+                      message: galleryErrorMessage(snapshot.error!),
+                    );
+                  }
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
                   final requests = snapshot.data ?? const [];
                   if (requests.isEmpty) {
-                    return Text('Todavía no has enviado fotografías.',
-                        style: Theme.of(context).textTheme.bodyMedium);
+                    return const _UploadStateMessage(
+                      icon: Icons.inbox_outlined,
+                      message: 'Todavía no has enviado fotografías.',
+                    );
                   }
                   return Column(
                     children: requests
@@ -304,6 +334,33 @@ class _GalleryUploadScreenState extends State<GalleryUploadScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _UploadStateMessage extends StatelessWidget {
+  final IconData icon;
+  final String message;
+
+  const _UploadStateMessage({
+    required this.icon,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: AppTheme.textSecondary, size: 24),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(message, textAlign: TextAlign.center),
+          ),
+        ],
       ),
     );
   }

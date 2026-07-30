@@ -341,9 +341,9 @@ class _FolderContent extends StatelessWidget {
                   ),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: columns,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                    childAspectRatio: 1.08,
                   ),
                 );
               },
@@ -373,15 +373,34 @@ class _GalleryImageTile extends StatelessWidget {
         image.thumbUrl?.isNotEmpty == true ? image.thumbUrl! : image.url;
     return InkWell(
       onTap: onTap,
-      child: CachedNetworkImage(
-        imageUrl: source,
-        fit: BoxFit.cover,
-        memCacheWidth: 500,
-        placeholder: (_, __) => Container(
-          color: AppTheme.primaryColor.withAlpha(18),
-          child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: source,
+          fit: BoxFit.cover,
+          memCacheWidth: 500,
+          placeholder: (_, __) => Container(
+            color: AppTheme.primaryColor.withAlpha(18),
+            child:
+                const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          errorWidget: (_, __, ___) => const _ImageErrorPlaceholder(),
         ),
-        errorWidget: (_, __, ___) => const Icon(Icons.broken_image_outlined),
+      ),
+    );
+  }
+}
+
+class _ImageErrorPlaceholder extends StatelessWidget {
+  const _ImageErrorPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppTheme.primaryColor.withAlpha(18),
+      child: const Center(
+        child: Icon(Icons.broken_image_outlined,
+            color: AppTheme.textSecondary, size: 28),
       ),
     );
   }

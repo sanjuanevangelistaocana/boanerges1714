@@ -159,29 +159,41 @@ class _FolderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       clipBehavior: Clip.antiAlias,
+      elevation: 2,
       child: InkWell(
         onTap: () => context.push('/gallery/${folder.id}'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Expanded(
-              child: folder.coverImageUrl?.isNotEmpty == true
-                  ? CachedNetworkImage(
-                      imageUrl: folder.coverImageUrl!,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 700,
-                      placeholder: (_, __) =>
-                          const _ImagePlaceholder(icon: Icons.photo),
-                      errorWidget: (_, __, ___) =>
-                          const _ImagePlaceholder(icon: Icons.broken_image),
-                    )
-                  : const _ImagePlaceholder(icon: Icons.photo_library),
+            if (folder.coverImageUrl?.isNotEmpty == true)
+              CachedNetworkImage(
+                imageUrl: folder.coverImageUrl!,
+                fit: BoxFit.cover,
+                memCacheWidth: 700,
+                placeholder: (_, __) =>
+                    const _ImagePlaceholder(icon: Icons.photo),
+                errorWidget: (_, __, ___) =>
+                    const _ImagePlaceholder(icon: Icons.broken_image),
+              )
+            else
+              const _ImagePlaceholder(icon: Icons.photo_library),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black87],
+                  stops: [0.35, 1],
+                ),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 14,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -189,32 +201,43 @@ class _FolderCard extends StatelessWidget {
                     folder.nombre,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  const SizedBox(height: 7),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(Icons.photo_outlined,
-                          size: 16, color: AppTheme.textSecondary),
+                          size: 17, color: Colors.white70),
                       const SizedBox(width: 5),
-                      Text('${folder.numFotos} fotos',
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        '${folder.numFotos} fotos',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       const Spacer(),
                       if (showPrivate && !folder.publica)
-                        const Tooltip(
-                          message: 'Privada',
-                          child: Icon(Icons.lock_outline,
-                              size: 17, color: AppTheme.textSecondary),
+                        const Chip(
+                          avatar: Icon(Icons.lock_outline,
+                              size: 15, color: Colors.white),
+                          label: Text('Privada'),
+                          visualDensity: VisualDensity.compact,
+                          labelStyle: TextStyle(color: Colors.white),
+                          backgroundColor: Colors.black45,
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Text(
                     DateFormat('d MMM yyyy', 'es_ES')
                         .format(folder.fechaCreacion),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white70,
+                    ),
                   ),
                 ],
               ),

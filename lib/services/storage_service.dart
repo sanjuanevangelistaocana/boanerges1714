@@ -195,6 +195,8 @@ class StorageService {
         return 'image/png';
       case 'webp':
         return 'image/webp';
+      case 'zip':
+        return 'application/zip';
       case 'gif':
         return 'image/gif';
       case 'doc':
