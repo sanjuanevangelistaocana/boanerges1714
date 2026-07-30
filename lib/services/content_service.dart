@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:boanerges1714/models/content_models.dart';
+import 'package:boanerges1714/services/storage_service.dart';
 
 class ContentService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final StorageService _storage = StorageService();
 
   CollectionReference<Map<String, dynamic>> get _sections =>
       _db.collection('content_sections');
@@ -46,6 +49,17 @@ class ContentService {
   Future<ContentSection?> getSectionBySlug(String slug) async {
     final snapshot =
         await _sections.where('slug', isEqualTo: slug).limit(1).get();
+    if (snapshot.docs.isEmpty) return null;
+    return ContentSection.fromFirestore(snapshot.docs.first);
+  }
+
+  Future<ContentSection?> getSectionBySlugPublic(String slug) async {
+    final snapshot = await _sections
+        .where('slug', isEqualTo: slug)
+        .where('published', isEqualTo: true)
+        .where('deleted', isEqualTo: false)
+        .limit(1)
+        .get();
     if (snapshot.docs.isEmpty) return null;
     return ContentSection.fromFirestore(snapshot.docs.first);
   }
@@ -122,11 +136,11 @@ class ContentService {
       ),
       (
         slug: 'archivo-historico',
-        parentId: cofradia.id,
+        parentId: patrimonio.id,
         title: 'Archivo Histórico',
         description: 'Documentos y cronología histórica.',
         type: ContentSectionType.articulos,
-        order: 5,
+        order: 0,
       ),
       (
         slug: 'patrimonio-artistico',
@@ -134,7 +148,7 @@ class ContentService {
         title: 'Patrimonio Artístico',
         description: 'Fichas del patrimonio artístico.',
         type: ContentSectionType.fichas,
-        order: 0,
+        order: 1,
       ),
     ];
     for (final definition in children) {
@@ -162,13 +176,16 @@ class ContentService {
     final now = DateTime.now();
     if (existing.docs.isNotEmpty) {
       final section = ContentSection.fromFirestore(existing.docs.first);
-      await existing.docs.first.reference.update({
-        'parent_id': parentId,
-        'content_type': type.name,
-        'is_system': true,
-        'deleted': false,
-        'updated_at': Timestamp.fromDate(now),
-      });
+      final changes = <String, dynamic>{};
+      if (section.parentId != parentId) changes['parent_id'] = parentId;
+      if (section.type != type) changes['content_type'] = type.name;
+      if (!section.system) changes['is_system'] = true;
+      if (section.deleted) changes['deleted'] = false;
+      if (changes.isNotEmpty) {
+        changes['updated_at'] = Timestamp.fromDate(now);
+        changes['updated_by'] = FirebaseAuth.instance.currentUser?.uid ?? '';
+        await existing.docs.first.reference.update(changes);
+      }
       return ContentSection(
         id: section.id,
         slug: slug,
@@ -185,7 +202,7 @@ class ContentService {
         system: true,
         deleted: false,
         createdAt: section.createdAt,
-        updatedAt: now,
+        updatedAt: changes.isEmpty ? section.updatedAt : now,
         createdBy: section.createdBy,
         updatedBy: section.updatedBy,
       );
@@ -203,13 +220,23 @@ class ContentService {
       createdAt: now,
       updatedAt: now,
     );
-    await ref.set(section.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    await ref.set({
+      ...section.toFirestore(),
+      'created_by': uid,
+      'updated_by': uid,
+    });
     return section;
   }
 
   Future<String> createSection(ContentSection section) async {
     final ref = _sections.doc();
-    await ref.set(section.toFirestore());
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    await ref.set({
+      ...section.toFirestore(),
+      'created_by': uid,
+      'updated_by': uid,
+    });
     return ref.id;
   }
 
@@ -217,6 +244,7 @@ class ContentService {
     await _sections.doc(id).update({
       ...data,
       'updated_at': FieldValue.serverTimestamp(),
+      'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
     });
   }
 
@@ -227,6 +255,7 @@ class ContentService {
     await _sections.doc(section.id).update({
       'deleted': true,
       'updated_at': FieldValue.serverTimestamp(),
+      'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
     });
   }
 
@@ -245,7 +274,24 @@ class ContentService {
     return _save(_articles, id, data);
   }
 
-  Future<void> deleteArticle(String id) => _articles.doc(id).delete();
+  Future<ContentArticle?> getArticleBySlugPublic(
+    String sectionId,
+    String slug,
+  ) async {
+    final snapshot = await _articles
+        .where('section_id', isEqualTo: sectionId)
+        .where('slug', isEqualTo: slug)
+        .where('status', isEqualTo: 'published')
+        .limit(1)
+        .get();
+    if (snapshot.docs.isEmpty) return null;
+    return ContentArticle.fromFirestore(snapshot.docs.first);
+  }
+
+  Future<void> deleteArticle(String id) async {
+    await _deleteDocumentAndFiles(
+        _articles, id, ['gallery', 'attachments', 'rich_content']);
+  }
 
   Stream<List<PatrimonioFicha>> watchPatrimonio(
     String sectionId, {
@@ -262,7 +308,27 @@ class ContentService {
     return _save(_patrimonio, id, data);
   }
 
-  Future<void> deletePatrimonio(String id) => _patrimonio.doc(id).delete();
+  Future<PatrimonioFicha?> getPatrimonioBySlugPublic(
+    String sectionId,
+    String slug,
+  ) async {
+    final snapshot = await _patrimonio
+        .where('section_id', isEqualTo: sectionId)
+        .where('slug', isEqualTo: slug)
+        .where('published', isEqualTo: true)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isEmpty) return null;
+    return PatrimonioFicha.fromFirestore(snapshot.docs.first);
+  }
+
+  Future<void> deletePatrimonio(String id) async {
+    await _deleteDocumentAndFiles(_patrimonio, id, [
+      'photos',
+      'related_documents',
+      'rich_description',
+    ]);
+  }
 
   Stream<List<JuntaMiembro>> watchJunta(
     String sectionId, {
@@ -279,7 +345,9 @@ class ContentService {
     return _save(_junta, id, data);
   }
 
-  Future<void> deleteJunta(String id) => _junta.doc(id).delete();
+  Future<void> deleteJunta(String id) async {
+    await _deleteDocumentAndFiles(_junta, id, ['photo_url']);
+  }
 
   Stream<List<ContentGroup>> watchGroups(
     String sectionId, {
@@ -296,7 +364,177 @@ class ContentService {
     return _save(_groups, id, data);
   }
 
-  Future<void> deleteGroup(String id) => _groups.doc(id).delete();
+  Future<ContentGroup?> getGroupBySlugPublic(
+    String sectionId,
+    String slug,
+  ) async {
+    final snapshot = await _groups
+        .where('section_id', isEqualTo: sectionId)
+        .where('slug', isEqualTo: slug)
+        .where('published', isEqualTo: true)
+        .limit(1)
+        .get();
+    if (snapshot.docs.isEmpty) return null;
+    return ContentGroup.fromFirestore(snapshot.docs.first);
+  }
+
+  Future<void> deleteGroup(String id) async {
+    await _deleteDocumentAndFiles(_groups, id, ['photos', 'rich_content']);
+  }
+
+  Future<void> importInitialHistory() async {
+    final section = await getSectionBySlug('historia');
+    if (section == null) {
+      throw StateError('No existe la sección Historia.');
+    }
+    final existing = await _articles
+        .where('section_id', isEqualTo: section.id)
+        .where('slug', isEqualTo: 'historia-principal')
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) return;
+    final now = DateTime.now();
+    await _articles.add({
+      'section_id': section.id,
+      'slug': 'historia-principal',
+      'title': 'Nuestra Historia',
+      'subtitle': 'Más de 300 años de fe y tradición',
+      'content': '',
+      'rich_content': [
+        {
+          'type': 'heading',
+          'text': 'Fundación',
+          'level': 2,
+        },
+        {
+          'type': 'paragraph',
+          'text':
+              'La Cofradía de San Juan Evangelista de Ocaña fue fundada en el año 1714, en un momento de gran fervor religioso en la villa toledana. Desde sus orígenes, la hermandad ha estado vinculada a la devoción y culto del apóstol amado de Cristo.',
+        },
+        {
+          'type': 'heading',
+          'text': 'Consolidación',
+          'level': 2,
+        },
+        {
+          'type': 'paragraph',
+          'text':
+              'Durante el siglo XVIII, la Cofradía se consolidó como una de las hermandades más importantes de Ocaña, participando activamente en la vida religiosa y social de la villa.',
+        },
+        {
+          'type': 'heading',
+          'text': 'Pervivencia',
+          'level': 2,
+        },
+        {
+          'type': 'paragraph',
+          'text':
+              'A pesar de los difíciles momentos históricos, la Cofradía ha mantenido viva la llama de la devoción a San Juan Evangelista, adaptándose a los tiempos sin perder su esencia.',
+        },
+        {
+          'type': 'heading',
+          'text': 'Siglo XXI',
+          'level': 2,
+        },
+        {
+          'type': 'paragraph',
+          'text':
+              'Hoy en día, la Cofradía sigue siendo un pilar fundamental de la Semana Santa de Ocaña y de la vida parroquial, con una comunidad de cofrades comprometidos con la tradición y la fe.',
+        },
+        {
+          'type': 'heading',
+          'text': 'San Juan Evangelista',
+          'level': 2,
+        },
+        {
+          'type': 'paragraph',
+          'text':
+              'San Juan Evangelista, también conocido como "el discípulo amado", fue uno de los doce apóstoles de Jesús. Junto con su hermano Santiago, fueron llamados por Jesús "Boanerges", que significa "Hijos del Trueno". Es el autor del cuarto Evangelio, tres epístolas y el Apocalipsis. Su fiesta se celebra el 27 de diciembre.',
+        },
+        {
+          'type': 'quote',
+          'text': '"Boanerges" - Hijos del Trueno\nMarcos 3:17',
+        },
+      ],
+      'gallery': <Map<String, String>>[],
+      'attachments': <Map<String, String>>[],
+      'timeline_entries': [
+        {
+          'date_or_year': '1714',
+          'title': 'Fundación',
+          'text':
+              'Fundación de la Cofradía en un momento de gran fervor religioso.',
+          'order': 0
+        },
+        {
+          'date_or_year': 'Siglo XVIII',
+          'title': 'Consolidación',
+          'text':
+              'Consolidación de la hermandad en la vida religiosa y social de Ocaña.',
+          'order': 1
+        },
+        {
+          'date_or_year': 'Siglo XIX-XX',
+          'title': 'Pervivencia',
+          'text':
+              'La devoción a San Juan Evangelista se mantiene viva a través del tiempo.',
+          'order': 2
+        },
+        {
+          'date_or_year': 'Actualidad',
+          'title': 'Siglo XXI',
+          'text':
+              'La Cofradía continúa vinculada a la Semana Santa y a la vida parroquial.',
+          'order': 3
+        },
+      ],
+      'order': 0,
+      'status': 'published',
+      'published_at': Timestamp.fromDate(now),
+      'created_at': Timestamp.fromDate(now),
+      'updated_at': Timestamp.fromDate(now),
+      'created_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+      'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+    });
+  }
+
+  Future<void> _deleteDocumentAndFiles(
+    CollectionReference<Map<String, dynamic>> collection,
+    String id,
+    List<String> fields,
+  ) async {
+    final snapshot = await collection.doc(id).get();
+    final data = snapshot.data() ?? {};
+    await collection.doc(id).delete();
+    final urls = <String>[];
+    for (final field in fields) {
+      final value = data[field];
+      if (value is String && value.isNotEmpty) urls.add(value);
+      if (value is List) {
+        for (final item in value) {
+          if (item is Map && item['url'] is String) {
+            urls.add(item['url'] as String);
+          }
+          if (item is Map && item['imageUrl'] is String) {
+            urls.add(item['imageUrl'] as String);
+          }
+          if (item is Map && item['image_url'] is String) {
+            urls.add(item['image_url'] as String);
+          }
+        }
+      }
+    }
+    final blocks = [
+      ...(data['rich_content'] as List? ?? const []),
+      ...(data['rich_description'] as List? ?? const []),
+    ];
+    for (final item in blocks) {
+      if (item is Map && item['imageUrl'] is String) {
+        urls.add(item['imageUrl'] as String);
+      }
+    }
+    await Future.wait(urls.toSet().map(_storage.deleteFileReporting));
+  }
 
   Future<String> _save(
     CollectionReference<Map<String, dynamic>> collection,
@@ -310,12 +548,15 @@ class ContentService {
         ...data,
         'created_at': Timestamp.fromDate(now),
         'updated_at': Timestamp.fromDate(now),
+        'created_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
       return ref.id;
     }
     await collection.doc(id).update({
       ...data,
       'updated_at': FieldValue.serverTimestamp(),
+      'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
     });
     return id;
   }

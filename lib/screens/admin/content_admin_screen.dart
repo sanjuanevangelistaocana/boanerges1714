@@ -21,6 +21,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
   final _storage = StorageService();
   String? _selectedId;
   bool _seeding = false;
+  bool _importingHistory = false;
 
   @override
   void initState() {
@@ -36,6 +37,21 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
       _showError(error);
     } finally {
       if (mounted) setState(() => _seeding = false);
+    }
+  }
+
+  Future<void> _importHistory() async {
+    setState(() => _importingHistory = true);
+    try {
+      await _content.importInitialHistory();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Contenido inicial de Historia importado.')));
+      }
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _importingHistory = false);
     }
   }
 
@@ -232,6 +248,14 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
                         icon: const Icon(Icons.account_tree_outlined),
                         label: Text(
                             _seeding ? 'Sembrando...' : 'Restaurar estructura'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _importingHistory ? null : _importHistory,
+                        icon: const Icon(Icons.history_edu),
+                        label: Text(_importingHistory
+                            ? 'Importando...'
+                            : 'Importar Historia inicial'),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(

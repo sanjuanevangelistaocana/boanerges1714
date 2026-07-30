@@ -167,6 +167,20 @@ class HomeScreen extends StatelessWidget {
                       fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/patrimonio'),
+                icon: const Icon(Icons.museum_outlined, color: Colors.white),
+                label: const Text('Patrimonio'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white.withAlpha(30),
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white, width: 1.5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  textStyle: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
             ],
           ),
         ],

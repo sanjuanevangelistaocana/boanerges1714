@@ -5,6 +5,8 @@ import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/app_logo.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/config/theme.dart';
+import 'package:boanerges1714/models/content_models.dart';
+import 'package:boanerges1714/services/content_service.dart';
 
 class ShellScaffold extends StatelessWidget {
   final Widget child;
@@ -37,15 +39,7 @@ class ShellScaffold extends StatelessWidget {
         ),
         actions: isDesktop
             ? [
-                Flexible(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: _buildDesktopNav(context, isLoggedIn, isAdmin),
-                    ),
-                  ),
-                ),
+                _DesktopNavigation(isLoggedIn: isLoggedIn, isAdmin: isAdmin),
               ]
             : null,
       ),
@@ -57,54 +51,6 @@ class ShellScaffold extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  List<Widget> _buildDesktopNav(
-      BuildContext context, bool isLoggedIn, bool isAdmin) {
-    return [
-      _NavGroup(
-        children: [
-          _NavButton(label: 'Inicio', route: '/'),
-          _NavButton(label: 'Historia', route: '/history'),
-          _NavButton(
-              label: 'Eventos', route: isLoggedIn ? '/eventos' : '/events'),
-          _NavButton(label: 'Noticias', route: '/news'),
-          _NavButton(label: 'Galería', route: '/gallery'),
-          _NavButton(label: 'Contacto', route: '/contact'),
-        ],
-      ),
-      const SizedBox(width: 10),
-      _NavGroup(
-        secondary: true,
-        children: [
-          _NavButton(label: 'Redes Sociales', route: '/social-media'),
-          _NavButton(label: 'La Rosa', route: '/la-rosa'),
-          _NavButton(label: 'Revista Boanerges', route: '/boanerges'),
-        ],
-      ),
-      if (isLoggedIn) ...[
-        const SizedBox(width: 10),
-        _NavGroup(
-          secondary: true,
-          children: [
-            _NavButton(label: 'Mi Zona', route: '/dashboard'),
-            if (context.watch<AuthService>().canViewTreasury)
-              _NavButton(label: 'Tesorería', route: '/treasury'),
-            _PrivateZoneMenu(),
-            if (isAdmin) _NavButton(label: 'Admin', route: '/admin'),
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white70),
-              onPressed: () => context.read<AuthService>().signOut(),
-              tooltip: 'Cerrar sesión',
-            ),
-          ],
-        ),
-      ] else ...[
-        const SizedBox(width: 10),
-        _NavButton(label: 'Acceder', route: '/login'),
-      ],
-      const SizedBox(width: 8),
-    ];
   }
 
   Widget _buildDrawer(BuildContext context, bool isLoggedIn, bool isAdmin) {
@@ -132,8 +78,7 @@ class ShellScaffold extends StatelessWidget {
             ),
           ),
           _DrawerItem(icon: Icons.home, label: 'Inicio', route: '/'),
-          _DrawerItem(
-              icon: Icons.history_edu, label: 'Historia', route: '/history'),
+          const _DrawerSectionGroups(),
           _DrawerItem(
               icon: Icons.event,
               label: 'Eventos',
@@ -243,6 +188,285 @@ class ShellScaffold extends StatelessWidget {
             _DrawerItem(icon: Icons.login, label: 'Acceder', route: '/login'),
         ],
       ),
+    );
+  }
+}
+
+class _DesktopNavigation extends StatelessWidget {
+  final bool isLoggedIn;
+  final bool isAdmin;
+
+  const _DesktopNavigation({
+    required this.isLoggedIn,
+    required this.isAdmin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Flexible(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: _desktopNavigationItems(context, isLoggedIn, isAdmin),
+        ),
+      ),
+    );
+  }
+}
+
+List<Widget> _desktopNavigationItems(
+    BuildContext context, bool isLoggedIn, bool isAdmin) {
+  return [
+    _NavGroup(
+      children: [
+        _NavButton(label: 'Inicio', route: '/'),
+        const _SectionNavMenu(
+          slug: 'cofradia',
+          label: 'Cofradía',
+          fallback: [
+            _SectionNavEntry('Historia', 'historia'),
+            _SectionNavEntry('Reglas', 'reglas'),
+            _SectionNavEntry('La Parroquia', 'la-parroquia'),
+            _SectionNavEntry('Junta de Gobierno', 'junta-de-gobierno'),
+            _SectionNavEntry('Grupos', 'grupos'),
+          ],
+        ),
+        const _SectionNavMenu(
+          slug: 'patrimonio',
+          label: 'Patrimonio',
+          fallback: [
+            _SectionNavEntry('Archivo Histórico', 'archivo-historico'),
+            _SectionNavEntry('Patrimonio Artístico', 'patrimonio-artistico'),
+          ],
+        ),
+        _NavButton(
+            label: 'Eventos', route: isLoggedIn ? '/eventos' : '/events'),
+        _NavButton(label: 'Noticias', route: '/news'),
+        _NavButton(label: 'Galería', route: '/gallery'),
+        _NavButton(label: 'Contacto', route: '/contact'),
+      ],
+    ),
+    const SizedBox(width: 10),
+    _NavGroup(
+      secondary: true,
+      children: [
+        _NavButton(label: 'Redes Sociales', route: '/social-media'),
+        _NavButton(label: 'La Rosa', route: '/la-rosa'),
+        _NavButton(label: 'Revista Boanerges', route: '/boanerges'),
+      ],
+    ),
+    if (isLoggedIn) ...[
+      const SizedBox(width: 10),
+      _NavGroup(
+        secondary: true,
+        children: [
+          _NavButton(label: 'Mi Zona', route: '/dashboard'),
+          if (context.watch<AuthService>().canViewTreasury)
+            _NavButton(label: 'Tesorería', route: '/treasury'),
+          _PrivateZoneMenu(),
+          if (isAdmin) _NavButton(label: 'Admin', route: '/admin'),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white70),
+            onPressed: () => context.read<AuthService>().signOut(),
+            tooltip: 'Cerrar sesión',
+          ),
+        ],
+      ),
+    ] else ...[
+      const SizedBox(width: 10),
+      _NavButton(label: 'Acceder', route: '/login'),
+    ],
+    const SizedBox(width: 8),
+  ];
+}
+
+class _SectionNavEntry {
+  final String label;
+  final String slug;
+
+  const _SectionNavEntry(this.label, this.slug);
+}
+
+class _SectionNavMenu extends StatelessWidget {
+  final String slug;
+  final String label;
+  final List<_SectionNavEntry> fallback;
+
+  const _SectionNavMenu({
+    required this.slug,
+    required this.label,
+    required this.fallback,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ContentSection>>(
+      stream: ContentService().watchSections(),
+      builder: (context, snapshot) {
+        final all = snapshot.data ?? const <ContentSection>[];
+        final matchingRoots =
+            all.where((section) => section.slug == slug).toList();
+        final root = matchingRoots.isEmpty ? null : matchingRoots.first;
+        final dynamicEntries = root == null
+            ? <_SectionNavEntry>[]
+            : all
+                .where((section) => section.parentId == root.id)
+                .map((section) => _SectionNavEntry(section.title, section.slug))
+                .toList();
+        final entries = dynamicEntries.isEmpty ? fallback : dynamicEntries;
+        final path = GoRouterState.of(context).uri.path;
+        final selected = path == '/$slug' || path.startsWith('/$slug/');
+        return PopupMenuButton<String>(
+          tooltip: label,
+          onSelected: (sectionSlug) => context.go('/$slug/$sectionSlug'),
+          itemBuilder: (_) => entries
+              .map((entry) => PopupMenuItem<String>(
+                    value: entry.slug,
+                    child: Text(entry.label),
+                  ))
+              .toList(),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: selected ? AppTheme.accentColor : Colors.transparent,
+                  width: 2.5,
+                ),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w600,
+                        fontSize: 12.5)),
+                const SizedBox(width: 2),
+                const Icon(Icons.expand_more, color: Colors.white, size: 18),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DrawerSectionGroups extends StatelessWidget {
+  const _DrawerSectionGroups();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<ContentSection>>(
+      stream: ContentService().watchSections(),
+      builder: (context, snapshot) {
+        final all = snapshot.data ?? const <ContentSection>[];
+        final roots = all.where((section) => section.parentId == null).toList();
+        if (roots.isEmpty) {
+          return Column(
+            children: const [
+              _DrawerStaticSection(
+                title: 'Cofradía',
+                rootSlug: 'cofradia',
+                children: [
+                  _SectionNavEntry('Historia', 'historia'),
+                  _SectionNavEntry('Reglas', 'reglas'),
+                  _SectionNavEntry('La Parroquia', 'la-parroquia'),
+                  _SectionNavEntry('Junta de Gobierno', 'junta-de-gobierno'),
+                  _SectionNavEntry('Grupos', 'grupos'),
+                ],
+              ),
+              _DrawerStaticSection(
+                title: 'Patrimonio',
+                rootSlug: 'patrimonio',
+                children: [
+                  _SectionNavEntry('Archivo Histórico', 'archivo-historico'),
+                  _SectionNavEntry(
+                      'Patrimonio Artístico', 'patrimonio-artistico'),
+                ],
+              ),
+            ],
+          );
+        }
+        return Column(
+          children: roots.map((root) {
+            final children =
+                all.where((section) => section.parentId == root.id).toList();
+            if (children.isEmpty) {
+              final fallback = root.slug == 'patrimonio'
+                  ? const [
+                      _SectionNavEntry(
+                          'Archivo Histórico', 'archivo-historico'),
+                      _SectionNavEntry(
+                          'Patrimonio Artístico', 'patrimonio-artistico'),
+                    ]
+                  : const [
+                      _SectionNavEntry('Historia', 'historia'),
+                      _SectionNavEntry('Reglas', 'reglas'),
+                      _SectionNavEntry('La Parroquia', 'la-parroquia'),
+                      _SectionNavEntry(
+                          'Junta de Gobierno', 'junta-de-gobierno'),
+                      _SectionNavEntry('Grupos', 'grupos'),
+                    ];
+              return _DrawerStaticSection(
+                title: root.title,
+                rootSlug: root.slug,
+                children: fallback,
+              );
+            }
+            return ExpansionTile(
+              leading: const Icon(Icons.account_tree_outlined),
+              title: Text(root.title),
+              children: children
+                  .map((section) => ListTile(
+                        title: Text(section.title),
+                        contentPadding:
+                            const EdgeInsets.only(left: 56, right: 16),
+                        onTap: () {
+                          Navigator.pop(context);
+                          context.go('/${root.slug}/${section.slug}');
+                        },
+                      ))
+                  .toList(),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _DrawerStaticSection extends StatelessWidget {
+  final String title;
+  final String rootSlug;
+  final List<_SectionNavEntry> children;
+
+  const _DrawerStaticSection({
+    required this.title,
+    required this.rootSlug,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      leading: const Icon(Icons.account_tree_outlined),
+      title: Text(title),
+      children: children
+          .map((child) => ListTile(
+                title: Text(child.label),
+                contentPadding: const EdgeInsets.only(left: 56, right: 16),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.go('/$rootSlug/${child.slug}');
+                },
+              ))
+          .toList(),
     );
   }
 }

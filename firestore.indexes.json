@@ -20,6 +20,15 @@
       ]
     },
     {
+      "collectionGroup": "content_sections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "slug", "order": "ASCENDING" },
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "content_articles",
       "queryScope": "COLLECTION",
       "fields": [
@@ -29,12 +38,30 @@
       ]
     },
     {
+      "collectionGroup": "content_articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "section_id", "order": "ASCENDING" },
+        { "fieldPath": "slug", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "patrimonio_fichas",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "section_id", "order": "ASCENDING" },
         { "fieldPath": "published", "order": "ASCENDING" },
         { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "patrimonio_fichas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "section_id", "order": "ASCENDING" },
+        { "fieldPath": "slug", "order": "ASCENDING" },
+        { "fieldPath": "published", "order": "ASCENDING" }
       ]
     },
     {
@@ -53,6 +80,15 @@
         { "fieldPath": "section_id", "order": "ASCENDING" },
         { "fieldPath": "published", "order": "ASCENDING" },
         { "fieldPath": "order", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "grupos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "section_id", "order": "ASCENDING" },
+        { "fieldPath": "slug", "order": "ASCENDING" },
+        { "fieldPath": "published", "order": "ASCENDING" }
       ]
     },
     {

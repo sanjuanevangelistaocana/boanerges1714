@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boanerges1714/screens/public/home_screen.dart';
-import 'package:boanerges1714/screens/public/history_screen.dart';
 import 'package:boanerges1714/screens/public/events_screen.dart';
 import 'package:boanerges1714/screens/events/events_home_screen.dart';
 import 'package:boanerges1714/screens/events/events_admin_screen.dart';
@@ -64,6 +63,7 @@ import 'package:boanerges1714/screens/treasury/billing_and_collections_screen.da
 import 'package:boanerges1714/screens/treasury/treasury_module_screens.dart';
 import 'package:boanerges1714/screens/treasury/treasury_invoice_detail_screen.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/services/content_service.dart';
 import 'package:boanerges1714/widgets/shell_scaffold.dart';
 import 'package:boanerges1714/screens/admin/manage_encuestas_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_gallery_screen.dart';
@@ -73,6 +73,7 @@ import 'package:boanerges1714/screens/private/encuestas_screen.dart';
 import 'package:boanerges1714/screens/private/turnos_andas/turnos_andas_screen.dart';
 import 'package:boanerges1714/screens/admin/turnos_andas/turnos_andas_admin_screen.dart';
 import 'package:boanerges1714/screens/public/news_detail_screen.dart';
+import 'package:boanerges1714/screens/public/content_public_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -168,7 +169,70 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
           GoRoute(
               path: '/history',
-              builder: (context, state) => const HistoryScreen()),
+              redirect: (context, state) => '/cofradia/historia'),
+          GoRoute(
+              path: '/cofradia',
+              builder: (context, state) => ContentRootScreen(
+                    rootSlug: 'cofradia',
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/patrimonio',
+              builder: (context, state) => ContentRootScreen(
+                    rootSlug: 'patrimonio',
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/cofradia/:sectionSlug/articulo/:articleSlug',
+              builder: (context, state) => ContentArticleScreen(
+                    rootSlug: 'cofradia',
+                    sectionSlug: state.pathParameters['sectionSlug']!,
+                    articleSlug: state.pathParameters['articleSlug']!,
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/patrimonio/:sectionSlug/articulo/:articleSlug',
+              builder: (context, state) => ContentArticleScreen(
+                    rootSlug: 'patrimonio',
+                    sectionSlug: state.pathParameters['sectionSlug']!,
+                    articleSlug: state.pathParameters['articleSlug']!,
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/cofradia/:sectionSlug/grupo/:groupSlug',
+              builder: (context, state) => ContentGroupScreen(
+                    sectionSlug: state.pathParameters['sectionSlug']!,
+                    groupSlug: state.pathParameters['groupSlug']!,
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/patrimonio/:sectionSlug/grupo/:groupSlug',
+              builder: (context, state) => ContentGroupScreen(
+                    sectionSlug: state.pathParameters['sectionSlug']!,
+                    groupSlug: state.pathParameters['groupSlug']!,
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/patrimonio/:sectionSlug/ficha/:fichaSlug',
+              builder: (context, state) => ContentFichaScreen(
+                    sectionSlug: state.pathParameters['sectionSlug']!,
+                    fichaSlug: state.pathParameters['fichaSlug']!,
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/cofradia/:sectionSlug',
+              builder: (context, state) => ContentSectionScreen(
+                    rootSlug: 'cofradia',
+                    sectionSlug: state.pathParameters['sectionSlug']!,
+                    service: ContentService(),
+                  )),
+          GoRoute(
+              path: '/patrimonio/:sectionSlug',
+              builder: (context, state) => ContentSectionScreen(
+                    rootSlug: 'patrimonio',
+                    sectionSlug: state.pathParameters['sectionSlug']!,
+                    service: ContentService(),
+                  )),
           GoRoute(
               path: '/events',
               builder: (context, state) => const EventsScreen()),
