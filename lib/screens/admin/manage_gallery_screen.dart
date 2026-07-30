@@ -314,10 +314,20 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     if (confirmed != true) return;
     if (mounted) setState(() => _mutating = true);
     try {
+      var storageWarnings = 0;
       for (final image in selected) {
-        await context.read<GalleryService>().deleteImage(image);
+        final storageDeleted =
+            await context.read<GalleryService>().deleteImage(image);
+        if (!storageDeleted) storageWarnings++;
       }
-      _showMessage('${selected.length} fotografía(s) eliminada(s).');
+      _showMessage(
+        storageWarnings == 0
+            ? '${selected.length} fotografía(s) eliminada(s).'
+            : '${selected.length} fotografía(s) eliminada(s) del catálogo, '
+                'pero no se pudo borrar el fichero físico de '
+                '$storageWarnings.',
+        error: storageWarnings > 0,
+      );
     } catch (error) {
       _showMessage(_friendlyError(error), error: true);
     } finally {

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/storage_service.dart';
@@ -339,7 +340,7 @@ class GalleryService {
     return ref.id;
   }
 
-  Future<void> deleteImage(GalleryImage image) async {
+  Future<bool> deleteImage(GalleryImage image) async {
     var deletedNow = false;
     await _db.runTransaction((transaction) async {
       final imageRef = _images.doc(image.id);
@@ -356,10 +357,10 @@ class GalleryService {
         'fecha_actualizacion': FieldValue.serverTimestamp(),
       });
     });
-    if (deletedNow) {
-      await _deleteStorageFile(image.url);
-      await _deleteStorageFile(image.thumbUrl);
-    }
+    if (!deletedNow) return true;
+    final originalDeleted = await _deleteStorageFile(image.url);
+    final thumbnailDeleted = await _deleteStorageFile(image.thumbUrl);
+    return originalDeleted && thumbnailDeleted;
   }
 
   Future<void> moveImage({
@@ -911,9 +912,18 @@ class GalleryService {
     });
   }
 
-  Future<void> _deleteStorageFile(String? url) async {
-    if (url == null || url.isEmpty) return;
-    await _storage.deleteFile(url);
+  Future<bool> _deleteStorageFile(String? url) async {
+    if (url == null || url.isEmpty) return true;
+    try {
+      final deleted = await _storage.deleteFileReporting(url);
+      if (!deleted) {
+        debugPrint('[GalleryService] No se pudo eliminar el fichero $url.');
+      }
+      return deleted;
+    } catch (error) {
+      debugPrint('[GalleryService] Error eliminando $url: $error');
+      return false;
+    }
   }
 
   Future<void> _commitInChunks<T>(

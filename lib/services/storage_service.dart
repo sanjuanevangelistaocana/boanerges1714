@@ -129,8 +129,20 @@ class StorageService {
   }
 
   Future<void> deleteFile(String url) async {
-    final ref = _storage.refFromURL(url);
-    await ref.delete();
+    try {
+      final ref = _storage.refFromURL(url);
+      await ref.delete();
+    } catch (_) {}
+  }
+
+  Future<bool> deleteFileReporting(String url) async {
+    try {
+      final ref = _storage.refFromURL(url);
+      await ref.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<Uint8List> downloadBytes(
