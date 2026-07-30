@@ -42,14 +42,17 @@ class _HomeCarouselState extends State<HomeCarousel> {
   }
 
   void _syncTimer() {
-    _timer?.cancel();
     if (_paused ||
         MediaQuery.maybeDisableAnimationsOf(context) == true ||
         _images.length < 2) {
+      _timer?.cancel();
+      _timer = null;
       return;
     }
+    if (_timer != null) return;
     _timer = Timer.periodic(const Duration(seconds: 6), (_) {
-      if (!mounted || _paused) return;
+      if (!mounted || _paused || !_controller.hasClients) return;
+      debugPrint('[HomeCarousel] avance virtual $_virtualIndex');
       _controller.nextPage(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
@@ -89,8 +92,11 @@ class _HomeCarouselState extends State<HomeCarousel> {
     _virtualIndex = _initialPage + nextIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_controller.hasClients) return;
-      _controller.jumpToPage(_virtualIndex);
+      if (_controller.page?.round() != _virtualIndex) {
+        _controller.jumpToPage(_virtualIndex);
+      }
       _precacheNext(context);
+      _syncTimer();
     });
   }
 
@@ -102,17 +108,13 @@ class _HomeCarouselState extends State<HomeCarousel> {
       builder: (context, snapshot) {
         final images = snapshot.data ?? const <GalleryImage>[];
         if (images.isEmpty) {
+          _timer?.cancel();
+          _timer = null;
           _images = const [];
           _knownImageIds = const [];
           return widget.fallback(context, const SizedBox());
         }
         _prepareImages(images);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _syncTimer();
-            _precacheNext(context);
-          }
-        });
         final wide = MediaQuery.sizeOf(context).width >= 700;
         final height = wide ? 360.0 : 240.0;
         return Semantics(
@@ -133,6 +135,8 @@ class _HomeCarouselState extends State<HomeCarousel> {
                       onPageChanged: (value) {
                         _virtualIndex = value;
                         setState(() => _index = value % images.length);
+                        debugPrint(
+                            '[HomeCarousel] página virtual $_virtualIndex');
                         _precacheNext(context);
                       },
                       itemBuilder: (context, index) {
