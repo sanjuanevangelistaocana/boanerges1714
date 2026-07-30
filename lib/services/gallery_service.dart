@@ -716,7 +716,8 @@ class GalleryService {
           'El ZIP contiene «$name», que no es una imagen JPG, JPEG, PNG o WebP.',
         );
       }
-      if (!_hasSupportedImageHeader(file.content as List<int>)) {
+      final content = file.content;
+      if (content is! List<int> || !_hasSupportedImageHeader(content)) {
         throw StateError('La imagen «$name» no tiene una cabecera válida.');
       }
       count++;

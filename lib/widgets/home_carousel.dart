@@ -34,7 +34,7 @@ class _HomeCarouselState extends State<HomeCarousel> {
   void _syncTimer() {
     _timer?.cancel();
     if (_paused ||
-        MediaQuery.maybeOf(context)?.disableAnimations == true ||
+        MediaQuery.maybeDisableAnimationsOf(context) == true ||
         _images.length < 2) {
       return;
     }

@@ -77,7 +77,12 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
       final entries = <ModeratedGalleryEntry>[];
       for (final file in archive.files) {
         if (!file.isFile || _isIgnored(file.name)) continue;
-        final content = Uint8List.fromList(file.content as List<int>);
+        final rawContent = file.content;
+        if (rawContent is! List<int>) {
+          throw StateError(
+              'El archivo «${file.name}» no contiene bytes válidos.');
+        }
+        final content = Uint8List.fromList(rawContent);
         final thumbnail =
             await context.read<GalleryService>().createThumbnail(content);
         entries.add(ModeratedGalleryEntry(
