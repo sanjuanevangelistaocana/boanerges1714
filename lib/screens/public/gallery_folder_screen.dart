@@ -416,9 +416,9 @@ class _GalleryLightboxState extends State<_GalleryLightbox> {
   Widget build(BuildContext context) {
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _change(-1),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () => _change(1),
-        const SingleActivator(LogicalKeyboardKey.escape): () =>
+        SingleActivator(LogicalKeyboardKey.arrowLeft): () => _change(-1),
+        SingleActivator(LogicalKeyboardKey.arrowRight): () => _change(1),
+        SingleActivator(LogicalKeyboardKey.escape): () =>
             Navigator.of(context).pop(),
       },
       child: Focus(
