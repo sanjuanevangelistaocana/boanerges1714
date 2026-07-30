@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -899,8 +900,9 @@ class _PublicError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final code = error is FirebaseException ? error.code : 'content-error';
-    debugPrint('Public content error [$code]: $error');
+    final failure = error;
+    final code = failure is FirebaseException ? failure.code : 'content-error';
+    debugPrint('Public content error [$code]: $failure');
     return _EmptyState(
       icon: Icons.error_outline,
       text: 'No se pudo cargar este contenido [$code].',
