@@ -102,9 +102,7 @@ class ShellScaffold extends StatelessWidget {
           const Divider(),
           if (isLoggedIn) ...[
             _DrawerItem(
-                icon: Icons.dashboard,
-                label: 'Acceso Cofrades',
-                route: '/dashboard'),
+                icon: Icons.dashboard, label: 'Mi Zona', route: '/dashboard'),
             _DrawerItem(
                 icon: Icons.person, label: 'Mi Perfil', route: '/profile'),
             _DrawerItem(
@@ -264,8 +262,7 @@ List<Widget> _desktopNavigationItems(
       _NavGroup(
         secondary: true,
         children: [
-          _NavButton(
-              label: 'Acceso Cofrades', route: '/dashboard', prominent: true),
+          _NavButton(label: 'Mi Zona', route: '/dashboard'),
           if (context.watch<AuthService>().canViewTreasury)
             _NavButton(label: 'Tesorería', route: '/treasury'),
           _PrivateZoneMenu(),

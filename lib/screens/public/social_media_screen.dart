@@ -255,9 +255,16 @@ class _InstagramPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.8
       ..strokeCap = StrokeCap.round;
+    const inset = 1.4;
+    final frame = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - inset * 2,
+      size.height - inset * 2,
+    );
     final rect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      const Radius.circular(8),
+      frame,
+      const Radius.circular(6.6),
     );
     canvas.drawRRect(rect, stroke);
     canvas.drawCircle(
@@ -266,7 +273,10 @@ class _InstagramPainter extends CustomPainter {
       stroke,
     );
     canvas.drawCircle(
-      Offset(size.width * .72, size.height * .28),
+      Offset(
+        frame.left + frame.width * .72,
+        frame.top + frame.height * .28,
+      ),
       2,
       Paint()..color = color,
     );
