@@ -1,6 +1,9 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const {google} = require("googleapis");
+const APP_BASE_URL = (
+  process.env.APP_BASE_URL || "https://sanjuanevangelistaocana.com"
+).replace(/\/+$/, "");
 const nodemailer = require("nodemailer");
 
 admin.initializeApp();
@@ -519,7 +522,7 @@ exports.onNewSolicitud = functions
         }
         bodyParts.push("<hr/>");
         bodyParts.push(`<p><small>Recibida el ${new Date().toLocaleString("es-ES", {timeZone: "Europe/Madrid"})} desde la web de la Cofradía.</small></p>`);
-        bodyParts.push(`<p>Gestiona esta solicitud desde el <a href="https://boanerges1714.web.app/admin">panel de administración</a>.</p>`);
+        bodyParts.push(`<p>Gestiona esta solicitud desde el <a href="${APP_BASE_URL}/admin">panel de administración</a>.</p>`);
 
         const mailOptions = {
           from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,

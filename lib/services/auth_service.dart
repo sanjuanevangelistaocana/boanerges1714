@@ -16,6 +16,7 @@ class AuthService extends ChangeNotifier {
   bool _isLoading = false;
   bool _profileSelectedThisSession = false;
   Map<String, dynamic>? _activeLegalConsent;
+  String? _authError;
 
   User? get user => _user;
   Cofrade? get cofrade => _selectedCofrade;
@@ -39,6 +40,7 @@ class AuthService extends ChangeNotifier {
   bool get canGenerateRemittance => isAdmin || isTreasurer;
   bool get canEditTreasurySettings => isAdmin || isTreasurer;
   bool get isLoading => _isLoading;
+  String? get authError => _authError;
   String? get userId => _user?.uid;
   Map<String, dynamic>? get activeLegalConsent => _activeLegalConsent;
   bool get needsEmailVerification {
@@ -91,6 +93,28 @@ class AuthService extends ChangeNotifier {
   AuthService() {
     _auth.setLanguageCode('es');
     _auth.authStateChanges().listen(_onAuthStateChanged);
+    if (kIsWeb) {
+      _processRedirectResult();
+    }
+  }
+
+  Future<void> _processRedirectResult() async {
+    try {
+      final credential = await _auth.getRedirectResult();
+      if (credential.user == null) return;
+      _isLoading = true;
+      notifyListeners();
+      _authError = await _completeGoogleSignIn(credential.user);
+    } on FirebaseAuthException catch (e) {
+      debugPrint('[Auth] Google redirect error: ${e.code} - ${e.message}');
+      _authError = _getErrorMessage(e.code, e.message);
+    } catch (e) {
+      debugPrint('[Auth] Google redirect unexpected error: $e');
+      _authError = 'redirect-error: No se pudo completar el acceso con Google.';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _onAuthStateChanged(User? user) async {
@@ -239,6 +263,7 @@ class AuthService extends ChangeNotifier {
   Future<String?> signIn(String email, String password) async {
     try {
       _isLoading = true;
+      _authError = null;
       notifyListeners();
 
       final credential = await _auth.signInWithEmailAndPassword(
@@ -265,6 +290,7 @@ class AuthService extends ChangeNotifier {
   Future<String?> signInWithDni(String dni, String password) async {
     try {
       _isLoading = true;
+      _authError = null;
       notifyListeners();
 
       final cleanDni = _normalizeDni(dni);
@@ -322,74 +348,94 @@ class AuthService extends ChangeNotifier {
   Future<String?> signInWithGoogle() async {
     try {
       _isLoading = true;
+      _authError = null;
       notifyListeners();
       final provider = GoogleAuthProvider()
         ..setCustomParameters({'prompt': 'select_account'});
-      final credential = kIsWeb
-          ? await _auth.signInWithPopup(provider)
-          : await _auth.signInWithProvider(provider);
-      final user = credential.user;
-      final email = user?.email?.trim();
-      if (user == null || email == null || email.isEmpty) {
-        await _auth.signOut();
-        return 'No se pudo obtener el email de la cuenta de Google.';
+      final UserCredential credential;
+      if (kIsWeb) {
+        try {
+          credential = await _auth.signInWithPopup(provider);
+        } on FirebaseAuthException catch (e) {
+          debugPrint('[Auth] Google popup error: ${e.code} - ${e.message}');
+          const redirectCodes = {
+            'popup-blocked',
+            'popup-closed-by-user',
+            'operation-not-supported-in-this-environment',
+            'web-storage-unsupported',
+          };
+          if (!redirectCodes.contains(e.code)) rethrow;
+          await _auth.signInWithRedirect(provider);
+          return null;
+        }
+      } else {
+        credential = await _auth.signInWithProvider(provider);
       }
-      final byEmail = await _firestore
-          .collection('cofrades')
-          .where('email', isEqualTo: email)
-          .get();
-      if (byEmail.docs.isEmpty) {
-        await _auth.signOut();
-        return 'No existe ningún cofrade asociado a esta cuenta de Google. Contacta con la Cofradía.';
-      }
-      final batch = _firestore.batch();
-      for (final doc in byEmail.docs) {
-        final currentAuthUid = doc.data()['auth_uid'];
-        batch.update(doc.reference, {
-          if (currentAuthUid == null || '$currentAuthUid'.isEmpty)
-            'auth_uid': user.uid,
-          'authUid': user.uid,
-          'login_method': 'google',
-          'lastLoginMethod': 'google',
-          'linkedAuthProviders': FieldValue.arrayUnion(['google']),
-          'hasLoggedIn': true,
-          if (doc.data()['firstLoginAt'] == null)
-            'firstLoginAt': FieldValue.serverTimestamp(),
-          'lastLoginAt': FieldValue.serverTimestamp(),
-          'loginCount': FieldValue.increment(1),
-          'fecha_actualizacion': FieldValue.serverTimestamp(),
-          'ultimo_acceso': FieldValue.serverTimestamp(),
-        });
-      }
-      await batch.commit();
-      final doc = byEmail.docs.first;
-      await _firestore.collection('audit_logs').add({
-        'action': 'google_login',
-        'target_id': doc.id,
-        'target_type': 'cofrade',
-        'target_nombre':
-            '${doc.data()['nombre'] ?? ''} ${doc.data()['apellidos'] ?? ''}'
-                .trim(),
-        'changed_by': doc.id,
-        'changed_by_role': 'cofrade',
-        'changed_at': FieldValue.serverTimestamp(),
-        'metadata': {'email': email, 'uid': user.uid},
-      });
-      await _loadCofradeData();
-      return null;
+      return _completeGoogleSignIn(credential.user);
     } on FirebaseAuthException catch (e) {
       debugPrint('Google login FirebaseAuth error: ${e.code} ${e.message}');
       if (e.code == 'account-exists-with-different-credential') {
         return 'Ya existe una cuenta con este email. Accede con email y contraseña para vincular Google.';
       }
-      return _getErrorMessage(e.code);
+      return _getErrorMessage(e.code, e.message);
     } catch (e) {
       debugPrint('Google login error: $e');
-      return 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.';
+      return 'google-sign-in-error: No se pudo iniciar sesión con Google.';
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<String?> _completeGoogleSignIn(User? user) async {
+    final email = user?.email?.trim();
+    if (user == null || email == null || email.isEmpty) {
+      await _auth.signOut();
+      return 'No se pudo obtener el email de la cuenta de Google.';
+    }
+    final byEmail = await _firestore
+        .collection('cofrades')
+        .where('email', isEqualTo: email)
+        .get();
+    if (byEmail.docs.isEmpty) {
+      await _auth.signOut();
+      return 'No existe ningún cofrade asociado a esta cuenta de Google. Contacta con la Cofradía.';
+    }
+    final batch = _firestore.batch();
+    for (final doc in byEmail.docs) {
+      final currentAuthUid = doc.data()['auth_uid'];
+      batch.update(doc.reference, {
+        if (currentAuthUid == null || '$currentAuthUid'.isEmpty)
+          'auth_uid': user.uid,
+        'authUid': user.uid,
+        'login_method': 'google',
+        'lastLoginMethod': 'google',
+        'linkedAuthProviders': FieldValue.arrayUnion(['google']),
+        'hasLoggedIn': true,
+        if (doc.data()['firstLoginAt'] == null)
+          'firstLoginAt': FieldValue.serverTimestamp(),
+        'lastLoginAt': FieldValue.serverTimestamp(),
+        'loginCount': FieldValue.increment(1),
+        'fecha_actualizacion': FieldValue.serverTimestamp(),
+        'ultimo_acceso': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+    final doc = byEmail.docs.first;
+    await _firestore.collection('audit_logs').add({
+      'action': 'google_login',
+      'target_id': doc.id,
+      'target_type': 'cofrade',
+      'target_nombre':
+          '${doc.data()['nombre'] ?? ''} ${doc.data()['apellidos'] ?? ''}'
+              .trim(),
+      'changed_by': doc.id,
+      'changed_by_role': 'cofrade',
+      'changed_at': FieldValue.serverTimestamp(),
+      'metadata': {'email': email, 'uid': user.uid},
+    });
+    await _loadCofradeData();
+    return null;
   }
 
   String _normalizeDni(String value) {
@@ -564,23 +610,30 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _getErrorMessage(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return 'No existe una cuenta con este email.';
-      case 'wrong-password':
-        return 'Contraseña incorrecta.';
-      case 'email-already-in-use':
-        return 'Ya existe una cuenta con este email.';
-      case 'weak-password':
-        return 'La contraseña es demasiado débil. Usa al menos 6 caracteres.';
-      case 'invalid-email':
-        return 'El email no es válido.';
-      case 'too-many-requests':
-        return 'Demasiados intentos. Inténtalo de nuevo más tarde.';
-      default:
-        return 'Error de autenticación. Inténtalo de nuevo.';
-    }
+  String _getErrorMessage(String code, [String? detail]) {
+    final description = switch (code) {
+      'user-not-found' => 'No existe una cuenta con este email.',
+      'wrong-password' => 'Contraseña incorrecta.',
+      'email-already-in-use' => 'Ya existe una cuenta con este email.',
+      'weak-password' =>
+        'La contraseña es demasiado débil. Usa al menos 6 caracteres.',
+      'invalid-email' => 'El email no es válido.',
+      'too-many-requests' =>
+        'Demasiados intentos. Inténtalo de nuevo más tarde.',
+      'unauthorized-domain' =>
+        'El dominio no está autorizado en Firebase Authentication.',
+      'popup-blocked' => 'El navegador ha bloqueado la ventana de Google.',
+      'popup-closed-by-user' =>
+        'La ventana de Google se cerró antes de completar el acceso.',
+      'operation-not-supported-in-this-environment' =>
+        'Este entorno no admite el acceso mediante ventana emergente.',
+      'web-storage-unsupported' =>
+        'El navegador no permite el almacenamiento necesario para autenticarte.',
+      _ => detail?.trim().isNotEmpty == true
+          ? detail!.trim()
+          : 'No se pudo completar la autenticación.',
+    };
+    return '$code: $description';
   }
 }
 

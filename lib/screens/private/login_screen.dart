@@ -30,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
+    final displayedError = _error ?? authService.authError;
 
     return Scaffold(
       body: Center(
@@ -83,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             }),
                           ),
                           const SizedBox(height: 16),
-                          if (_error != null)
+                          if (displayedError != null)
                             Container(
                               padding: const EdgeInsets.all(12),
                               margin: const EdgeInsets.only(bottom: 16),
@@ -91,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: AppTheme.errorColor.withAlpha(25),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Text(_error!,
+                              child: Text(displayedError,
                                   style: const TextStyle(
                                       color: AppTheme.errorColor)),
                             ),
