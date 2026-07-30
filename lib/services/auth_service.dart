@@ -41,6 +41,12 @@ class AuthService extends ChangeNotifier {
   bool get canEditTreasurySettings => isAdmin || isTreasurer;
   bool get isLoading => _isLoading;
   String? get authError => _authError;
+  String? consumeAuthError() {
+    final error = _authError;
+    _authError = null;
+    return error;
+  }
+
   String? get userId => _user?.uid;
   Map<String, dynamic>? get activeLegalConsent => _activeLegalConsent;
   bool get needsEmailVerification {
@@ -360,7 +366,6 @@ class AuthService extends ChangeNotifier {
           debugPrint('[Auth] Google popup error: ${e.code} - ${e.message}');
           const redirectCodes = {
             'popup-blocked',
-            'popup-closed-by-user',
             'operation-not-supported-in-this-environment',
             'web-storage-unsupported',
           };
@@ -611,29 +616,35 @@ class AuthService extends ChangeNotifier {
   }
 
   String _getErrorMessage(String code, [String? detail]) {
-    final description = switch (code) {
-      'user-not-found' => 'No existe una cuenta con este email.',
-      'wrong-password' => 'Contraseña incorrecta.',
-      'email-already-in-use' => 'Ya existe una cuenta con este email.',
-      'weak-password' =>
-        'La contraseña es demasiado débil. Usa al menos 6 caracteres.',
-      'invalid-email' => 'El email no es válido.',
-      'too-many-requests' =>
-        'Demasiados intentos. Inténtalo de nuevo más tarde.',
-      'unauthorized-domain' =>
-        'El dominio no está autorizado en Firebase Authentication.',
-      'popup-blocked' => 'El navegador ha bloqueado la ventana de Google.',
-      'popup-closed-by-user' =>
-        'La ventana de Google se cerró antes de completar el acceso.',
-      'operation-not-supported-in-this-environment' =>
-        'Este entorno no admite el acceso mediante ventana emergente.',
-      'web-storage-unsupported' =>
-        'El navegador no permite el almacenamiento necesario para autenticarte.',
-      _ => detail?.trim().isNotEmpty == true
-          ? detail!.trim()
-          : 'No se pudo completar la autenticación.',
-    };
-    return '$code: $description';
+    switch (code) {
+      case 'user-not-found':
+        return 'No existe una cuenta con este email.';
+      case 'wrong-password':
+        return 'Contraseña incorrecta.';
+      case 'email-already-in-use':
+        return 'Ya existe una cuenta con este email.';
+      case 'weak-password':
+        return 'La contraseña es demasiado débil. Usa al menos 6 caracteres.';
+      case 'invalid-email':
+        return 'El email no es válido.';
+      case 'too-many-requests':
+        return 'Demasiados intentos. Inténtalo de nuevo más tarde.';
+      case 'popup-closed-by-user':
+        return 'La ventana de Google se cerró antes de completar el acceso.';
+      case 'unauthorized-domain':
+        return '$code: El dominio no está autorizado en Firebase Authentication.';
+      case 'popup-blocked':
+        return '$code: El navegador ha bloqueado la ventana de Google.';
+      case 'operation-not-supported-in-this-environment':
+        return '$code: Este entorno no admite el acceso mediante ventana emergente.';
+      case 'web-storage-unsupported':
+        return '$code: El navegador no permite el almacenamiento necesario para autenticarte.';
+      default:
+        final description = detail?.trim().isNotEmpty == true
+            ? detail!.trim()
+            : 'No se pudo completar la autenticación.';
+        return '$code: $description';
+    }
   }
 }
 

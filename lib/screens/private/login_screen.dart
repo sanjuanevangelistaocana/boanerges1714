@@ -30,7 +30,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
-    final displayedError = _error ?? authService.authError;
+    final redirectError = authService.consumeAuthError();
+    final displayedError = _error ?? redirectError;
 
     return Scaffold(
       body: Center(
