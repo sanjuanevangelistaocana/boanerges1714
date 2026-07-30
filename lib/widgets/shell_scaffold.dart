@@ -48,6 +48,7 @@ class ShellScaffold extends StatelessWidget {
         children: [
           if (_shouldShowBreadcrumbs(context)) const _Breadcrumbs(),
           Expanded(child: child),
+          const _InstitutionalFooter(),
         ],
       ),
     );
@@ -89,7 +90,7 @@ class ShellScaffold extends StatelessWidget {
           _DrawerItem(
               icon: Icons.contact_mail, label: 'Contacto', route: '/contact'),
           _DrawerItem(
-              icon: Icons.camera_alt,
+              icon: Icons.share,
               label: 'Redes Sociales',
               route: '/social-media'),
           _DrawerItem(
@@ -101,7 +102,9 @@ class ShellScaffold extends StatelessWidget {
           const Divider(),
           if (isLoggedIn) ...[
             _DrawerItem(
-                icon: Icons.dashboard, label: 'Mi Zona', route: '/dashboard'),
+                icon: Icons.dashboard,
+                label: 'Acceso Cofrades',
+                route: '/dashboard'),
             _DrawerItem(
                 icon: Icons.person, label: 'Mi Perfil', route: '/profile'),
             _DrawerItem(
@@ -185,7 +188,7 @@ class ShellScaffold extends StatelessWidget {
               },
             ),
           ] else
-            _DrawerItem(icon: Icons.login, label: 'Acceder', route: '/login'),
+            const _DrawerAccessButton(),
         ],
       ),
     );
@@ -261,7 +264,8 @@ List<Widget> _desktopNavigationItems(
       _NavGroup(
         secondary: true,
         children: [
-          _NavButton(label: 'Mi Zona', route: '/dashboard'),
+          _NavButton(
+              label: 'Acceso Cofrades', route: '/dashboard', prominent: true),
           if (context.watch<AuthService>().canViewTreasury)
             _NavButton(label: 'Tesorería', route: '/treasury'),
           _PrivateZoneMenu(),
@@ -275,7 +279,7 @@ List<Widget> _desktopNavigationItems(
       ),
     ] else ...[
       const SizedBox(width: 10),
-      _NavButton(label: 'Acceder', route: '/login'),
+      _NavButton(label: 'Acceso Cofrades', route: '/login', prominent: true),
     ],
     const SizedBox(width: 8),
   ];
@@ -611,8 +615,13 @@ class _BreadcrumbItem {
 class _NavButton extends StatelessWidget {
   final String label;
   final String route;
+  final bool prominent;
 
-  const _NavButton({required this.label, required this.route});
+  const _NavButton({
+    required this.label,
+    required this.route,
+    this.prominent = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -623,28 +632,36 @@ class _NavButton extends StatelessWidget {
     return TextButton(
       onPressed: () => context.go(route),
       style: TextButton.styleFrom(
-        foregroundColor: Colors.white,
+        foregroundColor: prominent ? AppTheme.primaryColor : Colors.white,
         minimumSize: const Size(48, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.symmetric(horizontal: prominent ? 14 : 10),
+        backgroundColor: prominent ? AppTheme.surfaceColor : Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        overlayColor: Colors.white.withAlpha(18),
+        overlayColor: prominent
+            ? AppTheme.accentColor.withAlpha(25)
+            : Colors.white.withAlpha(18),
       ),
       child: AnimatedContainer(
         duration: disableAnimations
             ? Duration.zero
             : const Duration(milliseconds: 160),
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: EdgeInsets.symmetric(
+          vertical: prominent ? 7 : 0,
+          horizontal: prominent ? 2 : 0,
+        ),
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: selected ? AppTheme.accentColor : Colors.transparent,
-              width: 2.5,
-            ),
-          ),
+          border: prominent
+              ? null
+              : Border(
+                  bottom: BorderSide(
+                    color: selected ? AppTheme.accentColor : Colors.transparent,
+                    width: 2.5,
+                  ),
+                ),
         ),
         child: Text(label,
             style: TextStyle(
-              color: Colors.white,
+              color: prominent ? AppTheme.primaryColor : Colors.white,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
               fontSize: 12.5,
             )),
@@ -745,6 +762,80 @@ class _DrawerItem extends StatelessWidget {
         Navigator.pop(context);
         context.go(route);
       },
+    );
+  }
+}
+
+class _DrawerAccessButton extends StatelessWidget {
+  const _DrawerAccessButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: ListTile(
+        leading: const Icon(Icons.login, color: AppTheme.primaryColor),
+        title: const Text(
+          'Acceso Cofrades',
+          style: TextStyle(
+            color: AppTheme.primaryColor,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        tileColor: AppTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        onTap: () {
+          Navigator.pop(context);
+          context.go('/login');
+        },
+      ),
+    );
+  }
+}
+
+class _InstitutionalFooter extends StatelessWidget {
+  const _InstitutionalFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      decoration: const BoxDecoration(
+        color: AppTheme.surfaceContainerLowColor,
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 8,
+        children: [
+          const Text(
+            '© 2026 Cofradía San Juan Evangelista de Ocaña. '
+            'Todos los derechos reservados.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          TextButton(
+            onPressed: () => context.go('/aviso-legal'),
+            child: const Text('Aviso Legal'),
+          ),
+          TextButton(
+            onPressed: () => context.go('/politica-privacidad'),
+            child: const Text('Política de Privacidad'),
+          ),
+          TextButton(
+            onPressed: () => context.go('/politica-cookies'),
+            child: const Text('Política de Cookies'),
+          ),
+        ],
+      ),
     );
   }
 }

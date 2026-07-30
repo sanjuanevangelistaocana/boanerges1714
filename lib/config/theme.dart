@@ -8,19 +8,19 @@ class AppTheme {
   static const Color primaryLight = Color(0xFF8C1F3B);
   // Color secundario: verde oscuro tipo "botella"
   static const Color accentColor = Color(0xFF2E5F3A);
-  // Neutros institucionales: blanco cálido y grises suaves
-  static const Color backgroundColor = Color(0xFFF7F6F3);
-  static const Color surfaceColor = Color(0xFFFFFEFC);
-  static const Color surfaceMutedColor = Color(0xFFEDEDEA);
-  static const Color surfaceContainerLowestColor = Color(0xFFFFFEFC);
-  static const Color surfaceContainerLowColor = Color(0xFFF5F4F1);
-  static const Color surfaceContainerColor = Color(0xFFF0EFEC);
-  static const Color surfaceContainerHighColor = Color(0xFFEAE9E5);
-  static const Color surfaceContainerHighestColor = Color(0xFFE4E2DE);
-  static const Color surfaceBrightColor = Color(0xFFFFFEFC);
-  static const Color surfaceDimColor = Color(0xFFE3E1DD);
-  static const Color borderColor = Color(0xFFE1DFDA);
-  static const Color borderMutedColor = Color(0xFFD2D0CB);
+  // Neutros institucionales: verde botella muy suave y desaturado
+  static const Color backgroundColor = Color(0xFFF3F7F4);
+  static const Color surfaceColor = Color(0xFFFBFEFC);
+  static const Color surfaceMutedColor = Color(0xFFE8F0EA);
+  static const Color surfaceContainerLowestColor = Color(0xFFFBFEFC);
+  static const Color surfaceContainerLowColor = Color(0xFFF6FAF7);
+  static const Color surfaceContainerColor = Color(0xFFF0F5F1);
+  static const Color surfaceContainerHighColor = Color(0xFFEAF1EC);
+  static const Color surfaceContainerHighestColor = Color(0xFFE3ECE5);
+  static const Color surfaceBrightColor = Color(0xFFFBFEFC);
+  static const Color surfaceDimColor = Color(0xFFDFE9E2);
+  static const Color borderColor = Color(0xFFD8E3DB);
+  static const Color borderMutedColor = Color(0xFFC6D5CA);
   static const Color primaryContainerColor = Color(0xFFE3D8D9);
   static const Color primaryFixedDimColor = Color(0xFFD2BEC3);
   static const Color secondaryContainerColor = Color(0xFFDDE8DF);

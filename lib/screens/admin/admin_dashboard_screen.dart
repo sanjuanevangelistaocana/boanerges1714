@@ -144,50 +144,14 @@ class AdminDashboardScreen extends StatelessWidget {
                   // Encuestas drilldown
                   _ConvocatoriasDrilldown(firestoreService: firestoreService),
                   const SizedBox(height: 28),
-                  // Quick actions
-                  Row(
-                    children: [
-                      Container(
-                          width: 4,
-                          height: 24,
-                          decoration: BoxDecoration(
-                              color: AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(2))),
-                      const SizedBox(width: 10),
-                      Text('Gesti\u00f3n',
-                          style: Theme.of(context).textTheme.headlineSmall),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount:
-                        MediaQuery.of(context).size.width > 700 ? 3 : 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.5,
+                  _AdminActionGroup(
+                    title: 'Cofrades y accesos',
                     children: [
                       _AdminActionCard(
                           icon: Icons.people,
                           title: 'Cofrades',
-                          subtitle: 'Alta, baja, edici\u00f3n',
+                          subtitle: 'Alta, baja, edición',
                           onTap: () => context.go('/admin/cofrades')),
-                      _AdminActionCard(
-                          icon: Icons.event_note,
-                          title: 'Eventos',
-                          subtitle: 'Festividad, palmas y eventos',
-                          onTap: () => context.go('/admin/eventos')),
-                      _AdminActionCard(
-                          icon: Icons.article,
-                          title: 'Noticias',
-                          subtitle: 'Publicar y editar',
-                          onTap: () => context.go('/admin/news')),
-                      _AdminActionCard(
-                          icon: Icons.notifications_active,
-                          title: 'Notificaciones',
-                          subtitle: 'Enviar avisos',
-                          onTap: () => context.go('/admin/notifications')),
                       StreamBuilder<int>(
                         stream: firestoreService
                             .getSolicitudesPendientesCountStream(),
@@ -199,26 +163,6 @@ class AdminDashboardScreen extends StatelessWidget {
                           onTap: () => context.go('/admin/solicitudes'),
                         ),
                       ),
-                      _AdminActionCard(
-                          icon: Icons.how_to_vote,
-                          title: 'Encuestas',
-                          subtitle: 'Crear y gestionar',
-                          onTap: () => context.go('/admin/encuestas')),
-                      _AdminActionCard(
-                          icon: Icons.photo_library,
-                          title: 'Galería',
-                          subtitle: 'Carpetas y fotografías',
-                          onTap: () => context.go('/admin/galeria')),
-                      _AdminActionCard(
-                          icon: Icons.menu_book,
-                          title: 'Evangelio',
-                          subtitle: 'Editar la lectura del día',
-                          onTap: () => context.go('/admin/evangelio')),
-                      _AdminActionCard(
-                          icon: Icons.account_tree_outlined,
-                          title: 'Contenido',
-                          subtitle: 'Cofradía y patrimonio',
-                          onTap: () => context.go('/admin/contenido')),
                       StreamBuilder<int>(
                         stream: firestoreService
                             .getPendingConversationsForAdminCountStream(),
@@ -230,6 +174,56 @@ class AdminDashboardScreen extends StatelessWidget {
                           onTap: () => context.go('/admin/sugerencias'),
                         ),
                       ),
+                    ],
+                  ),
+                  _AdminActionGroup(
+                    title: 'Contenido y comunicación',
+                    children: [
+                      _AdminActionCard(
+                          icon: Icons.account_tree_outlined,
+                          title: 'Contenido',
+                          subtitle: 'Cofradía y patrimonio',
+                          onTap: () => context.go('/admin/contenido')),
+                      _AdminActionCard(
+                          icon: Icons.article,
+                          title: 'Noticias',
+                          subtitle: 'Publicar y editar',
+                          onTap: () => context.go('/admin/news')),
+                      _AdminActionCard(
+                          icon: Icons.notifications_active,
+                          title: 'Notificaciones',
+                          subtitle: 'Enviar avisos',
+                          onTap: () => context.go('/admin/notifications')),
+                      _AdminActionCard(
+                          icon: Icons.photo_library,
+                          title: 'Galería',
+                          subtitle: 'Carpetas y fotografías',
+                          onTap: () => context.go('/admin/galeria')),
+                      _AdminActionCard(
+                          icon: Icons.folder_open,
+                          title: 'Documentos',
+                          subtitle: 'Docs y revistas',
+                          onTap: () => context.go('/admin/documentos')),
+                      _AdminActionCard(
+                          icon: Icons.menu_book,
+                          title: 'Evangelio',
+                          subtitle: 'Editar la lectura del día',
+                          onTap: () => context.go('/admin/evangelio')),
+                    ],
+                  ),
+                  _AdminActionGroup(
+                    title: 'Eventos y culto',
+                    children: [
+                      _AdminActionCard(
+                          icon: Icons.event_note,
+                          title: 'Eventos',
+                          subtitle: 'Festividad, palmas y eventos',
+                          onTap: () => context.go('/admin/eventos')),
+                      _AdminActionCard(
+                          icon: Icons.how_to_vote,
+                          title: 'Encuestas',
+                          subtitle: 'Crear y gestionar',
+                          onTap: () => context.go('/admin/encuestas')),
                       StreamBuilder<int>(
                         stream:
                             firestoreService.getAnunciosPendientesCountStream(),
@@ -242,35 +236,40 @@ class AdminDashboardScreen extends StatelessWidget {
                         ),
                       ),
                       _AdminActionCard(
-                          icon: Icons.checkroom,
-                          title: 'T\u00fanicas',
-                          subtitle: 'Proveedores',
-                          onTap: () => context.go('/admin/tunicas')),
-                      _AdminActionCard(
-                          icon: Icons.volunteer_activism,
-                          title: 'Banco T\u00fanicas',
-                          subtitle: 'Ofertas y demandas',
-                          onTap: () => context.go('/admin/banco-tunicas')),
-                      _AdminActionCard(
-                          icon: Icons.folder_open,
-                          title: 'Documentos',
-                          subtitle: 'Docs y revistas',
-                          onTap: () => context.go('/admin/documentos')),
-                      _AdminActionCard(
-                          icon: Icons.confirmation_number,
-                          title: 'Lotería Navidad',
-                          subtitle: 'Campañas y ventas',
-                          onTap: () => context.go('/admin/loteria')),
-                      _AdminActionCard(
                           icon: Icons.fitness_center,
                           title: 'Turnos de Andas',
                           subtitle: 'Gestión de portadores',
                           onTap: () => context.go('/admin/turnos-andas')),
+                    ],
+                  ),
+                  _AdminActionGroup(
+                    title: 'Tesorería',
+                    children: [
                       _AdminActionCard(
                           icon: Icons.account_balance_wallet,
                           title: 'Tesorería',
                           subtitle: 'Cuotas y contabilidad',
                           onTap: () => context.go('/treasury')),
+                      _AdminActionCard(
+                          icon: Icons.confirmation_number,
+                          title: 'Lotería Navidad',
+                          subtitle: 'Campañas y ventas',
+                          onTap: () => context.go('/admin/loteria')),
+                    ],
+                  ),
+                  _AdminActionGroup(
+                    title: 'Herramientas y configuración',
+                    children: [
+                      _AdminActionCard(
+                          icon: Icons.checkroom,
+                          title: 'Túnicas',
+                          subtitle: 'Proveedores',
+                          onTap: () => context.go('/admin/tunicas')),
+                      _AdminActionCard(
+                          icon: Icons.volunteer_activism,
+                          title: 'Banco Túnicas',
+                          subtitle: 'Ofertas y demandas',
+                          onTap: () => context.go('/admin/banco-tunicas')),
                     ],
                   ),
                 ],
@@ -613,6 +612,53 @@ class _MiniStat extends StatelessWidget {
             style:
                 const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
       ],
+    );
+  }
+}
+
+class _AdminActionGroup extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _AdminActionGroup({
+    required this.title,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final columns = MediaQuery.of(context).size.width > 700 ? 3 : 2;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+            ],
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: columns,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 1.5,
+            children: children,
+          ),
+        ],
+      ),
     );
   }
 }

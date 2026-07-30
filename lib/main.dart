@@ -69,21 +69,28 @@ class _AppBootstrapState extends State<AppBootstrap> {
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             home: Scaffold(
+              backgroundColor: AppTheme.primaryColor,
               body: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.cloud_off, size: 48),
+                      const Icon(Icons.cloud_off,
+                          size: 48, color: Colors.white),
                       const SizedBox(height: 16),
                       const Text(
                         'No se pudo iniciar la aplicación.',
+                        style: TextStyle(color: Colors.white),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: _retry,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.surfaceColor,
+                          foregroundColor: AppTheme.primaryColor,
+                        ),
                         child: const Text('Reintentar'),
                       ),
                     ],
@@ -98,7 +105,10 @@ class _AppBootstrapState extends State<AppBootstrap> {
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             home: const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              backgroundColor: AppTheme.primaryColor,
+              body: Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
             ),
           );
         }

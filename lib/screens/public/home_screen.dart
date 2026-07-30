@@ -134,55 +134,7 @@ class HomeScreen extends StatelessWidget {
                   fontStyle: FontStyle.italic,
                 ),
           ),
-          const SizedBox(height: 28),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () => context.go('/solicitud-alta'),
-                icon: const Icon(Icons.person_add),
-                label: const Text('Únete a nosotros'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppTheme.primaryColor,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => context.go('/contact'),
-                icon: const Icon(Icons.mail_outline, color: Colors.white),
-                label: const Text('Contacto'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withAlpha(30),
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white, width: 1.5),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => context.go('/patrimonio'),
-                icon: const Icon(Icons.museum_outlined, color: Colors.white),
-                label: const Text('Patrimonio'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withAlpha(30),
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white, width: 1.5),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -1105,6 +1057,12 @@ class HomeScreen extends StatelessWidget {
                             icon: Icons.inventory_2_outlined,
                             title: 'Recogidas extraordinarias',
                             subtitle: 'Campañas puntuales de apoyo',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.accessibility_new,
+                            title:
+                                'Colaboración con el Centro Ocupacional de Ocaña',
+                            subtitle: 'Centro Ocupacional de Ocaña',
                           ),
                         ],
                       ),

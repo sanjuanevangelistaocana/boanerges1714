@@ -75,6 +75,7 @@ import 'package:boanerges1714/screens/private/turnos_andas/turnos_andas_screen.d
 import 'package:boanerges1714/screens/admin/turnos_andas/turnos_andas_admin_screen.dart';
 import 'package:boanerges1714/screens/public/news_detail_screen.dart';
 import 'package:boanerges1714/screens/public/content_public_screen.dart';
+import 'package:boanerges1714/screens/public/legal_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -168,6 +169,27 @@ GoRouter createRouter(AuthService authService) {
         builder: (context, state, child) => ShellScaffold(child: child),
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+          GoRoute(
+              path: '/aviso-legal',
+              builder: (context, state) => const LegalScreen(
+                    title: 'Aviso Legal',
+                    summary:
+                        'Información legal del sitio web de la Cofradía de San Juan Evangelista de Ocaña.',
+                  )),
+          GoRoute(
+              path: '/politica-privacidad',
+              builder: (context, state) => const LegalScreen(
+                    title: 'Política de Privacidad',
+                    summary:
+                        'Información sobre el tratamiento de datos personales en este sitio web.',
+                  )),
+          GoRoute(
+              path: '/politica-cookies',
+              builder: (context, state) => const LegalScreen(
+                    title: 'Política de Cookies',
+                    summary:
+                        'Información sobre el uso de cookies y tecnologías similares en este sitio web.',
+                  )),
           GoRoute(
               path: '/history',
               redirect: (context, state) => '/cofradia/historia'),

@@ -27,10 +27,11 @@ class SocialMediaScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     Text(
                       'Redes Sociales',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -53,20 +54,26 @@ class SocialMediaScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     _SocialCard(
-                      icon: Icons.camera_alt,
+                      icon: const _InstagramMark(),
                       name: 'Instagram',
                       handle: '@sanjuanevangelistaocana',
-                      description: 'Fotos, stories y novedades de nuestra cofradía. '
+                      description:
+                          'Fotos, stories y novedades de nuestra cofradía. '
                           'Comparte tus mejores momentos con el hashtag #CofradíaSanJuanEvangelista',
                       color: const Color(0xFFE1306C),
                       url: 'https://www.instagram.com/sanjuanevangelistaocana/',
                     ),
                     const SizedBox(height: 16),
                     _SocialCard(
-                      icon: Icons.facebook,
+                      icon: const Icon(
+                        Icons.facebook,
+                        size: 32,
+                        color: Color(0xFF1877F2),
+                      ),
                       name: 'Facebook',
                       handle: 'Cofradía San Juan Evangelista de Ocaña',
-                      description: 'Publicaciones, eventos y comunicados oficiales. '
+                      description:
+                          'Publicaciones, eventos y comunicados oficiales. '
                           'Dale "Me gusta" a nuestra página para recibir actualizaciones.',
                       color: const Color(0xFF1877F2),
                       url: 'https://www.facebook.com/sanjuanevangelistaocana/',
@@ -77,17 +84,22 @@ class SocialMediaScreen extends StatelessWidget {
                       color: AppTheme.primaryColor.withAlpha(10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: AppTheme.primaryColor.withAlpha(30)),
+                        side: BorderSide(
+                            color: AppTheme.primaryColor.withAlpha(30)),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            const Icon(Icons.tag, size: 32, color: AppTheme.primaryColor),
+                            const Icon(Icons.tag,
+                                size: 32, color: AppTheme.primaryColor),
                             const SizedBox(height: 12),
                             Text(
                               '¿Tienes fotos de la cofradía?',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                             ),
@@ -95,7 +107,10 @@ class SocialMediaScreen extends StatelessWidget {
                             Text(
                               'Compártelas en Instagram o Facebook mencionando '
                               '@sanjuanevangelistaocana y las publicaremos en nuestra galería.',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
                                     color: AppTheme.textSecondary,
                                   ),
                               textAlign: TextAlign.center,
@@ -116,7 +131,7 @@ class SocialMediaScreen extends StatelessWidget {
 }
 
 class _SocialCard extends StatelessWidget {
-  final IconData icon;
+  final Widget icon;
   final String name;
   final String handle;
   final String description;
@@ -138,20 +153,25 @@ class _SocialCard extends StatelessWidget {
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+        onTap: () =>
+            launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: color.withAlpha(20),
-                  borderRadius: BorderRadius.circular(12),
+              Semantics(
+                label: '$name: $handle',
+                button: true,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SizedBox(width: 32, height: 32, child: icon),
                 ),
-                child: Icon(icon, size: 32, color: color),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -178,7 +198,8 @@ class _SocialCard extends StatelessWidget {
                         )),
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: color,
                         borderRadius: BorderRadius.circular(20),
@@ -186,10 +207,14 @@ class _SocialCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.open_in_new, size: 14, color: Colors.white),
+                          const Icon(Icons.open_in_new,
+                              size: 14, color: Colors.white),
                           const SizedBox(width: 6),
                           Text('Visitar $name',
-                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -202,4 +227,52 @@ class _SocialCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _InstagramMark extends StatelessWidget {
+  const _InstagramMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Instagram',
+      child: CustomPaint(
+        painter: _InstagramPainter(color: const Color(0xFFE1306C)),
+      ),
+    );
+  }
+}
+
+class _InstagramPainter extends CustomPainter {
+  final Color color;
+
+  const _InstagramPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.8
+      ..strokeCap = StrokeCap.round;
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(rect, stroke);
+    canvas.drawCircle(
+      size.center(Offset.zero),
+      size.shortestSide * .25,
+      stroke,
+    );
+    canvas.drawCircle(
+      Offset(size.width * .72, size.height * .28),
+      2,
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _InstagramPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
