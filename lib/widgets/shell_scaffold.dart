@@ -16,7 +16,7 @@ class ShellScaffold extends StatelessWidget {
     final authService = context.watch<AuthService>();
     final isLoggedIn = authService.isLoggedIn;
     final isAdmin = authService.isAdmin;
-    final isWide = MediaQuery.of(context).size.width > 800;
+    final isDesktop = MediaQuery.of(context).size.width >= 1180;
 
     return Scaffold(
       appBar: AppBar(
@@ -32,9 +32,21 @@ class ShellScaffold extends StatelessWidget {
             ],
           ),
         ),
-        actions: isWide ? _buildDesktopNav(context, isLoggedIn, isAdmin) : null,
+        actions: isDesktop
+            ? [
+                Flexible(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _buildDesktopNav(context, isLoggedIn, isAdmin),
+                    ),
+                  ),
+                ),
+              ]
+            : null,
       ),
-      drawer: isWide ? null : _buildDrawer(context, isLoggedIn, isAdmin),
+      drawer: isDesktop ? null : _buildDrawer(context, isLoggedIn, isAdmin),
       body: Column(
         children: [
           if (_shouldShowBreadcrumbs(context)) const _Breadcrumbs(),
@@ -53,18 +65,9 @@ class ShellScaffold extends StatelessWidget {
       _NavButton(label: 'Noticias', route: '/news'),
       _NavButton(label: 'Galería', route: '/gallery'),
       _NavButton(label: 'Contacto', route: '/contact'),
-      PopupMenuButton<String>(
-        tooltip: 'Más secciones',
-        icon: const Icon(Icons.more_horiz, color: Colors.white),
-        onSelected: (route) => context.go(route),
-        itemBuilder: (_) => [
-          const PopupMenuItem(
-              value: '/social-media', child: Text('Redes Sociales')),
-          const PopupMenuItem(value: '/la-rosa', child: Text('La Rosa')),
-          const PopupMenuItem(
-              value: '/boanerges', child: Text('Revista Boanerges')),
-        ],
-      ),
+      _NavButton(label: 'Redes Sociales', route: '/social-media'),
+      _NavButton(label: 'La Rosa', route: '/la-rosa'),
+      _NavButton(label: 'Revista Boanerges', route: '/boanerges'),
       if (isLoggedIn) ...[
         _NavButton(label: 'Mi Zona', route: '/dashboard'),
         if (context.watch<AuthService>().canViewTreasury)
@@ -367,9 +370,34 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final path = GoRouterState.of(context).uri.path;
+    final selected = path == route || path.startsWith('$route/');
     return TextButton(
       onPressed: () => context.go(route),
-      child: Text(label, style: const TextStyle(color: Colors.white)),
+      style: TextButton.styleFrom(
+        foregroundColor: Colors.white,
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? AppTheme.accentColor : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Text(label,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 13,
+            )),
+      ),
     );
   }
 }
