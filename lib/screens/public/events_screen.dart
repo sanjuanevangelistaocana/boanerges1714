@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/config/theme.dart';
+import 'package:boanerges1714/widgets/aztecofrade_support.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/evento.dart';
 
@@ -258,6 +259,8 @@ class EventsScreen extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 8),
+          const AztecofradeSupport(),
           const SizedBox(height: 48),
         ],
       ),

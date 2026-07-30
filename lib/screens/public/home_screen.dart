@@ -11,6 +11,8 @@ import 'package:boanerges1714/widgets/app_logo.dart';
 import 'package:boanerges1714/widgets/home_carousel.dart';
 import 'package:boanerges1714/utils/madrid_date.dart';
 import 'package:boanerges1714/widgets/app_surface_card.dart';
+import 'package:boanerges1714/utils/liturgical_calendar.dart';
+import 'package:boanerges1714/widgets/aztecofrade_support.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -33,11 +35,15 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: _sectionGap),
           _buildCalendarioEventos(context, firestoreService),
           const SizedBox(height: _sectionGap),
+          _buildCalendarioLiturgico(context),
+          const SizedBox(height: _sectionGap),
           _buildUltimasNoticias(context, firestoreService),
           const SizedBox(height: _sectionGap),
           _buildAsistenciaSocial(context),
           const SizedBox(height: _sectionGap),
           _buildCtaSection(context),
+          const SizedBox(height: _sectionGap),
+          const AztecofradeSupport(),
           const SizedBox(height: 48),
         ],
       ),
@@ -94,7 +100,8 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
-            child: const AppLogo(size: 72, fallbackColor: AppTheme.primaryColor),
+            child:
+                const AppLogo(size: 72, fallbackColor: AppTheme.primaryColor),
           ),
           const SizedBox(height: 20),
           Text(
@@ -211,13 +218,12 @@ class HomeScreen extends StatelessWidget {
   Widget _buildEvangelioDelDia(BuildContext context, FirestoreService service) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: AppTheme.primaryColor.withAlpha(30), width: 1),
-          bottom:
-              BorderSide(color: AppTheme.primaryColor.withAlpha(30), width: 1),
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.primaryDark, AppTheme.primaryColor],
         ),
       ),
       child: Center(
@@ -225,15 +231,8 @@ class HomeScreen extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: _contentWidth),
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withAlpha(15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.menu_book,
-                    size: 36, color: AppTheme.primaryColor),
-              ),
+              const Icon(Icons.menu_book_outlined,
+                  size: 38, color: Colors.white70),
               const SizedBox(height: 16),
               Text(
                 'Evangelio del D\u00eda',
@@ -245,7 +244,7 @@ class HomeScreen extends StatelessWidget {
               Text(
                 MadridDate.display(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
+                      color: Colors.white70,
                       fontStyle: FontStyle.italic,
                     ),
               ),
@@ -261,38 +260,33 @@ class HomeScreen extends StatelessWidget {
                   }
                   final data = snapshot.data;
                   if (data == null) {
-                    return Card(
-                      elevation: 0,
-                      color: AppTheme.backgroundColor,
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            const Icon(Icons.auto_stories,
-                                size: 40, color: AppTheme.textSecondary),
-                            const SizedBox(height: 12),
-                            Text(
-                              'El evangelio de hoy a\u00fan no est\u00e1 disponible.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Se actualiza diariamente.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: AppTheme.textSecondary,
-                                  ),
-                            ),
-                          ],
-                        ),
+                    return AppSurfaceCard(
+                      color: Colors.white.withAlpha(235),
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.auto_stories,
+                              size: 40, color: AppTheme.textSecondary),
+                          const SizedBox(height: 12),
+                          Text(
+                            'El evangelio de hoy a\u00fan no est\u00e1 disponible.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Se actualiza diariamente.',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                          ),
+                        ],
                       ),
                     );
                   }
@@ -304,82 +298,148 @@ class HomeScreen extends StatelessWidget {
                       .replaceAll(RegExp(r'\s+'), ' ')
                       .trim();
                   if (texto.isEmpty && titulo.isEmpty) {
-                    return Card(
-                      elevation: 0,
-                      color: AppTheme.backgroundColor,
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            const Icon(Icons.auto_stories,
-                                size: 40, color: AppTheme.textSecondary),
-                            const SizedBox(height: 12),
-                            Text(
-                              'El evangelio de hoy a\u00fan no tiene contenido.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: AppTheme.textSecondary),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  return Card(
-                    elevation: 1,
-                    child: Padding(
+                    return AppSurfaceCard(
+                      color: Colors.white.withAlpha(235),
                       padding: const EdgeInsets.all(24),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (titulo.isNotEmpty) ...[
-                            Text(
-                              titulo.replaceAll(RegExp(r'<[^>]*>'), '').trim(),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          if (referencia.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.accentColor.withAlpha(20),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                referencia,
-                                style: const TextStyle(
-                                  color: AppTheme.accentColor,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          if (referencia.isNotEmpty) const SizedBox(height: 16),
+                          const Icon(Icons.auto_stories,
+                              size: 40, color: AppTheme.textSecondary),
+                          const SizedBox(height: 12),
                           Text(
-                            texto,
-                            style:
-                                Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      height: 1.7,
-                                      fontStyle: FontStyle.italic,
-                                    ),
+                            'El evangelio de hoy a\u00fan no tiene contenido.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(color: AppTheme.textSecondary),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
+                    );
+                  }
+                  return AppSurfaceCard(
+                    color: Colors.white.withAlpha(245),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (titulo.isNotEmpty) ...[
+                          Text(
+                            titulo.replaceAll(RegExp(r'<[^>]*>'), '').trim(),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryDark,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (referencia.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentColor.withAlpha(20),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              referencia,
+                              style: const TextStyle(
+                                color: AppTheme.primaryDark,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        if (referencia.isNotEmpty) const SizedBox(height: 16),
+                        Text(
+                          texto,
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    height: 1.7,
+                                    color: AppTheme.textPrimary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                        ),
+                      ],
                     ),
                   );
                 },
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarioLiturgico(BuildContext context) {
+    final celebrations = LiturgicalCalendar.next(limit: 4);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _contentWidth),
+          child: AppSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.event_note_outlined,
+                        color: AppTheme.primaryColor),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Calendario litúrgico',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                    Text(
+                      'Iglesia universal',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                for (final celebration in celebrations)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 52,
+                          child: Text(
+                            '${celebration.date.day}/${celebration.date.month}',
+                            style: const TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            celebration.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Text(
+                          celebration.season,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

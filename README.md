@@ -1,5 +1,19 @@
 # Boanerges 1714 — Cofradía de San Juan Evangelista de Ocaña
 
+## Calendario litúrgico
+
+La Home calcula localmente una selección del calendario romano general, sin
+consultar servicios externos. La Pascua se obtiene para cada año mediante el
+algoritmo gregoriano de Meeus y, a partir de ella, se derivan las celebraciones
+móviles: Cuaresma, Semana Santa, Pascua, Pentecostés, Corpus Christi, Sagrado
+Corazón, Cristo Rey y los domingos de Adviento. También se incluyen las
+principales fechas fijas, incluida la solemnidad de San Juan Evangelista.
+
+La utilidad genera años civiles consecutivos para que las próximas
+celebraciones crucen correctamente el cambio de año entre Adviento, Navidad y
+Epifanía. Es una referencia pastoral y no pretende ser exhaustiva: no modela
+con detalle el calendario propio de España ni los traslados de solemnidades.
+
 App multiplataforma (Android, iOS/PWA, Web) para la Cofradía de San Juan Evangelista de Ocaña.
 
 ## Stack Tecnológico

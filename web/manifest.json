@@ -1,11 +1,11 @@
 {
-  "name": "Cofradía de San Juan Evangelista",
-  "short_name": "Cofradía SJE",
+  "name": "Boanerges",
+  "short_name": "Boanerges",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#5B2C6F",
   "theme_color": "#5B2C6F",
-  "description": "App oficial de la Cofradía de San Juan Evangelista de Ocaña",
+  "description": "Sitio oficial de la Cofradía de San Juan Evangelista de Ocaña",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "icons": [
