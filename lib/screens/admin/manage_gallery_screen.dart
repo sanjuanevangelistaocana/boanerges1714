@@ -110,7 +110,18 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       debugPrint(
           '[ManageGalleryScreen] query gallery_images folder_id=${folder.id} '
           'deleted=false orderBy=orden,__name__ includeAdmin=true error: $error');
+      _showMessage(galleryErrorMessage(error), error: true);
     }
+  }
+
+  Future<void> _reloadImages(GalleryFolder folder) async {
+    if (!mounted) return;
+    setState(() {
+      _images = [];
+      _lastImage = null;
+      _hasMoreImages = true;
+    });
+    await _loadImages(folder);
   }
 
   Future<void> _createOrEditFolder(
@@ -283,7 +294,6 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       }
     }
     if (!mounted) return;
-    if (!mounted) return;
     setState(
         () => _progress = 'Completadas: $success · Fallidas: ${failures.length}'
             '${failures.isEmpty ? '' : '\n${failures.join('\n')}'}');
@@ -293,10 +303,8 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
           : 'Se subieron $success fotografía(s); fallaron ${failures.length}.',
       error: failures.isNotEmpty,
     );
+    await _reloadImages(folder);
     if (mounted) setState(() => _mutating = false);
-    _lastImage = null;
-    _hasMoreImages = true;
-    await _loadImages(folder);
   }
 
   Future<void> _deleteSelected(GalleryFolder folder) async {
@@ -340,18 +348,9 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
-    if (mounted) setState(() => _selectedImages.clear());
-    if (_selectedFolderId != null) {
-      final source = await context
-          .read<GalleryService>()
-          .watchFolder(_selectedFolderId!)
-          .first;
-      if (source != null) {
-        _lastImage = null;
-        _hasMoreImages = true;
-        await _loadImages(source);
-      }
-    }
+    if (!mounted) return;
+    setState(() => _selectedImages.clear());
+    await _reloadImages(folder);
   }
 
   Future<void> _moveSelected(GalleryFolder destination) async {
@@ -407,7 +406,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       if (mounted) setState(() => _mutating = false);
     }
     if (mounted) setState(() => _selectedImages.clear());
-    await _loadImages(source);
+    await _reloadImages(source);
   }
 
   Future<void> _downloadFolder(GalleryFolder folder) async {
@@ -687,13 +686,20 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                 if (newIndex > oldIndex) newIndex--;
                 final reordered = [..._images]
                   ..insert(newIndex, _images.removeAt(oldIndex));
-                setState(() => _images = reordered);
+                if (!mounted) return;
+                setState(() {
+                  _images = reordered;
+                  _mutating = true;
+                });
                 try {
                   await context.read<GalleryService>().reorderImages(
                       reordered.map((image) => image.id).toList());
                   _showMessage('Orden de fotografías guardado.');
+                  await _reloadImages(folder);
                 } catch (error) {
                   _showMessage(_friendlyError(error), error: true);
+                } finally {
+                  if (mounted) setState(() => _mutating = false);
                 }
               },
               itemBuilder: (context, index) {
