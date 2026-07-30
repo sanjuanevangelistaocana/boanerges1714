@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/config/theme.dart';
+import 'package:boanerges1714/models/content_block.dart';
 import 'package:boanerges1714/models/noticia.dart';
+import 'package:boanerges1714/widgets/content_block_editor.dart';
 import 'package:boanerges1714/services/noticias_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
 import 'package:boanerges1714/services/auth_service.dart';
@@ -95,8 +97,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen>
                         setState(() => _filterStatus = v),
                     onFilterCategoryChanged: (v) =>
                         setState(() => _filterCategory = v),
-                    onSearchChanged: (v) =>
-                        setState(() => _searchQuery = v),
+                    onSearchChanged: (v) => setState(() => _searchQuery = v),
                     onEdit: (n) => _openEditor(context, noticia: n),
                   ),
                   const _AnalyticsTab(),
@@ -171,8 +172,7 @@ class _NoticiasListTab extends StatelessWidget {
                   labelText: 'Estado',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
                 items: const [
                   DropdownMenuItem(value: 'all', child: Text('Todos')),
@@ -196,13 +196,12 @@ class _NoticiasListTab extends StatelessWidget {
                   labelText: 'Categoría',
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
                 items: [
                   const DropdownMenuItem(value: 'all', child: Text('Todas')),
-                  ...Noticia.defaultCategories.map((c) =>
-                      DropdownMenuItem(value: c, child: Text(c))),
+                  ...Noticia.defaultCategories
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c))),
                 ],
                 onChanged: (v) => onFilterCategoryChanged(v ?? 'all'),
               ),
@@ -392,8 +391,7 @@ class _NoticiaListItem extends StatelessWidget {
                   ]),
                   const SizedBox(height: 2),
                   Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.done_all,
-                        size: 14, color: Colors.grey.shade500),
+                    Icon(Icons.done_all, size: 14, color: Colors.grey.shade500),
                     const SizedBox(width: 4),
                     Text('${noticia.readCount}',
                         style: TextStyle(
@@ -405,11 +403,9 @@ class _NoticiaListItem extends StatelessWidget {
 
               // Actions
               PopupMenuButton<String>(
-                onSelected: (action) =>
-                    _handleAction(context, action, noticia),
+                onSelected: (action) => _handleAction(context, action, noticia),
                 itemBuilder: (_) => [
-                  const PopupMenuItem(
-                      value: 'edit', child: Text('Editar')),
+                  const PopupMenuItem(value: 'edit', child: Text('Editar')),
                   if (noticia.status != NoticiaStatus.published)
                     const PopupMenuItem(
                         value: 'publish', child: Text('Publicar')),
@@ -447,7 +443,8 @@ class _NoticiaListItem extends StatelessWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('No se pudo publicar la noticia. Vuelve a intentarlo.'),
+                content: Text(
+                    'No se pudo publicar la noticia. Vuelve a intentarlo.'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -462,7 +459,8 @@ class _NoticiaListItem extends StatelessWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('No se pudo archivar la noticia. Vuelve a intentarlo.'),
+                content: Text(
+                    'No se pudo archivar la noticia. Vuelve a intentarlo.'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -480,8 +478,7 @@ class _NoticiaListItem extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar noticia'),
-        content:
-            Text('¿Estás seguro de eliminar "${noticia.title}"?'),
+        content: Text('¿Estás seguro de eliminar "${noticia.title}"?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -498,7 +495,8 @@ class _NoticiaListItem extends StatelessWidget {
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('No se pudo eliminar la noticia. Vuelve a intentarlo.'),
+                      content: Text(
+                          'No se pudo eliminar la noticia. Vuelve a intentarlo.'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -550,8 +548,8 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(label,
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600, color: bg)),
+          style:
+              TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: bg)),
     );
   }
 }
@@ -665,13 +663,13 @@ class _AnalyticsTab extends StatelessWidget {
               Text('Más vistas',
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
-              ...((data['mostViewed'] as List<Noticia>?) ?? []).map((n) =>
-                  ListTile(
-                    dense: true,
-                    leading: const Icon(Icons.trending_up),
-                    title: Text(n.title),
-                    trailing: Text('${n.views} vistas'),
-                  )),
+              ...((data['mostViewed'] as List<Noticia>?) ?? [])
+                  .map((n) => ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.trending_up),
+                        title: Text(n.title),
+                        trailing: Text('${n.views} vistas'),
+                      )),
             ],
           ),
         );
@@ -747,9 +745,7 @@ class _MetricCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(value,
                   style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: color)),
+                      fontSize: 24, fontWeight: FontWeight.bold, color: color)),
               Text(label,
                   style: const TextStyle(
                       fontSize: 12, color: AppTheme.textSecondary)),
@@ -925,7 +921,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       final tags = <String>{};
       for (final doc in tagsSnap.docs) {
         final data = doc.data();
-        final nombre = data['nombre'] ?? data['name'] ?? data['title'] ?? doc.id;
+        final nombre =
+            data['nombre'] ?? data['name'] ?? data['title'] ?? doc.id;
         nameCache[doc.id] = nombre;
         // Use nombre as the tag identifier (consistent with encuestas)
         nameCache[nombre] = nombre;
@@ -1048,10 +1045,9 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                 // ---- Content ----
                 _SectionHeader(title: 'Contenido'),
                 const SizedBox(height: 12),
-                _RichContentEditor(
+                ContentBlockEditor(
                   blocks: _richContent,
-                  onChanged: (blocks) =>
-                      setState(() => _richContent = blocks),
+                  onChanged: (blocks) => setState(() => _richContent = blocks),
                   onUploadImage: _uploadContentImage,
                 ),
                 const SizedBox(height: 12),
@@ -1110,9 +1106,9 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                   runSpacing: 6,
                   children: [
                     ..._tags.map((t) => Chip(
-                          label: Text(_tagDisplayName(t), style: const TextStyle(fontSize: 12)),
-                          onDeleted: () =>
-                              setState(() => _tags.remove(t)),
+                          label: Text(_tagDisplayName(t),
+                              style: const TextStyle(fontSize: 12)),
+                          onDeleted: () => setState(() => _tags.remove(t)),
                         )),
                     ActionChip(
                       label: const Text('+ Añadir tag'),
@@ -1155,7 +1151,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                   const SizedBox(height: 4),
                   const Text(
                     'Solo los cofrades con alguna de estas tags podrán ver esta noticia.',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    style:
+                        TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -1163,8 +1160,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                     runSpacing: 6,
                     children: [
                       ..._targetTags.map((t) => Chip(
-                            label:
-                                Text(_tagDisplayName(t), style: const TextStyle(fontSize: 12)),
+                            label: Text(_tagDisplayName(t),
+                                style: const TextStyle(fontSize: 12)),
                             onDeleted: () =>
                                 setState(() => _targetTags.remove(t)),
                           )),
@@ -1173,8 +1170,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                         onPressed: () => _showTagPicker(
                           'Destinatarios por tags',
                           _targetTags,
-                          (selected) =>
-                              setState(() => _targetTags = selected),
+                          (selected) => setState(() => _targetTags = selected),
                         ),
                       ),
                     ],
@@ -1234,8 +1230,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                   ),
                   items: const [
                     DropdownMenuItem(
-                        value: NoticiaStatus.draft,
-                        child: Text('Borrador')),
+                        value: NoticiaStatus.draft, child: Text('Borrador')),
                     DropdownMenuItem(
                         value: NoticiaStatus.scheduled,
                         child: Text('Programada')),
@@ -1256,8 +1251,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                       child: _DatePickerField(
                         label: 'Fecha de publicación',
                         value: _publishAt,
-                        onChanged: (d) =>
-                            setState(() => _publishAt = d),
+                        onChanged: (d) => setState(() => _publishAt = d),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1265,8 +1259,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                       child: _DatePickerField(
                         label: 'Fecha de expiración',
                         value: _expireAt,
-                        onChanged: (d) =>
-                            setState(() => _expireAt = d),
+                        onChanged: (d) => setState(() => _expireAt = d),
                       ),
                     ),
                   ],
@@ -1289,8 +1282,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
-                      onPressed: () =>
-                          setState(() => _coverImageUrl = null),
+                      onPressed: () => setState(() => _coverImageUrl = null),
                       icon: const Icon(Icons.delete_outline),
                       label: const Text('Quitar portada'),
                     ),
@@ -1336,8 +1328,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                                 top: 2,
                                 right: 2,
                                 child: GestureDetector(
-                                  onTap: () => setState(
-                                      () => _gallery.removeAt(i)),
+                                  onTap: () =>
+                                      setState(() => _gallery.removeAt(i)),
                                   child: Container(
                                     decoration: const BoxDecoration(
                                       color: Colors.red,
@@ -1382,10 +1374,9 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                     subtitle: Text(adj['tipo'] ?? '',
                         style: const TextStyle(fontSize: 11)),
                     trailing: IconButton(
-                      icon: const Icon(Icons.close,
-                          size: 18, color: Colors.red),
-                      onPressed: () =>
-                          setState(() => _attachments.removeAt(i)),
+                      icon:
+                          const Icon(Icons.close, size: 18, color: Colors.red),
+                      onPressed: () => setState(() => _attachments.removeAt(i)),
                     ),
                   );
                 }),
@@ -1414,10 +1405,9 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                     subtitle: Text('${cta.type} → ${cta.route}',
                         style: const TextStyle(fontSize: 12)),
                     trailing: IconButton(
-                      icon: const Icon(Icons.close,
-                          size: 18, color: Colors.red),
-                      onPressed: () =>
-                          setState(() => _ctas.removeAt(i)),
+                      icon:
+                          const Icon(Icons.close, size: 18, color: Colors.red),
+                      onPressed: () => setState(() => _ctas.removeAt(i)),
                     ),
                   );
                 }),
@@ -1525,10 +1515,15 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       if (mounted) {
         String userMessage;
         final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('permission') || errorStr.contains('denied') || errorStr.contains('unauthorized')) {
-          userMessage = 'No se pudo guardar la noticia. Revisa los permisos o vuelve a intentarlo.';
-        } else if (errorStr.contains('network') || errorStr.contains('unavailable')) {
-          userMessage = 'Error de conexi\u00f3n. Comprueba tu conexi\u00f3n a internet y vuelve a intentarlo.';
+        if (errorStr.contains('permission') ||
+            errorStr.contains('denied') ||
+            errorStr.contains('unauthorized')) {
+          userMessage =
+              'No se pudo guardar la noticia. Revisa los permisos o vuelve a intentarlo.';
+        } else if (errorStr.contains('network') ||
+            errorStr.contains('unavailable')) {
+          userMessage =
+              'Error de conexi\u00f3n. Comprueba tu conexi\u00f3n a internet y vuelve a intentarlo.';
         } else {
           userMessage = 'No se pudo guardar la noticia. Vuelve a intentarlo.';
         }
@@ -1553,7 +1548,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         final file = result.files.first;
         if (file.bytes != null) {
           final storage = context.read<StorageService>();
-          final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
+          final newsId = widget.noticia?.id ??
+              'new_${DateTime.now().millisecondsSinceEpoch}';
           final uploaded = await storage.uploadFile(
             path: 'news/$newsId/cover',
             bytes: file.bytes!,
@@ -1569,7 +1565,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudo subir la imagen de portada. Comprueba el formato y vuelve a intentarlo.'),
+            content: Text(
+                'No se pudo subir la imagen de portada. Comprueba el formato y vuelve a intentarlo.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1589,7 +1586,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       );
       if (result != null) {
         final storage = context.read<StorageService>();
-        final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
+        final newsId = widget.noticia?.id ??
+            'new_${DateTime.now().millisecondsSinceEpoch}';
         int successCount = 0;
         int failCount = 0;
         for (final file in result.files) {
@@ -1605,7 +1603,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
               setState(() => _gallery.add(uploaded));
               successCount++;
             } catch (e) {
-              debugPrint('[ManageNews] Error subiendo imagen de galería ${file.name}: $e');
+              debugPrint(
+                  '[ManageNews] Error subiendo imagen de galería ${file.name}: $e');
               failCount++;
             }
           }
@@ -1628,7 +1627,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudieron subir las imágenes. Comprueba el formato y vuelve a intentarlo.'),
+            content: Text(
+                'No se pudieron subir las imágenes. Comprueba el formato y vuelve a intentarlo.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1649,7 +1649,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         final file = result.files.first;
         if (file.bytes != null) {
           final storage = context.read<StorageService>();
-          final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
+          final newsId = widget.noticia?.id ??
+              'new_${DateTime.now().millisecondsSinceEpoch}';
           final uploaded = await storage.uploadFile(
             path: 'news/$newsId/attachments',
             bytes: file.bytes!,
@@ -1696,7 +1697,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
             return null;
           }
           final storage = context.read<StorageService>();
-          final newsId = widget.noticia?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
+          final newsId = widget.noticia?.id ??
+              'new_${DateTime.now().millisecondsSinceEpoch}';
           final uploaded = await storage.uploadFile(
             path: 'news/$newsId/content',
             bytes: file.bytes!,
@@ -1712,7 +1714,8 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudo subir la imagen. Comprueba el formato y vuelve a intentarlo.'),
+            content: Text(
+                'No se pudo subir la imagen. Comprueba el formato y vuelve a intentarlo.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1788,22 +1791,19 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
             children: [
               TextField(
                 controller: labelCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Texto del botón *'),
+                decoration:
+                    const InputDecoration(labelText: 'Texto del botón *'),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: type,
-                decoration:
-                    const InputDecoration(labelText: 'Tipo'),
+                decoration: const InputDecoration(labelText: 'Tipo'),
                 items: const [
                   DropdownMenuItem(value: 'link', child: Text('Enlace')),
                   DropdownMenuItem(
                       value: 'encuesta', child: Text('Ver encuesta')),
-                  DropdownMenuItem(
-                      value: 'evento', child: Text('Ver evento')),
-                  DropdownMenuItem(
-                      value: 'cuotas', child: Text('Ir a cuotas')),
+                  DropdownMenuItem(value: 'evento', child: Text('Ver evento')),
+                  DropdownMenuItem(value: 'cuotas', child: Text('Ir a cuotas')),
                   DropdownMenuItem(
                       value: 'documentos', child: Text('Documentos')),
                   DropdownMenuItem(
@@ -1892,8 +1892,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cerrar')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
         ],
       ),
     );
@@ -1937,8 +1936,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cerrar')),
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar')),
         ],
       ),
     );
@@ -1972,411 +1970,6 @@ class _AnalyticRow extends StatelessWidget {
 
 // =============================================================================
 // RICH CONTENT EDITOR (block-based)
-// =============================================================================
-
-class _RichContentEditor extends StatelessWidget {
-  final List<ContentBlock> blocks;
-  final ValueChanged<List<ContentBlock>> onChanged;
-  final Future<String?> Function() onUploadImage;
-
-  const _RichContentEditor({
-    required this.blocks,
-    required this.onChanged,
-    required this.onUploadImage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Toolbar
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(8)),
-            ),
-            child: Wrap(
-              spacing: 4,
-              children: [
-                _ToolbarBtn(
-                    icon: Icons.text_fields,
-                    tooltip: 'Párrafo',
-                    onTap: () => _addBlock('paragraph')),
-                _ToolbarBtn(
-                    icon: Icons.title,
-                    tooltip: 'Título',
-                    onTap: () => _addBlock('heading')),
-                _ToolbarBtn(
-                    icon: Icons.format_list_bulleted,
-                    tooltip: 'Lista',
-                    onTap: () => _addBlock('list')),
-                _ToolbarBtn(
-                    icon: Icons.format_quote,
-                    tooltip: 'Cita',
-                    onTap: () => _addBlock('quote')),
-                _ToolbarBtn(
-                    icon: Icons.image,
-                    tooltip: 'Subir imagen al contenido',
-                    onTap: () => _addImageBlock()),
-                _ToolbarBtn(
-                    icon: Icons.horizontal_rule,
-                    tooltip: 'Separador',
-                    onTap: () => _addBlock('divider')),
-                _ToolbarBtn(
-                    icon: Icons.highlight,
-                    tooltip: 'Bloque destacado',
-                    onTap: () => _addBlock('highlight')),
-              ],
-            ),
-          ),
-
-          // Blocks
-          if (blocks.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: Text(
-                  'Usa la barra de herramientas para añadir bloques de contenido.',
-                  style: TextStyle(color: AppTheme.textSecondary),
-                ),
-              ),
-            ),
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            buildDefaultDragHandles: false,
-            itemCount: blocks.length,
-            onReorder: (oldIndex, newIndex) {
-              final updated = List<ContentBlock>.from(blocks);
-              if (oldIndex < newIndex) newIndex--;
-              final item = updated.removeAt(oldIndex);
-              updated.insert(newIndex, item);
-              onChanged(updated);
-            },
-            itemBuilder: (context, index) {
-              final block = blocks[index];
-              return _ContentBlockEditor(
-                key: ValueKey('block_$index'),
-                block: block,
-                index: index,
-                onChanged: (updated) {
-                  final list = List<ContentBlock>.from(blocks);
-                  list[index] = updated;
-                  onChanged(list);
-                },
-                onDelete: () {
-                  final list = List<ContentBlock>.from(blocks);
-                  list.removeAt(index);
-                  onChanged(list);
-                },
-                onUploadImage: onUploadImage,
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _addBlock(String type) {
-    final updated = List<ContentBlock>.from(blocks);
-    updated.add(ContentBlock(type: type));
-    onChanged(updated);
-  }
-
-  Future<void> _addImageBlock() async {
-    final url = await onUploadImage();
-    if (url != null && url.isNotEmpty) {
-      final updated = List<ContentBlock>.from(blocks);
-      updated.add(ContentBlock(type: 'image', imageUrl: url));
-      onChanged(updated);
-    }
-  }
-}
-
-class _ToolbarBtn extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  const _ToolbarBtn(
-      {required this.icon, required this.tooltip, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 20),
-        ),
-      ),
-    );
-  }
-}
-
-class _ContentBlockEditor extends StatelessWidget {
-  final ContentBlock block;
-  final int index;
-  final ValueChanged<ContentBlock> onChanged;
-  final VoidCallback onDelete;
-  final Future<String?> Function() onUploadImage;
-
-  const _ContentBlockEditor({
-    super.key,
-    required this.block,
-    required this.index,
-    required this.onChanged,
-    required this.onDelete,
-    required this.onUploadImage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ReorderableDragStartListener(
-            index: index,
-            child: const Padding(
-              padding: EdgeInsets.only(top: 8, right: 4),
-              child: Icon(Icons.drag_handle, size: 18, color: Colors.grey),
-            ),
-          ),
-          Expanded(child: _buildEditor()),
-          IconButton(
-            icon: const Icon(Icons.close, size: 16, color: Colors.red),
-            onPressed: onDelete,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditor() {
-    switch (block.type) {
-      case 'heading':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text('Título',
-                    style:
-                        TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                const Spacer(),
-                DropdownButton<int>(
-                  value: block.level,
-                  underline: const SizedBox(),
-                  isDense: true,
-                  items: const [
-                    DropdownMenuItem(value: 1, child: Text('H1')),
-                    DropdownMenuItem(value: 2, child: Text('H2')),
-                    DropdownMenuItem(value: 3, child: Text('H3')),
-                  ],
-                  onChanged: (v) =>
-                      onChanged(ContentBlock(
-                          type: 'heading', text: block.text, level: v ?? 1)),
-                ),
-              ],
-            ),
-            TextField(
-              controller: TextEditingController(text: block.text),
-              decoration:
-                  const InputDecoration(hintText: 'Texto del título...'),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: block.level == 1
-                    ? 22
-                    : block.level == 2
-                        ? 18
-                        : 15,
-              ),
-              onChanged: (v) => onChanged(ContentBlock(
-                  type: 'heading', text: v, level: block.level)),
-            ),
-          ],
-        );
-
-      case 'list':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Lista',
-                style:
-                    TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-            TextField(
-              controller: TextEditingController(
-                  text: block.items.join('\n')),
-              decoration: const InputDecoration(
-                hintText: 'Un elemento por línea...',
-              ),
-              maxLines: 5,
-              onChanged: (v) => onChanged(ContentBlock(
-                type: 'list',
-                items: v.split('\n').where((l) => l.isNotEmpty).toList(),
-              )),
-            ),
-          ],
-        );
-
-      case 'quote':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Cita',
-                style:
-                    TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-            TextField(
-              controller: TextEditingController(text: block.text),
-              decoration: const InputDecoration(
-                hintText: 'Texto de la cita...',
-              ),
-              maxLines: 3,
-              style: const TextStyle(fontStyle: FontStyle.italic),
-              onChanged: (v) =>
-                  onChanged(ContentBlock(type: 'quote', text: v)),
-            ),
-          ],
-        );
-
-      case 'image':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Imagen del contenido',
-                style:
-                    TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-            if ((block.imageUrl ?? '').isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.network(
-                  block.imageUrl!,
-                  height: 120,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Text('Error cargando imagen',
-                          style: TextStyle(color: Colors.red, fontSize: 12)),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.swap_horiz, size: 16),
-                    label: const Text('Reemplazar', style: TextStyle(fontSize: 12)),
-                    onPressed: () async {
-                      final url = await onUploadImage();
-                      if (url != null && url.isNotEmpty) {
-                        onChanged(ContentBlock(type: 'image', imageUrl: url));
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                    label: const Text('Quitar', style: TextStyle(fontSize: 12, color: Colors.red)),
-                    onPressed: () => onChanged(ContentBlock(type: 'image', imageUrl: '')),
-                  ),
-                ],
-              ),
-            ] else ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.upload_file),
-                label: const Text('Subir imagen al contenido'),
-                onPressed: () async {
-                  final url = await onUploadImage();
-                  if (url != null && url.isNotEmpty) {
-                    onChanged(ContentBlock(type: 'image', imageUrl: url));
-                  }
-                },
-              ),
-            ],
-          ],
-        );
-
-      case 'divider':
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
-          child: Divider(),
-        );
-
-      case 'highlight':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Bloque destacado',
-                style:
-                    TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(6),
-                border: Border(
-                  left: BorderSide(
-                      color: AppTheme.primaryColor, width: 3),
-                ),
-              ),
-              padding: const EdgeInsets.all(8),
-              child: TextField(
-                controller: TextEditingController(text: block.text),
-                decoration: const InputDecoration(
-                  hintText: 'Texto destacado...',
-                  border: InputBorder.none,
-                ),
-                maxLines: 3,
-                onChanged: (v) =>
-                    onChanged(ContentBlock(type: 'highlight', text: v)),
-              ),
-            ),
-          ],
-        );
-
-      default: // paragraph
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Párrafo',
-                style:
-                    TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-            TextField(
-              controller: TextEditingController(text: block.text),
-              decoration: const InputDecoration(
-                hintText: 'Escribe aquí...',
-              ),
-              maxLines: 4,
-              onChanged: (v) =>
-                  onChanged(ContentBlock(type: 'paragraph', text: v)),
-            ),
-          ],
-        );
-    }
-  }
-}
-
-// =============================================================================
-// SHARED WIDGETS
 // =============================================================================
 
 class _SectionHeader extends StatelessWidget {
@@ -2422,8 +2015,7 @@ class _FlagSwitch extends StatelessWidget {
       secondary: Icon(icon, color: AppTheme.primaryColor),
       title: Text(label, style: const TextStyle(fontSize: 14)),
       subtitle: Text(subtitle,
-          style:
-              const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
       value: value,
       onChanged: onChanged,
     );
@@ -2454,8 +2046,7 @@ class _DatePickerField extends StatelessWidget {
         if (picked != null) {
           final time = await showTimePicker(
             context: context,
-            initialTime:
-                TimeOfDay.fromDateTime(value ?? DateTime.now()),
+            initialTime: TimeOfDay.fromDateTime(value ?? DateTime.now()),
           );
           if (time != null) {
             onChanged(DateTime(

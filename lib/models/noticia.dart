@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:boanerges1714/models/content_block.dart';
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -33,56 +34,6 @@ class NoticiaCta {
         'label': label,
         'route': route,
         'type': type,
-      };
-}
-
-// ---------------------------------------------------------------------------
-// Rich content block (structured editor)
-// ---------------------------------------------------------------------------
-
-class ContentBlock {
-  final String type; // paragraph, heading, list, quote, image, divider, cta, highlight
-  final String text;
-  final int level; // heading level 1-3
-  final String? imageUrl;
-  final String? linkUrl;
-  final bool bold;
-  final bool italic;
-  final List<String> items; // for list type
-
-  const ContentBlock({
-    this.type = 'paragraph',
-    this.text = '',
-    this.level = 1,
-    this.imageUrl,
-    this.linkUrl,
-    this.bold = false,
-    this.italic = false,
-    this.items = const [],
-  });
-
-  factory ContentBlock.fromMap(Map<String, dynamic> m) => ContentBlock(
-        type: m['type'] ?? 'paragraph',
-        text: m['text'] ?? '',
-        level: (m['level'] as num?)?.toInt() ?? 1,
-        imageUrl: m['imageUrl'],
-        linkUrl: m['linkUrl'],
-        bold: m['bold'] ?? false,
-        italic: m['italic'] ?? false,
-        items: ((m['items'] as List<dynamic>?) ?? [])
-            .map((e) => '$e')
-            .toList(),
-      );
-
-  Map<String, dynamic> toMap() => {
-        'type': type,
-        'text': text,
-        'level': level,
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        if (linkUrl != null) 'linkUrl': linkUrl,
-        if (bold) 'bold': bold,
-        if (italic) 'italic': italic,
-        if (items.isNotEmpty) 'items': items,
       };
 }
 

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:boanerges1714/config/theme.dart';
+import 'package:boanerges1714/models/content_block.dart';
 import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/services/noticias_service.dart';
 import 'package:boanerges1714/services/auth_service.dart';
@@ -47,11 +48,14 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
       // Check read confirmation status
       final auth = context.read<AuthService>();
       if (auth.cofrade != null && n.requireReadConfirmation) {
-        _readConfirmed =
-            await service.hasConfirmedRead(n.id, auth.cofrade!.id);
+        _readConfirmed = await service.hasConfirmedRead(n.id, auth.cofrade!.id);
       }
     }
-    if (mounted) setState(() { _noticia = n; _loading = false; });
+    if (mounted)
+      setState(() {
+        _noticia = n;
+        _loading = false;
+      });
   }
 
   @override
@@ -160,8 +164,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                         ],
                         const Spacer(),
                         Text(
-                          DateFormat('dd MMMM yyyy', 'es')
-                              .format(n.createdAt),
+                          DateFormat('dd MMMM yyyy', 'es').format(n.createdAt),
                           style: const TextStyle(
                               color: AppTheme.textSecondary, fontSize: 13),
                         ),
@@ -241,8 +244,8 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: n.attachments.map((adj) {
-                          final isPdf = (adj['tipo'] ?? '')
-                              .startsWith('application/pdf');
+                          final isPdf =
+                              (adj['tipo'] ?? '').startsWith('application/pdf');
                           return OutlinedButton.icon(
                             onPressed: () {
                               final url = adj['url'];
@@ -344,9 +347,11 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                                       setState(() => _readConfirmed = true);
                                     } catch (_) {
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           const SnackBar(
-                                            content: Text('No se pudo confirmar la lectura. Vuelve a intentarlo.'),
+                                            content: Text(
+                                                'No se pudo confirmar la lectura. Vuelve a intentarlo.'),
                                             backgroundColor: Colors.red,
                                           ),
                                         );
@@ -426,16 +431,13 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               border: Border(
-                left: BorderSide(
-                    color: AppTheme.primaryColor, width: 4),
+                left: BorderSide(color: AppTheme.primaryColor, width: 4),
               ),
               color: Colors.grey.shade50,
             ),
             child: Text(block.text,
                 style: const TextStyle(
-                    fontStyle: FontStyle.italic,
-                    fontSize: 15,
-                    height: 1.6)),
+                    fontStyle: FontStyle.italic, fontSize: 15, height: 1.6)),
           ),
         );
 
@@ -468,8 +470,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
               color: AppTheme.primaryColor.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(8),
               border: Border(
-                left: BorderSide(
-                    color: AppTheme.primaryColor, width: 4),
+                left: BorderSide(color: AppTheme.primaryColor, width: 4),
               ),
             ),
             child: Text(block.text,
@@ -633,8 +634,7 @@ class _HemerotecaScreenState extends State<HemerotecaScreen> {
           // Header
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.primaryDark, AppTheme.primaryColor],
@@ -699,15 +699,14 @@ class _HemerotecaScreenState extends State<HemerotecaScreen> {
                                   selected: selected,
                                   onSelected: (_) =>
                                       setState(() => _selectedYear = y),
-                                  selectedColor:
-                                      AppTheme.primaryColor.withValues(alpha: 0.15),
+                                  selectedColor: AppTheme.primaryColor
+                                      .withValues(alpha: 0.15),
                                 );
                               }).toList(),
                             ),
                             const SizedBox(height: 24),
                             StreamBuilder<List<Noticia>>(
-                              stream:
-                                  service.getNoticiasByYear(_selectedYear!),
+                              stream: service.getNoticiasByYear(_selectedYear!),
                               builder: (context, nSnap) {
                                 final noticias = nSnap.data ?? [];
                                 if (noticias.isEmpty) {
@@ -716,8 +715,7 @@ class _HemerotecaScreenState extends State<HemerotecaScreen> {
                                 }
                                 return ListView.builder(
                                   shrinkWrap: true,
-                                  physics:
-                                      const NeverScrollableScrollPhysics(),
+                                  physics: const NeverScrollableScrollPhysics(),
                                   itemCount: noticias.length,
                                   itemBuilder: (_, i) {
                                     final n = noticias[i];
@@ -730,8 +728,7 @@ class _HemerotecaScreenState extends State<HemerotecaScreen> {
                                       ),
                                       title: Text(n.title),
                                       subtitle: Text(n.category,
-                                          style: const TextStyle(
-                                              fontSize: 12)),
+                                          style: const TextStyle(fontSize: 12)),
                                       trailing: const Icon(
                                           Icons.arrow_forward_ios,
                                           size: 14),
