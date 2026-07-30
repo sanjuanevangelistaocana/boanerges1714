@@ -177,8 +177,7 @@ class HomeScreen extends StatelessWidget {
   Widget _buildFeatureCards(BuildContext context) {
     return Container(
       width: double.infinity,
-      transform: Matrix4.translationValues(0, -30, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _contentWidth),
@@ -1058,15 +1057,40 @@ class HomeScreen extends StatelessWidget {
                             subtitle: 'Recogida y reparto de alimentos',
                           ),
                           _AsistenciaItem(
-                            icon: Icons.elderly,
-                            title: 'Atenci\u00f3n a Mayores',
-                            subtitle: 'Acompa\u00f1amiento y visitas',
+                            icon: Icons.shopping_basket_outlined,
+                            title: 'Bolsa solidaria',
+                            subtitle: 'Apoyo a necesidades b\u00e1sicas',
                           ),
                           _AsistenciaItem(
-                            icon: Icons.diversity_3,
-                            title: 'Acci\u00f3n Solidaria',
+                            icon: Icons.volunteer_activism_outlined,
+                            title: 'Donaciones',
+                            subtitle: 'Aportaciones para ayuda social',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.church_outlined,
+                            title: 'Ayuda parroquial',
+                            subtitle: 'Colaboraci\u00f3n con la parroquia',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.favorite_outline,
+                            title: 'Colaboraci\u00f3n con C\u00e1ritas',
+                            subtitle: 'Apoyo a iniciativas solidarias',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.groups_outlined,
+                            title: 'Voluntariado',
                             subtitle:
-                                'Campa\u00f1as ben\u00e9ficas y ayuda social',
+                                'Participaci\u00f3n y acompa\u00f1amiento',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.card_giftcard_outlined,
+                            title: 'Campa\u00f1as de Navidad',
+                            subtitle: 'Acciones solidarias de temporada',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.inventory_2_outlined,
+                            title: 'Recogidas extraordinarias',
+                            subtitle: 'Campañas puntuales de apoyo',
                           ),
                         ],
                       ),
@@ -1109,7 +1133,7 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _FeatureCard extends StatelessWidget {
+class _FeatureCard extends StatefulWidget {
   final IconData icon;
   final String title;
   final String subtitle;
@@ -1123,6 +1147,13 @@ class _FeatureCard extends StatelessWidget {
   });
 
   @override
+  State<_FeatureCard> createState() => _FeatureCardState();
+}
+
+class _FeatureCardState extends State<_FeatureCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final viewport = MediaQuery.sizeOf(context).width;
     final width = viewport < 600
@@ -1132,32 +1163,68 @@ class _FeatureCard extends StatelessWidget {
             : (viewport - 96) / 4;
     return SizedBox(
       width: width.clamp(220, 280).toDouble(),
-      child: AppSurfaceCard(
-        onTap: onTap,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withAlpha(20),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 36, color: AppTheme.primaryColor),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedSlide(
+          offset:
+              _hovered && MediaQuery.maybeDisableAnimationsOf(context) != true
+                  ? const Offset(0, -0.025)
+                  : Offset.zero,
+          duration: MediaQuery.maybeDisableAnimationsOf(context) == true
+              ? Duration.zero
+              : const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: MediaQuery.maybeDisableAnimationsOf(context) == true
+                ? Duration.zero
+                : const Duration(milliseconds: 160),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(_hovered ? 26 : 12),
+                  blurRadius: _hovered ? 18 : 10,
+                  offset: Offset(0, _hovered ? 8 : 4),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(subtitle,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
+            child: AppSurfaceCard(
+              onTap: widget.onTap,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withAlpha(18),
+                      shape: BoxShape.circle,
                     ),
-                textAlign: TextAlign.center),
-          ],
+                    child: Icon(widget.icon,
+                        size: 38, color: AppTheme.primaryColor),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    widget.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryDark,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.subtitle,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textSecondary,
+                          height: 1.4,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

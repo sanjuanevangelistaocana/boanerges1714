@@ -21,6 +21,8 @@ class ShellScaffold extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 72,
+        centerTitle: false,
+        titleSpacing: 16,
         title: GestureDetector(
           onTap: () => context.go('/'),
           child: Row(

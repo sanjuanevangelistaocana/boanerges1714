@@ -8,9 +8,11 @@ class AppTheme {
   static const Color primaryLight = Color(0xFF8C1F3B);
   // Color secundario: verde oscuro tipo "botella"
   static const Color accentColor = Color(0xFF2E5F3A);
-  // Neutros: escala de grises + blanco
-  static const Color backgroundColor = Color(0xFFF5F5F5);
-  static const Color surfaceColor = Colors.white;
+  // Neutros institucionales: blanco cálido y grises suaves
+  static const Color backgroundColor = Color(0xFFF7F6F3);
+  static const Color surfaceColor = Color(0xFFFFFEFC);
+  static const Color surfaceMutedColor = Color(0xFFEDEDEA);
+  static const Color borderColor = Color(0xFFE1DFDA);
   static const Color errorColor = Color(0xFFB71C1C);
   static const Color textPrimary = Color(0xFF212121);
   static const Color textSecondary = Color(0xFF757575);
@@ -72,9 +74,11 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        elevation: 2,
+        elevation: 1,
+        color: surfaceColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: borderColor),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -95,7 +99,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }
