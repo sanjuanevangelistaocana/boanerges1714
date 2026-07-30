@@ -372,6 +372,7 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
           _status = 'Envío importado correctamente.';
         });
       }
+      _showMessage('Envío importado correctamente.');
     } catch (error) {
       if (mounted) {
         setState(() => _status =
@@ -422,6 +423,7 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
             reviewerId: context.read<AuthService>().userId ?? '',
             motivo: reason,
           );
+      _showMessage('Envío rechazado correctamente.');
     } catch (error) {
       final message = 'No se pudo rechazar: ${_friendlyError(error)}';
       if (mounted) setState(() => _status = message);
