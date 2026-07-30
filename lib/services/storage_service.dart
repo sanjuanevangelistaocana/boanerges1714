@@ -56,9 +56,12 @@ class StorageService {
         final task = ref.putData(bytes, metadata);
         final progressSubscription = onProgress == null
             ? null
-            : task.snapshotEvents.listen((snapshot) {
-                onProgress(snapshot.bytesTransferred, snapshot.totalBytes);
-              });
+            : task.snapshotEvents.listen(
+                (snapshot) {
+                  onProgress(snapshot.bytesTransferred, snapshot.totalBytes);
+                },
+                onError: (_) {},
+              );
         try {
           await task;
         } finally {
