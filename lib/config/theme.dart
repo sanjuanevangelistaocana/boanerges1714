@@ -41,11 +41,8 @@ class AppTheme {
         surface: surfaceColor,
         error: errorColor,
       ).copyWith(
-        background: backgroundColor,
-        onBackground: textPrimary,
         surface: surfaceColor,
         onSurface: textPrimary,
-        surfaceVariant: surfaceMutedColor,
         onSurfaceVariant: onSurfaceVariantColor,
         surfaceContainerLowest: surfaceContainerLowestColor,
         surfaceContainerLow: surfaceContainerLowColor,
