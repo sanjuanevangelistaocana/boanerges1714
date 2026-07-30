@@ -26,19 +26,43 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
   bool _loadingImages = false;
   bool _hasMoreImages = true;
   String _progress = '';
+  bool _mutating = false;
+
+  String _friendlyError(Object error) {
+    final text = error.toString();
+    if (text.contains('permission-denied') ||
+        text.contains('permission_denied') ||
+        text.contains('unauthorized')) {
+      return 'Tu usuario no tiene permisos de administrador para esta acción.';
+    }
+    return text.startsWith('Bad state: ')
+        ? text.substring('Bad state: '.length)
+        : text;
+  }
+
+  void _showMessage(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        backgroundColor: error ? Theme.of(context).colorScheme.error : null,
+      ));
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context
-            .read<GalleryService>()
-            .ensureSystemFolders()
-            .catchError((error) {
-          if (mounted)
-            setState(() => _progress =
-                'No se pudieron preparar las carpetas internas: $error');
+        context.read<GalleryService>().ensureSystemFolders().then((_) {
+          _showMessage('Carpetas internas preparadas.');
+        }).catchError((error) {
+          _showMessage(
+            'No se pudieron preparar las carpetas internas: '
+            '${_friendlyError(error)}',
+            error: true,
+          );
         });
       }
     });
@@ -139,8 +163,11 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     name.dispose();
     description.dispose();
     if (result == null || result['name'] == '') return;
-    if (folder?.sistema != GalleryFolderSystem.ninguno) return;
+    if (folder != null && folder.sistema != GalleryFolderSystem.ninguno) {
+      return;
+    }
     final service = context.read<GalleryService>();
+    if (mounted) setState(() => _mutating = true);
     try {
       if (folder == null) {
         final now = DateTime.now();
@@ -164,8 +191,15 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
           );
         }
       }
+      _showMessage(
+        folder == null
+            ? 'Carpeta creada correctamente.'
+            : 'Carpeta actualizada correctamente.',
+      );
     } catch (error) {
-      if (mounted) setState(() => _progress = '$error');
+      _showMessage(_friendlyError(error), error: true);
+    } finally {
+      if (mounted) setState(() => _mutating = false);
     }
   }
 
@@ -188,7 +222,15 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       ),
     );
     if (confirmed == true) {
-      await context.read<GalleryService>().deleteFolder(folder.id);
+      if (mounted) setState(() => _mutating = true);
+      try {
+        await context.read<GalleryService>().deleteFolder(folder.id);
+        _showMessage('Carpeta borrada correctamente.');
+      } catch (error) {
+        _showMessage(_friendlyError(error), error: true);
+      } finally {
+        if (mounted) setState(() => _mutating = false);
+      }
     }
   }
 
@@ -207,13 +249,16 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
     List<PlatformFile> files,
   ) async {
     final service = context.read<GalleryService>();
+    if (mounted) setState(() => _mutating = true);
     var success = 0;
     final failures = <String>[];
     for (var index = 0; index < files.length; index++) {
       final file = files[index];
       final bytes = file.bytes;
-      setState(() =>
-          _progress = 'Subiendo ${index + 1}/${files.length}: ${file.name}');
+      if (mounted) {
+        setState(() =>
+            _progress = 'Subiendo ${index + 1}/${files.length}: ${file.name}');
+      }
       if (bytes == null) {
         failures.add('${file.name}: no se pudieron leer los bytes');
         continue;
@@ -231,9 +276,17 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       }
     }
     if (!mounted) return;
+    if (!mounted) return;
     setState(
         () => _progress = 'Completadas: $success · Fallidas: ${failures.length}'
             '${failures.isEmpty ? '' : '\n${failures.join('\n')}'}');
+    _showMessage(
+      failures.isEmpty
+          ? '$success fotografía(s) subida(s) correctamente.'
+          : 'Se subieron $success fotografía(s); fallaron ${failures.length}.',
+      error: failures.isNotEmpty,
+    );
+    if (mounted) setState(() => _mutating = false);
     _lastImage = null;
     _hasMoreImages = true;
     await _loadImages(folder);
@@ -259,10 +312,18 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       ),
     );
     if (confirmed != true) return;
-    for (final image in selected) {
-      await context.read<GalleryService>().deleteImage(image);
+    if (mounted) setState(() => _mutating = true);
+    try {
+      for (final image in selected) {
+        await context.read<GalleryService>().deleteImage(image);
+      }
+      _showMessage('${selected.length} fotografía(s) eliminada(s).');
+    } catch (error) {
+      _showMessage(_friendlyError(error), error: true);
+    } finally {
+      if (mounted) setState(() => _mutating = false);
     }
-    setState(() => _selectedImages.clear());
+    if (mounted) setState(() => _selectedImages.clear());
     if (_selectedFolderId != null) {
       final source = await context
           .read<GalleryService>()
@@ -313,14 +374,22 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       if (confirmed != true) return;
       allowPublishing = true;
     }
-    for (final image in selected) {
-      await context.read<GalleryService>().moveImage(
-            image: image,
-            destinationFolderId: destination.id,
-            allowPublishingFromInternalBank: allowPublishing,
-          );
+    if (mounted) setState(() => _mutating = true);
+    try {
+      for (final image in selected) {
+        await context.read<GalleryService>().moveImage(
+              image: image,
+              destinationFolderId: destination.id,
+              allowPublishingFromInternalBank: allowPublishing,
+            );
+      }
+      _showMessage('${selected.length} fotografía(s) movida(s).');
+    } catch (error) {
+      _showMessage(_friendlyError(error), error: true);
+    } finally {
+      if (mounted) setState(() => _mutating = false);
     }
-    setState(() => _selectedImages.clear());
+    if (mounted) setState(() => _selectedImages.clear());
     await _loadImages(source);
   }
 
@@ -401,7 +470,9 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                             style: Theme.of(context).textTheme.headlineMedium),
                       ),
                       FilledButton.icon(
-                        onPressed: () => _createOrEditFolder(context),
+                        onPressed: _mutating
+                            ? null
+                            : () => _createOrEditFolder(context),
                         icon: const Icon(Icons.create_new_folder),
                         label: const Text('Nueva carpeta'),
                       ),
@@ -422,8 +493,13 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                             final reordered = [...folders];
                             final moved = reordered.removeAt(oldIndex);
                             reordered.insert(newIndex, moved);
-                            await service.reorderFolders(
-                                reordered.map((item) => item.id).toList());
+                            try {
+                              await service.reorderFolders(
+                                  reordered.map((item) => item.id).toList());
+                              _showMessage('Orden de carpetas guardado.');
+                            } catch (error) {
+                              _showMessage(_friendlyError(error), error: true);
+                            }
                           },
                           itemBuilder: (context, index) {
                             final item = folders[index];
@@ -505,7 +581,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                   style: Theme.of(context).textTheme.titleLarge),
             ),
             OutlinedButton.icon(
-              onPressed: () => _uploadImages(folder),
+              onPressed: _mutating ? null : () => _uploadImages(folder),
               icon: const Icon(Icons.upload),
               label: const Text('Subir fotografías'),
             ),
@@ -513,7 +589,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
         ),
         const SizedBox(height: 10),
         InkWell(
-          onTap: () => _uploadImages(folder),
+          onTap: _mutating ? null : () => _uploadImages(folder),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -538,7 +614,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
             spacing: 8,
             children: [
               OutlinedButton.icon(
-                onPressed: () => _deleteSelected(folder),
+                onPressed: _mutating ? null : () => _deleteSelected(folder),
                 icon: const Icon(Icons.delete_outline),
                 label: Text('Eliminar (${_selectedImages.length})'),
               ),
@@ -593,9 +669,13 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                 final reordered = [..._images]
                   ..insert(newIndex, _images.removeAt(oldIndex));
                 setState(() => _images = reordered);
-                await context
-                    .read<GalleryService>()
-                    .reorderImages(reordered.map((image) => image.id).toList());
+                try {
+                  await context.read<GalleryService>().reorderImages(
+                      reordered.map((image) => image.id).toList());
+                  _showMessage('Orden de fotografías guardado.');
+                } catch (error) {
+                  _showMessage(_friendlyError(error), error: true);
+                }
               },
               itemBuilder: (context, index) {
                 final image = _images[index];
@@ -666,12 +746,24 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                             ),
                             IconButton(
                               tooltip: 'Usar como portada',
-                              onPressed: () =>
-                                  context.read<GalleryService>().setFolderCover(
-                                        folderId: folder.id,
-                                        imageId: image.id,
-                                        imageUrl: image.url,
-                                      ),
+                              onPressed: _mutating
+                                  ? null
+                                  : () async {
+                                      try {
+                                        await context
+                                            .read<GalleryService>()
+                                            .setFolderCover(
+                                              folderId: folder.id,
+                                              imageId: image.id,
+                                              imageUrl: image.url,
+                                            );
+                                        _showMessage(
+                                            'Portada de carpeta actualizada.');
+                                      } catch (error) {
+                                        _showMessage(_friendlyError(error),
+                                            error: true);
+                                      }
+                                    },
                               icon: const Icon(Icons.star_border,
                                   color: Colors.white),
                             ),

@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/storage_service.dart';
@@ -140,13 +139,16 @@ class GalleryService {
   Future<String> createFolder(GalleryFolder folder) async {
     final ref = folder.id.isEmpty ? _folders.doc() : _folders.doc(folder.id);
     final now = DateTime.now();
-    await ref.set(folder
-        .copyWith(
-          id: ref.id,
-          fechaCreacion: folder.fechaCreacion,
-          fechaActualizacion: now,
-        )
-        .toFirestore());
+    final normalized = folder.copyWith(
+      id: ref.id,
+      fechaCreacion: folder.fechaCreacion,
+      fechaActualizacion: now,
+      deleted: false,
+      relocating: false,
+      orden: folder.orden,
+      numFotos: folder.numFotos,
+    );
+    await ref.set(normalized.toFirestore());
     return ref.id;
   }
 
@@ -355,8 +357,8 @@ class GalleryService {
       });
     });
     if (deletedNow) {
-      await _deleteStorageFile(image.storagePath, image.url);
-      await _deleteStorageFile(image.thumbPath, image.thumbUrl);
+      await _deleteStorageFile(image.url);
+      await _deleteStorageFile(image.thumbUrl);
     }
   }
 
@@ -529,10 +531,10 @@ class GalleryService {
       'carrusel': folder.sistema == GalleryFolderSystem.carruselInicio,
     });
     if (oldOriginalPath != newOriginalPath) {
-      await _deleteStorageFile(oldOriginalPath, image.url);
+      await _deleteStorageFile(image.url);
     }
     if (oldThumbPath != null && oldThumbPath != newThumbPath) {
-      await _deleteStorageFile(oldThumbPath, image.thumbUrl);
+      await _deleteStorageFile(image.thumbUrl);
     }
   }
 
@@ -909,13 +911,9 @@ class GalleryService {
     });
   }
 
-  Future<void> _deleteStorageFile(String? path, String? url) async {
+  Future<void> _deleteStorageFile(String? url) async {
     if (url == null || url.isEmpty) return;
-    try {
-      await _storage.deleteFile(url);
-    } catch (error) {
-      debugPrint('[GalleryService] Error eliminando $path: $error');
-    }
+    await _storage.deleteFile(url);
   }
 
   Future<void> _commitInChunks<T>(

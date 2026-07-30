@@ -39,6 +39,28 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
   bool _loading = false;
   String _status = '';
 
+  String _friendlyError(Object error) {
+    final text = error.toString();
+    if (text.contains('permission-denied') ||
+        text.contains('permission_denied') ||
+        text.contains('unauthorized')) {
+      return 'Tu usuario no tiene permisos de administrador para esta acción.';
+    }
+    return text.startsWith('Bad state: ')
+        ? text.substring('Bad state: '.length)
+        : text;
+  }
+
+  void _showMessage(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        backgroundColor: error ? Theme.of(context).colorScheme.error : null,
+      ));
+  }
+
   String _formatBytes(int bytes) {
     if (bytes < 1024 * 1024) {
       return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -48,8 +70,9 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
 
   Future<void> _download(GalleryUploadRequest request) async {
     try {
-      final bytes =
-          await context.read<GalleryService>().downloadUploadRequestZip(request);
+      final bytes = await context
+          .read<GalleryService>()
+          .downloadUploadRequestZip(request);
       final downloaded =
           await downloadGalleryBytes(bytes, '${request.titulo}.zip');
       if (mounted) {
@@ -58,7 +81,9 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
             : 'La descarga directa está disponible en la versión web.');
       }
     } catch (error) {
-      if (mounted) setState(() => _status = 'Error descargando el ZIP: $error');
+      final message = 'Error descargando el ZIP: ${_friendlyError(error)}';
+      if (mounted) setState(() => _status = message);
+      _showMessage(message, error: true);
     }
   }
 
@@ -104,6 +129,10 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
           _status = 'No se pudo previsualizar el ZIP: $error';
         });
       }
+      _showMessage(
+        'No se pudo previsualizar el ZIP: ${_friendlyError(error)}',
+        error: true,
+      );
     }
   }
 
@@ -162,8 +191,14 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
       fechaCreacion: now,
       fechaActualizacion: now,
     );
-    final id = await context.read<GalleryService>().createFolder(folder);
-    return folder.copyWith(id: id);
+    try {
+      final id = await context.read<GalleryService>().createFolder(folder);
+      _showMessage('Carpeta creada correctamente.');
+      return folder.copyWith(id: id);
+    } catch (error) {
+      _showMessage(_friendlyError(error), error: true);
+      return null;
+    }
   }
 
   Future<void> _approve(GalleryUploadRequest request) async {
@@ -342,6 +377,10 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
         setState(() => _status =
             'Importación parcial. Puedes reintentar sin duplicar las imágenes ya importadas: $error');
       }
+      _showMessage(
+        'No se pudo completar la importación: ${_friendlyError(error)}',
+        error: true,
+      );
     }
   }
 
@@ -384,7 +423,9 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
             motivo: reason,
           );
     } catch (error) {
-      if (mounted) setState(() => _status = 'No se pudo rechazar: $error');
+      final message = 'No se pudo rechazar: ${_friendlyError(error)}';
+      if (mounted) setState(() => _status = message);
+      _showMessage(message, error: true);
     }
   }
 
@@ -457,8 +498,7 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: _entries.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 8),
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
                           itemBuilder: (_, index) => Image.memory(
                             _entries[index].thumbnail,
                             width: 150,

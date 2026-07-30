@@ -149,7 +149,17 @@
       "collectionGroup": "gallery_folders",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "solo_admin", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gallery_folders",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "publica", "order": "ASCENDING" },
+        { "fieldPath": "solo_admin", "order": "ASCENDING" },
         { "fieldPath": "deleted", "order": "ASCENDING" },
         { "fieldPath": "orden", "order": "ASCENDING" }
       ]
