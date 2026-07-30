@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:boanerges1714/screens/public/home_screen.dart';
 import 'package:boanerges1714/screens/public/events_screen.dart';
 import 'package:boanerges1714/screens/events/events_home_screen.dart';
@@ -174,13 +175,13 @@ GoRouter createRouter(AuthService authService) {
               path: '/cofradia',
               builder: (context, state) => ContentRootScreen(
                     rootSlug: 'cofradia',
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/patrimonio',
               builder: (context, state) => ContentRootScreen(
                     rootSlug: 'patrimonio',
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/cofradia/:sectionSlug/articulo/:articleSlug',
@@ -188,7 +189,7 @@ GoRouter createRouter(AuthService authService) {
                     rootSlug: 'cofradia',
                     sectionSlug: state.pathParameters['sectionSlug']!,
                     articleSlug: state.pathParameters['articleSlug']!,
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/patrimonio/:sectionSlug/articulo/:articleSlug',
@@ -196,42 +197,42 @@ GoRouter createRouter(AuthService authService) {
                     rootSlug: 'patrimonio',
                     sectionSlug: state.pathParameters['sectionSlug']!,
                     articleSlug: state.pathParameters['articleSlug']!,
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/cofradia/:sectionSlug/grupo/:groupSlug',
               builder: (context, state) => ContentGroupScreen(
                     sectionSlug: state.pathParameters['sectionSlug']!,
                     groupSlug: state.pathParameters['groupSlug']!,
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/patrimonio/:sectionSlug/grupo/:groupSlug',
               builder: (context, state) => ContentGroupScreen(
                     sectionSlug: state.pathParameters['sectionSlug']!,
                     groupSlug: state.pathParameters['groupSlug']!,
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/patrimonio/:sectionSlug/ficha/:fichaSlug',
               builder: (context, state) => ContentFichaScreen(
                     sectionSlug: state.pathParameters['sectionSlug']!,
                     fichaSlug: state.pathParameters['fichaSlug']!,
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/cofradia/:sectionSlug',
               builder: (context, state) => ContentSectionScreen(
                     rootSlug: 'cofradia',
                     sectionSlug: state.pathParameters['sectionSlug']!,
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/patrimonio/:sectionSlug',
               builder: (context, state) => ContentSectionScreen(
                     rootSlug: 'patrimonio',
                     sectionSlug: state.pathParameters['sectionSlug']!,
-                    service: ContentService(),
+                    service: context.read<ContentService>(),
                   )),
           GoRoute(
               path: '/events',

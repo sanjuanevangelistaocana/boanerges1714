@@ -302,7 +302,7 @@ class _SectionNavMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ContentSection>>(
-      stream: ContentService().watchSections(),
+      stream: context.read<ContentService>().publishedSectionsStream,
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <ContentSection>[];
         final matchingRoots =
@@ -363,7 +363,7 @@ class _DrawerSectionGroups extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ContentSection>>(
-      stream: ContentService().watchSections(),
+      stream: context.read<ContentService>().publishedSectionsStream,
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <ContentSection>[];
         final roots = all.where((section) => section.parentId == null).toList();

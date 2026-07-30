@@ -7,6 +7,11 @@ import 'package:boanerges1714/services/storage_service.dart';
 class ContentService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final StorageService _storage = StorageService();
+  final Map<String, Stream<List<ContentSection>>> _sectionStreams = {};
+  final Map<String, Stream<List<ContentArticle>>> _articleStreams = {};
+  final Map<String, Stream<List<PatrimonioFicha>>> _patrimonioStreams = {};
+  final Map<String, Stream<List<JuntaMiembro>>> _juntaStreams = {};
+  final Map<String, Stream<List<ContentGroup>>> _groupStreams = {};
 
   CollectionReference<Map<String, dynamic>> get _sections =>
       _db.collection('content_sections');
@@ -19,21 +24,43 @@ class ContentService {
   CollectionReference<Map<String, dynamic>> get _groups =>
       _db.collection('grupos');
 
+  late final Stream<List<ContentSection>> publishedSectionsStream =
+      _createSectionsStream(admin: false).asBroadcastStream();
+
   Stream<List<ContentSection>> watchSections({bool admin = false}) {
+    if (!admin) return publishedSectionsStream;
+    return _sectionStreams.putIfAbsent(
+      'all',
+      () => _createSectionsStream(admin: true).asBroadcastStream(),
+    );
+  }
+
+  Stream<List<ContentSection>> watchChildSections(
+    String? parentId, {
+    bool admin = false,
+  }) {
+    final key = '${admin ? 'admin' : 'public'}:${parentId ?? 'null'}';
+    return _sectionStreams.putIfAbsent(
+      key,
+      () => _createChildSectionsStream(parentId, admin: admin)
+          .asBroadcastStream(),
+    );
+  }
+
+  Stream<List<ContentSection>> _createSectionsStream({required bool admin}) {
     Query<Map<String, dynamic>> query = _sections;
     if (!admin) {
       query = query
           .where('published', isEqualTo: true)
           .where('deleted', isEqualTo: false);
     }
-    query = query.orderBy('order');
-    return query.snapshots().map(
+    return query.orderBy('order').snapshots().map(
         (snapshot) => snapshot.docs.map(ContentSection.fromFirestore).toList());
   }
 
-  Stream<List<ContentSection>> watchChildSections(
+  Stream<List<ContentSection>> _createChildSectionsStream(
     String? parentId, {
-    bool admin = false,
+    required bool admin,
   }) {
     Query<Map<String, dynamic>> query =
         _sections.where('parent_id', isEqualTo: parentId);
@@ -263,6 +290,17 @@ class ContentService {
     String sectionId, {
     bool admin = false,
   }) {
+    final key = '${admin ? 'admin' : 'public'}:$sectionId';
+    return _articleStreams.putIfAbsent(
+      key,
+      () => _createArticleStream(sectionId, admin: admin).asBroadcastStream(),
+    );
+  }
+
+  Stream<List<ContentArticle>> _createArticleStream(
+    String sectionId, {
+    required bool admin,
+  }) {
     Query<Map<String, dynamic>> query =
         _articles.where('section_id', isEqualTo: sectionId);
     if (!admin) query = query.where('status', isEqualTo: 'published');
@@ -296,6 +334,18 @@ class ContentService {
   Stream<List<PatrimonioFicha>> watchPatrimonio(
     String sectionId, {
     bool admin = false,
+  }) {
+    final key = '${admin ? 'admin' : 'public'}:$sectionId';
+    return _patrimonioStreams.putIfAbsent(
+      key,
+      () =>
+          _createPatrimonioStream(sectionId, admin: admin).asBroadcastStream(),
+    );
+  }
+
+  Stream<List<PatrimonioFicha>> _createPatrimonioStream(
+    String sectionId, {
+    required bool admin,
   }) {
     Query<Map<String, dynamic>> query =
         _patrimonio.where('section_id', isEqualTo: sectionId);
@@ -334,6 +384,17 @@ class ContentService {
     String sectionId, {
     bool admin = false,
   }) {
+    final key = '${admin ? 'admin' : 'public'}:$sectionId';
+    return _juntaStreams.putIfAbsent(
+      key,
+      () => _createJuntaStream(sectionId, admin: admin).asBroadcastStream(),
+    );
+  }
+
+  Stream<List<JuntaMiembro>> _createJuntaStream(
+    String sectionId, {
+    required bool admin,
+  }) {
     Query<Map<String, dynamic>> query =
         _junta.where('section_id', isEqualTo: sectionId);
     if (!admin) query = query.where('active', isEqualTo: true);
@@ -352,6 +413,17 @@ class ContentService {
   Stream<List<ContentGroup>> watchGroups(
     String sectionId, {
     bool admin = false,
+  }) {
+    final key = '${admin ? 'admin' : 'public'}:$sectionId';
+    return _groupStreams.putIfAbsent(
+      key,
+      () => _createGroupStream(sectionId, admin: admin).asBroadcastStream(),
+    );
+  }
+
+  Stream<List<ContentGroup>> _createGroupStream(
+    String sectionId, {
+    required bool admin,
   }) {
     Query<Map<String, dynamic>> query =
         _groups.where('section_id', isEqualTo: sectionId);

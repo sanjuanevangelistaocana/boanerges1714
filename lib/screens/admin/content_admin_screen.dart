@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/content_block.dart';
 import 'package:boanerges1714/models/content_models.dart';
@@ -17,7 +18,7 @@ class ContentAdminScreen extends StatefulWidget {
 }
 
 class _ContentAdminScreenState extends State<ContentAdminScreen> {
-  final _content = ContentService();
+  late final ContentService _content;
   final _storage = StorageService();
   String? _selectedId;
   bool _seeding = false;
@@ -26,6 +27,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
   @override
   void initState() {
     super.initState();
+    _content = context.read<ContentService>();
     _seed();
   }
 

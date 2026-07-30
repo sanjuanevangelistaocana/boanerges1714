@@ -7,6 +7,7 @@ import 'package:boanerges1714/config/firebase_config.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/config/routes.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/services/content_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/events_service.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
@@ -132,6 +133,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
   late final TreasuryAuditService _treasuryAuditService;
   late final EncuestaService _encuestaService;
   late final NoticiasService _noticiasService;
+  late final ContentService _contentService;
   late final TurnosAndasService _turnosAndasService;
   late final GoRouter goRouter;
 
@@ -167,6 +169,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
         TreasuryAuditService(repository: _treasuryRepository);
     _encuestaService = EncuestaService();
     _noticiasService = NoticiasService();
+    _contentService = ContentService();
     _turnosAndasService = TurnosAndasService();
     _notificationService.initialize().catchError((error, _) {
       debugPrint('FCM no disponible: $error');
@@ -195,6 +198,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
         Provider.value(value: _treasuryAuditService),
         Provider.value(value: _encuestaService),
         Provider.value(value: _noticiasService),
+        Provider.value(value: _contentService),
         Provider.value(value: _turnosAndasService),
       ],
       child: MaterialApp.router(
