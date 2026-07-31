@@ -43,12 +43,18 @@ class AppTheme {
     colors: [Color(0xFFFCF7F8), Color(0xFFF4E8EB)],
   );
 
-  static ThemeData get lightTheme {
-    return lightThemeForWidth(double.infinity);
-  }
+  static final ThemeData _desktopTheme = _buildTheme(compactTargets: false);
+  static final ThemeData _compactTheme = _buildTheme(compactTargets: true);
 
   static ThemeData lightThemeForWidth(double width) {
-    final compactTargets = width < ResponsiveBreakpoints.desktop;
+    return width < ResponsiveBreakpoints.desktop
+        ? _compactTheme
+        : _desktopTheme;
+  }
+
+  static ThemeData get lightTheme => _desktopTheme;
+
+  static ThemeData _buildTheme({required bool compactTargets}) {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
