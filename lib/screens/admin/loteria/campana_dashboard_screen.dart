@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/loteria.dart';
+import 'package:boanerges1714/widgets/responsive_data_table.dart';
 
 class CampanaDashboardScreen extends StatelessWidget {
   final String campanaId;
@@ -510,163 +511,122 @@ class CampanaDashboardScreen extends StatelessWidget {
                                               child: Text(
                                                   'No hay vendedores con asignaciones.'),
                                             )
-                                          : SingleChildScrollView(
-                                              scrollDirection: Axis.horizontal,
-                                              child: DataTable(
-                                                columnSpacing: 20,
-                                                columns: const [
-                                                  DataColumn(
-                                                      label: Text('Vendedor',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold))),
-                                                  DataColumn(
-                                                      label: Text('Tipo',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold))),
-                                                  DataColumn(
-                                                      label: Text('Asignados',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold)),
-                                                      numeric: true),
-                                                  DataColumn(
-                                                      label: Text('Vendidos',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold)),
-                                                      numeric: true),
-                                                  DataColumn(
-                                                      label: Text('Devueltos',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold)),
-                                                      numeric: true),
-                                                  DataColumn(
-                                                      label: Text('Disponibles',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold)),
-                                                      numeric: true),
-                                                  DataColumn(
-                                                      label: Text('% Venta',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold)),
-                                                      numeric: true),
-                                                  DataColumn(
-                                                      label: Text('Última Act.',
-                                                          style: TextStyle(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold))),
-                                                ],
-                                                rows: vendedorStats.entries
-                                                    .map((entry) {
-                                                  final vend =
-                                                      vendMap[entry.key];
-                                                  final stats = entry.value;
-                                                  final disponibles =
-                                                      stats.asignados -
-                                                          stats.vendidos -
-                                                          stats.devueltos;
-                                                  final pct =
-                                                      stats.asignados > 0
-                                                          ? (stats.vendidos /
-                                                              stats.asignados *
-                                                              100)
-                                                          : 0.0;
-                                                  final fmt =
-                                                      DateFormat('dd/MM HH:mm');
-
-                                                  return DataRow(cells: [
-                                                    DataCell(Text(
-                                                        vend?.nombre ?? '?')),
-                                                    DataCell(Container(
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
+                                          : ResponsiveDataTable(
+                                              columnSpacing: 20,
+                                              columns: const [
+                                                ResponsiveTableColumn(
+                                                    label: 'Vendedor',
+                                                    mobilePriority: 0),
+                                                ResponsiveTableColumn(
+                                                    label: 'Tipo',
+                                                    mobilePriority: 1),
+                                                ResponsiveTableColumn(
+                                                    label: 'Asignados',
+                                                    mobilePriority: 2,
+                                                    numeric: true),
+                                                ResponsiveTableColumn(
+                                                    label: 'Vendidos',
+                                                    mobilePriority: 2,
+                                                    numeric: true),
+                                                ResponsiveTableColumn(
+                                                    label: 'Devueltos',
+                                                    mobilePriority: 3,
+                                                    numeric: true),
+                                                ResponsiveTableColumn(
+                                                    label: 'Disponibles',
+                                                    mobilePriority: 2,
+                                                    numeric: true),
+                                                ResponsiveTableColumn(
+                                                    label: '% Venta',
+                                                    mobilePriority: 1,
+                                                    numeric: true),
+                                                ResponsiveTableColumn(
+                                                    label: 'Última Act.',
+                                                    mobilePriority: 3),
+                                              ],
+                                              rows: [
+                                                for (final entry
+                                                    in vendedorStats.entries)
+                                                  ResponsiveTableRow(
+                                                    cells: [
+                                                      Text(vendMap[entry.key]
+                                                              ?.nombre ??
+                                                          '?'),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
                                                           horizontal: 8,
-                                                          vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: (vend?.isCofrade ==
-                                                                    true
-                                                                ? AppTheme
-                                                                    .accentColor
-                                                                : Colors.orange)
-                                                            .withAlpha(20),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(4),
-                                                      ),
-                                                      child: Text(
-                                                          vend?.isCofrade ==
+                                                          vertical: 2,
+                                                        ),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: (vendMap[entry
+                                                                              .key]
+                                                                          ?.isCofrade ==
+                                                                      true
+                                                                  ? AppTheme
+                                                                      .accentColor
+                                                                  : Colors
+                                                                      .orange)
+                                                              .withAlpha(20),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          vendMap[entry.key]
+                                                                      ?.isCofrade ==
                                                                   true
                                                               ? 'Cofrade'
                                                               : 'Externo',
                                                           style:
                                                               const TextStyle(
-                                                                  fontSize:
-                                                                      11)),
-                                                    )),
-                                                    DataCell(Text(
-                                                        '${stats.asignados}')),
-                                                    DataCell(Text(
-                                                        '${stats.vendidos}',
+                                                                  fontSize: 11),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                          '${entry.value.asignados}'),
+                                                      Text(
+                                                          '${entry.value.vendidos}',
+                                                          style: const TextStyle(
+                                                              color: AppTheme
+                                                                  .accentColor,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold)),
+                                                      Text(
+                                                        '${entry.value.devueltos}',
                                                         style: TextStyle(
-                                                            color: AppTheme
-                                                                .accentColor,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .bold))),
-                                                    DataCell(Text(
-                                                        '${stats.devueltos}',
-                                                        style: TextStyle(
-                                                            color:
-                                                                stats.devueltos >
-                                                                        0
-                                                                    ? Colors.red
-                                                                        .shade600
-                                                                    : null))),
-                                                    DataCell(Text(
-                                                        '$disponibles',
-                                                        style: TextStyle(
-                                                            color: disponibles >
-                                                                    0
-                                                                ? Colors.orange
-                                                                    .shade700
-                                                                : null))),
-                                                    DataCell(Text(
-                                                        '${pct.toStringAsFixed(0)}%',
-                                                        style: TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color: pct >= 80
-                                                                ? AppTheme
-                                                                    .accentColor
-                                                                : pct >= 50
-                                                                    ? Colors
-                                                                        .orange
-                                                                        .shade700
-                                                                    : Colors.red
-                                                                        .shade600))),
-                                                    DataCell(Text(
-                                                        stats.lastUpdate != null
-                                                            ? fmt.format(stats
-                                                                .lastUpdate!)
+                                                          color: entry.value
+                                                                      .devueltos >
+                                                                  0
+                                                              ? Colors
+                                                                  .red.shade600
+                                                              : null,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '${entry.value.asignados - entry.value.vendidos - entry.value.devueltos}',
+                                                      ),
+                                                      Text(
+                                                        '${(entry.value.asignados > 0 ? entry.value.vendidos / entry.value.asignados * 100 : 0).toStringAsFixed(0)}%',
+                                                      ),
+                                                      Text(
+                                                        entry.value.lastUpdate !=
+                                                                null
+                                                            ? DateFormat(
+                                                                    'dd/MM HH:mm')
+                                                                .format(entry
+                                                                    .value
+                                                                    .lastUpdate!)
                                                             : 'Sin datos',
                                                         style: const TextStyle(
-                                                            fontSize: 12))),
-                                                  ]);
-                                                }).toList(),
-                                              ),
+                                                            fontSize: 12),
+                                                      ),
+                                                    ],
+                                                  ),
+                                              ],
                                             ),
                                     ),
                                     const SizedBox(height: 24),
