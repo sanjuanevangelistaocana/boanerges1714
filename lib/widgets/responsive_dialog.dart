@@ -155,7 +155,7 @@ Widget _fullscreenSimpleDialog(BuildContext context, SimpleDialog dialog) {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: dialog.children,
+                children: dialog.children ?? const <Widget>[],
               ),
             ),
           ),

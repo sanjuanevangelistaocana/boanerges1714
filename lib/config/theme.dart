@@ -186,9 +186,8 @@ class AppTheme {
             )
           : null,
       chipTheme: compactTargets
-          ? ChipThemeData(
-              materialTapTargetSize: MaterialTapTargetSize.padded,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ? const ChipThemeData(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             )
           : null,
       inputDecorationTheme: InputDecorationTheme(
