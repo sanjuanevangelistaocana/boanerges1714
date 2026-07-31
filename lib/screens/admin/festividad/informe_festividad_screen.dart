@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class InformeFestividadScreen extends StatelessWidget {
   final String edicionId;
@@ -370,13 +371,11 @@ class _InformeContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.8,
+        ResponsiveGrid(
+          smallColumns: 1,
+          mediumColumns: 2,
+          largeColumns: 4,
+          wideColumns: 4,
           children: [
             _KpiCard(
                 title: 'Total asistentes',
@@ -437,13 +436,11 @@ class _InformeContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.8,
+        ResponsiveGrid(
+          smallColumns: 1,
+          mediumColumns: 2,
+          largeColumns: 4,
+          wideColumns: 4,
           children: [
             _KpiCard(
                 title: 'Recaudación prevista',

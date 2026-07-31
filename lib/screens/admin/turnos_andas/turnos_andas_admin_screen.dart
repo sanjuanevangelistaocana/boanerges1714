@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/turno_andas.dart';
 import 'package:boanerges1714/services/turnos_andas_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class TurnosAndasAdminScreen extends StatelessWidget {
   const TurnosAndasAdminScreen({super.key});
@@ -270,6 +271,7 @@ class _EventoDetailState extends State<_EventoDetail>
               ),
               TabBar(
                 controller: _tabCtrl,
+                isScrollable: !context.responsive.isDesktop,
                 labelColor: AppTheme.primaryColor,
                 unselectedLabelColor: AppTheme.textSecondary,
                 indicatorColor: AppTheme.primaryColor,

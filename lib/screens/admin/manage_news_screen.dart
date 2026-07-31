@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:boanerges1714/widgets/responsive_dialog.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -75,6 +76,7 @@ class _ManageNewsScreenState extends State<ManageNewsScreen>
             // Tabs
             TabBar(
               controller: _tabController,
+              isScrollable: !context.responsive.isDesktop,
               labelColor: AppTheme.primaryColor,
               indicatorColor: AppTheme.primaryColor,
               tabs: const [

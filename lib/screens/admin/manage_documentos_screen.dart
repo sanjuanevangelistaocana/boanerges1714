@@ -8,6 +8,7 @@ import 'package:boanerges1714/services/storage_service.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/models/documento.dart';
 import 'package:boanerges1714/models/revista.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class ManageDocumentosScreen extends StatelessWidget {
   const ManageDocumentosScreen({super.key});
@@ -48,7 +49,8 @@ class ManageDocumentosScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const TabBar(
+                TabBar(
+                  isScrollable: !context.responsive.isDesktop,
                   labelColor: Colors.white,
                   unselectedLabelColor: Colors.white60,
                   indicatorColor: Colors.white,
