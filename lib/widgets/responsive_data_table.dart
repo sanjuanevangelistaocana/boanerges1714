@@ -84,7 +84,8 @@ class ResponsiveDataTable extends StatelessWidget {
             headingRowHeight: headingRowHeight,
             sortColumnIndex: sortColumnIndex,
             sortAscending: sortAscending,
-            showCheckboxColumn: showCheckboxColumn,
+            showCheckboxColumn: showCheckboxColumn ||
+                rows.any((row) => row.onSelectChanged != null),
             columns: columns
                 .map(
                   (column) => DataColumn(
