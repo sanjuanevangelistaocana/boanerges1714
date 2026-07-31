@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/widgets/responsive_data_table.dart';
 
 class InformeFestividadScreen extends StatelessWidget {
   final String edicionId;
@@ -812,70 +813,52 @@ class _AsistentesTable extends StatelessWidget {
           style: TextStyle(color: AppTheme.textSecondary));
     }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+    return ResponsiveDataTable(
+      columnSpacing: 16,
+      emptyState: const Text(
+        'No hay asistentes.',
+        style: TextStyle(color: AppTheme.textSecondary),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor:
-              WidgetStateProperty.all(AppTheme.primaryColor.withAlpha(10)),
-          columnSpacing: 16,
-          columns: const [
-            DataColumn(
-                label: Text('Nombre',
-                    style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(
-                label: Text('Tipo',
-                    style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(
-                label: Text('Menú',
-                    style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(
-                label: Text('Alergias',
-                    style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(
-                label: Text('Precio',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                numeric: true),
-            DataColumn(
-                label: Text('Inscripción de',
-                    style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(
-                label: Text('Pago',
-                    style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: rows
-              .map((r) => DataRow(cells: [
-                    DataCell(
-                        Text(r.nombre, style: const TextStyle(fontSize: 13))),
-                    DataCell(_TipoBadge(tipo: r.tipo)),
-                    DataCell(
-                        Text(r.menu, style: const TextStyle(fontSize: 13))),
-                    DataCell(SizedBox(
-                      width: 120,
-                      child: Text(r.alergias,
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: r.alergias.isNotEmpty
-                                  ? Colors.red.shade600
-                                  : AppTheme.textSecondary),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis),
-                    )),
-                    DataCell(Text('${r.precio.toStringAsFixed(2)} €',
-                        style: const TextStyle(fontSize: 13))),
-                    DataCell(Text(r.inscripcionNombre,
-                        style: const TextStyle(fontSize: 12))),
-                    DataCell(_PagoBadge(status: r.pago)),
-                  ]))
-              .toList(),
-        ),
-      ),
+      columns: const [
+        ResponsiveTableColumn(label: 'Nombre', mobilePriority: 0),
+        ResponsiveTableColumn(label: 'Tipo', mobilePriority: 1),
+        ResponsiveTableColumn(label: 'Menú', mobilePriority: 2),
+        ResponsiveTableColumn(label: 'Alergias', mobilePriority: 3),
+        ResponsiveTableColumn(
+            label: 'Precio', mobilePriority: 2, numeric: true),
+        ResponsiveTableColumn(label: 'Inscripción de', mobilePriority: 3),
+        ResponsiveTableColumn(label: 'Pago', mobilePriority: 1),
+      ],
+      rows: [
+        for (final r in rows)
+          ResponsiveTableRow(
+            cells: [
+              Text(r.nombre, style: const TextStyle(fontSize: 13)),
+              _TipoBadge(tipo: r.tipo),
+              Text(r.menu, style: const TextStyle(fontSize: 13)),
+              Text(
+                r.alergias,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: r.alergias.isNotEmpty
+                      ? Colors.red.shade600
+                      : AppTheme.textSecondary,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '${r.precio.toStringAsFixed(2)} €',
+                style: const TextStyle(fontSize: 13),
+              ),
+              Text(
+                r.inscripcionNombre,
+                style: const TextStyle(fontSize: 12),
+              ),
+              _PagoBadge(status: r.pago),
+            ],
+          ),
+      ],
     );
   }
 }
