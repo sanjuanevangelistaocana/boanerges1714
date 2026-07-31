@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/screens/treasury/treasury_dashboard_screen.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class TreasuryHomeScreen extends StatelessWidget {
   const TreasuryHomeScreen({super.key});
@@ -66,14 +67,11 @@ class TreasuryHomeScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount:
-                        MediaQuery.of(context).size.width > 760 ? 3 : 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.45,
+                  ResponsiveGrid(
+                    smallColumns: 1,
+                    mediumColumns: 2,
+                    largeColumns: 3,
+                    wideColumns: 3,
                     children: [
                       const _TreasuryModuleCard(
                         icon: Icons.receipt_long,

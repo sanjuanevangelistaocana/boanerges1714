@@ -8,6 +8,7 @@ import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/solicitud.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/widgets/app_surface_card.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -633,7 +634,6 @@ class _AdminActionGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final columns = MediaQuery.of(context).size.width > 700 ? 3 : 2;
     return Padding(
       padding: const EdgeInsets.only(bottom: 28),
       child: Column(
@@ -654,13 +654,11 @@ class _AdminActionGroup extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: columns,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.5,
+          ResponsiveGrid(
+            smallColumns: 1,
+            mediumColumns: 2,
+            largeColumns: 3,
+            wideColumns: 3,
             children: children,
           ),
         ],

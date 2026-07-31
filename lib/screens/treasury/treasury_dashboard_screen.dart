@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/treasury.dart';
 import 'package:boanerges1714/services/treasury/treasury_repository.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class TreasuryDashboardScreen extends StatelessWidget {
   final int? year;
@@ -306,19 +307,12 @@ class _DashboardSection extends StatelessWidget {
         children: [
           Text(title, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth > 760;
-              return GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: isWide ? 4 : 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: isWide ? 1.45 : 1.25,
-                children: cards,
-              );
-            },
+          ResponsiveGrid(
+            smallColumns: 1,
+            mediumColumns: 2,
+            largeColumns: 4,
+            wideColumns: 4,
+            children: cards,
           ),
         ],
       ),
