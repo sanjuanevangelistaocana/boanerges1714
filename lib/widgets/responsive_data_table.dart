@@ -79,34 +79,38 @@ class ResponsiveDataTable extends StatelessWidget {
           return emptyState!;
         }
         if (!context.responsive.isMobile) {
-          return DataTable(
-            columnSpacing: columnSpacing,
-            headingRowHeight: headingRowHeight,
-            sortColumnIndex: sortColumnIndex,
-            sortAscending: sortAscending,
-            showCheckboxColumn: showCheckboxColumn ||
-                rows.any((row) => row.onSelectChanged != null),
-            columns: columns
-                .map(
-                  (column) => DataColumn(
-                    label: column.heading ?? Text(column.label),
-                    numeric: column.numeric,
-                    onSort: column.onSort ??
-                        (onSort == null
-                            ? null
-                            : (index, ascending) => onSort!(index, ascending)),
-                  ),
-                )
-                .toList(),
-            rows: rows
-                .map(
-                  (row) => DataRow(
-                    selected: row.selected,
-                    onSelectChanged: row.onSelectChanged,
-                    cells: row.cells.map((cell) => DataCell(cell)).toList(),
-                  ),
-                )
-                .toList(),
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columnSpacing: columnSpacing,
+              headingRowHeight: headingRowHeight,
+              sortColumnIndex: sortColumnIndex,
+              sortAscending: sortAscending,
+              showCheckboxColumn: showCheckboxColumn ||
+                  rows.any((row) => row.onSelectChanged != null),
+              columns: columns
+                  .map(
+                    (column) => DataColumn(
+                      label: column.heading ?? Text(column.label),
+                      numeric: column.numeric,
+                      onSort: column.onSort ??
+                          (onSort == null
+                              ? null
+                              : (index, ascending) =>
+                                  onSort!(index, ascending)),
+                    ),
+                  )
+                  .toList(),
+              rows: rows
+                  .map(
+                    (row) => DataRow(
+                      selected: row.selected,
+                      onSelectChanged: row.onSelectChanged,
+                      cells: row.cells.map((cell) => DataCell(cell)).toList(),
+                    ),
+                  )
+                  .toList(),
+            ),
           );
         }
         return Column(
