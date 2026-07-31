@@ -9,6 +9,7 @@ import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/models/documento.dart';
 import 'package:boanerges1714/models/revista.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 class ManageDocumentosScreen extends StatelessWidget {
   const ManageDocumentosScreen({super.key});

@@ -15,6 +15,7 @@ import 'package:boanerges1714/utils/liturgical_calendar.dart';
 import 'package:boanerges1714/models/content_models.dart';
 import 'package:boanerges1714/services/content_service.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

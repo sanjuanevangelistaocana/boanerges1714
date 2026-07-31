@@ -7,6 +7,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 const List<String> kElementosHabito = [
   'Túnica',

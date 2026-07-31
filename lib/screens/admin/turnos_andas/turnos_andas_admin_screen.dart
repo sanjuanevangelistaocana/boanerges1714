@@ -5,6 +5,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/turno_andas.dart';
 import 'package:boanerges1714/services/turnos_andas_service.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 class TurnosAndasAdminScreen extends StatelessWidget {
   const TurnosAndasAdminScreen({super.key});

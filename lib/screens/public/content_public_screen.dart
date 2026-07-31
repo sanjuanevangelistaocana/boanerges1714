@@ -11,6 +11,7 @@ import 'package:boanerges1714/widgets/app_surface_card.dart';
 import 'package:boanerges1714/widgets/content_block_view.dart';
 import 'package:boanerges1714/screens/public/history_screen.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 class ContentRootScreen extends StatelessWidget {
   final String rootSlug;

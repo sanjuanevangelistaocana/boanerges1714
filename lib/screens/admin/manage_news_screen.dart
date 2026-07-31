@@ -14,6 +14,7 @@ import 'package:boanerges1714/services/noticias_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 // =============================================================================
 // MANAGE NEWS SCREEN (CMS Dashboard)
