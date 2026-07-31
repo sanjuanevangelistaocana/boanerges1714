@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -21,18 +22,23 @@ class ManageLoteriaScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
             decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [AppTheme.primaryDark, AppTheme.primaryColor]),
+              gradient: LinearGradient(
+                  colors: [AppTheme.primaryDark, AppTheme.primaryColor]),
             ),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1000),
                 child: Row(
                   children: [
-                    const Icon(Icons.confirmation_number, color: Colors.white, size: 28),
+                    const Icon(Icons.confirmation_number,
+                        color: Colors.white, size: 28),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text('Lotería de Navidad',
-                          style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold)),
                     ),
                     ElevatedButton.icon(
                       onPressed: () => _showCampanaDialog(context, fs),
@@ -71,12 +77,19 @@ class ManageLoteriaScreen extends StatelessWidget {
                           padding: EdgeInsets.all(40),
                           child: Column(
                             children: [
-                              Icon(Icons.confirmation_number_outlined, size: 48, color: AppTheme.textSecondary),
+                              Icon(Icons.confirmation_number_outlined,
+                                  size: 48, color: AppTheme.textSecondary),
                               SizedBox(height: 12),
-                              Text('No hay campañas creadas', style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+                              Text('No hay campañas creadas',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      color: AppTheme.textSecondary)),
                               SizedBox(height: 4),
-                              Text('Crea una nueva campaña para empezar a gestionar la lotería.',
-                                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                              Text(
+                                  'Crea una nueva campaña para empezar a gestionar la lotería.',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textSecondary)),
                             ],
                           ),
                         ),
@@ -92,7 +105,9 @@ class ManageLoteriaScreen extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: isActiva ? AppTheme.accentColor.withAlpha(100) : Colors.grey.shade200,
+                              color: isActiva
+                                  ? AppTheme.accentColor.withAlpha(100)
+                                  : Colors.grey.shade200,
                             ),
                           ),
                           child: Padding(
@@ -103,9 +118,12 @@ class ManageLoteriaScreen extends StatelessWidget {
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: isActiva ? AppTheme.accentColor.withAlpha(20) : Colors.grey.shade100,
+                                        color: isActiva
+                                            ? AppTheme.accentColor.withAlpha(20)
+                                            : Colors.grey.shade100,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
@@ -113,7 +131,9 @@ class ManageLoteriaScreen extends StatelessWidget {
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
-                                          color: isActiva ? AppTheme.accentColor : Colors.grey.shade600,
+                                          color: isActiva
+                                              ? AppTheme.accentColor
+                                              : Colors.grey.shade600,
                                         ),
                                       ),
                                     ),
@@ -121,51 +141,88 @@ class ManageLoteriaScreen extends StatelessWidget {
                                     PopupMenuButton<String>(
                                       onSelected: (action) async {
                                         if (action == 'edit') {
-                                          _showCampanaDialog(context, fs, campana: c);
+                                          _showCampanaDialog(context, fs,
+                                              campana: c);
                                         } else if (action == 'toggle') {
                                           await fs.updateCampanaLoteria(c.id, {
-                                            'estado': isActiva ? 'cerrada' : 'activa',
+                                            'estado':
+                                                isActiva ? 'cerrada' : 'activa',
                                           });
                                         } else if (action == 'delete') {
-                                          final confirm = await showDialog<bool>(
+                                          final confirm =
+                                              await showAppDialog<bool>(
                                             context: context,
                                             builder: (ctx) => AlertDialog(
-                                              title: const Text('Eliminar campaña'),
-                                              content: const Text('¿Seguro? Se perderán todos los datos de esta campaña.'),
+                                              title: const Text(
+                                                  'Eliminar campaña'),
+                                              content: const Text(
+                                                  '¿Seguro? Se perderán todos los datos de esta campaña.'),
                                               actions: [
-                                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
                                                 TextButton(
-                                                  onPressed: () => Navigator.pop(ctx, true),
-                                                  child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                            ctx, false),
+                                                    child:
+                                                        const Text('Cancelar')),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, true),
+                                                  child: const Text('Eliminar',
+                                                      style: TextStyle(
+                                                          color: Colors.red)),
                                                 ),
                                               ],
                                             ),
                                           );
-                                          if (confirm == true) await fs.deleteCampanaLoteria(c.id);
+                                          if (confirm == true)
+                                            await fs.deleteCampanaLoteria(c.id);
                                         }
                                       },
                                       itemBuilder: (_) => [
-                                        const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                                        const PopupMenuItem(
+                                            value: 'edit',
+                                            child: Text('Editar')),
                                         PopupMenuItem(
                                           value: 'toggle',
-                                          child: Text(isActiva ? 'Cerrar campaña' : 'Reactivar'),
+                                          child: Text(isActiva
+                                              ? 'Cerrar campaña'
+                                              : 'Reactivar'),
                                         ),
-                                        const PopupMenuItem(value: 'delete', child: Text('Eliminar', style: TextStyle(color: Colors.red))),
+                                        const PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text('Eliminar',
+                                                style: TextStyle(
+                                                    color: Colors.red))),
                                       ],
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 12),
-                                Text(c.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                                Text(c.nombre,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18)),
                                 const SizedBox(height: 8),
                                 Wrap(
                                   spacing: 16,
                                   runSpacing: 8,
                                   children: [
-                                    _InfoChip(icon: Icons.tag, label: 'Nº ${c.numeroLoteria}'),
-                                    _InfoChip(icon: Icons.euro, label: '${c.precioVenta.toStringAsFixed(2)}€/décimo'),
-                                    _InfoChip(icon: Icons.store, label: c.administracionNombre.isNotEmpty ? c.administracionNombre : 'Sin administración'),
-                                    if (c.fechaInicio != null) _InfoChip(icon: Icons.calendar_today, label: fmt.format(c.fechaInicio!)),
+                                    _InfoChip(
+                                        icon: Icons.tag,
+                                        label: 'Nº ${c.numeroLoteria}'),
+                                    _InfoChip(
+                                        icon: Icons.euro,
+                                        label:
+                                            '${c.precioVenta.toStringAsFixed(2)}€/décimo'),
+                                    _InfoChip(
+                                        icon: Icons.store,
+                                        label: c.administracionNombre.isNotEmpty
+                                            ? c.administracionNombre
+                                            : 'Sin administración'),
+                                    if (c.fechaInicio != null)
+                                      _InfoChip(
+                                          icon: Icons.calendar_today,
+                                          label: fmt.format(c.fechaInicio!)),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
@@ -174,23 +231,30 @@ class ManageLoteriaScreen extends StatelessWidget {
                                   runSpacing: 8,
                                   children: [
                                     OutlinedButton.icon(
-                                      onPressed: () => context.go('/admin/loteria/dashboard?campanaId=${c.id}'),
-                                      icon: const Icon(Icons.dashboard, size: 16),
+                                      onPressed: () => context.go(
+                                          '/admin/loteria/dashboard?campanaId=${c.id}'),
+                                      icon:
+                                          const Icon(Icons.dashboard, size: 16),
                                       label: const Text('Dashboard'),
                                     ),
                                     OutlinedButton.icon(
-                                      onPressed: () => context.go('/admin/loteria/sabanas?campanaId=${c.id}'),
-                                      icon: const Icon(Icons.receipt_long, size: 16),
+                                      onPressed: () => context.go(
+                                          '/admin/loteria/sabanas?campanaId=${c.id}'),
+                                      icon: const Icon(Icons.receipt_long,
+                                          size: 16),
                                       label: const Text('Sábanas'),
                                     ),
                                     OutlinedButton.icon(
-                                      onPressed: () => context.go('/admin/loteria/vendedores'),
+                                      onPressed: () => context
+                                          .go('/admin/loteria/vendedores'),
                                       icon: const Icon(Icons.people, size: 16),
                                       label: const Text('Vendedores'),
                                     ),
                                     OutlinedButton.icon(
-                                      onPressed: () => context.go('/admin/loteria/asignaciones?campanaId=${c.id}'),
-                                      icon: const Icon(Icons.assignment, size: 16),
+                                      onPressed: () => context.go(
+                                          '/admin/loteria/asignaciones?campanaId=${c.id}'),
+                                      icon: const Icon(Icons.assignment,
+                                          size: 16),
                                       label: const Text('Asignaciones'),
                                     ),
                                   ],
@@ -211,17 +275,22 @@ class ManageLoteriaScreen extends StatelessWidget {
     );
   }
 
-  void _showCampanaDialog(BuildContext context, FirestoreService fs, {CampanaLoteria? campana}) {
+  void _showCampanaDialog(BuildContext context, FirestoreService fs,
+      {CampanaLoteria? campana}) {
     final isEdit = campana != null;
     final nombreCtrl = TextEditingController(text: campana?.nombre ?? '');
-    final numeroCtrl = TextEditingController(text: campana?.numeroLoteria.toString() ?? '');
-    final precioBaseCtrl = TextEditingController(text: campana?.precioDecimoBase.toStringAsFixed(2) ?? '20.00');
-    final recargoCtrl = TextEditingController(text: campana?.recargo.toStringAsFixed(2) ?? '3.00');
-    final adminCtrl = TextEditingController(text: campana?.administracionNombre ?? '');
+    final numeroCtrl =
+        TextEditingController(text: campana?.numeroLoteria.toString() ?? '');
+    final precioBaseCtrl = TextEditingController(
+        text: campana?.precioDecimoBase.toStringAsFixed(2) ?? '20.00');
+    final recargoCtrl = TextEditingController(
+        text: campana?.recargo.toStringAsFixed(2) ?? '3.00');
+    final adminCtrl =
+        TextEditingController(text: campana?.administracionNombre ?? '');
     DateTime? fechaInicio = campana?.fechaInicio;
     DateTime? fechaFin = campana?.fechaFin;
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) {
@@ -240,12 +309,15 @@ class ManageLoteriaScreen extends StatelessWidget {
                   children: [
                     TextField(
                       controller: nombreCtrl,
-                      decoration: const InputDecoration(labelText: 'Nombre', hintText: 'Ej: Navidad 2026'),
+                      decoration: const InputDecoration(
+                          labelText: 'Nombre', hintText: 'Ej: Navidad 2026'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: numeroCtrl,
-                      decoration: const InputDecoration(labelText: 'Número de lotería', hintText: 'Ej: 12345'),
+                      decoration: const InputDecoration(
+                          labelText: 'Número de lotería',
+                          hintText: 'Ej: 12345'),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 12),
@@ -254,7 +326,9 @@ class ManageLoteriaScreen extends StatelessWidget {
                         Expanded(
                           child: TextField(
                             controller: precioBaseCtrl,
-                            decoration: const InputDecoration(labelText: 'Precio base (€)', hintText: '20.00'),
+                            decoration: const InputDecoration(
+                                labelText: 'Precio base (€)',
+                                hintText: '20.00'),
                             keyboardType: TextInputType.number,
                             onChanged: (_) => setState(() {}),
                           ),
@@ -263,7 +337,8 @@ class ManageLoteriaScreen extends StatelessWidget {
                         Expanded(
                           child: TextField(
                             controller: recargoCtrl,
-                            decoration: const InputDecoration(labelText: 'Recargo (€)', hintText: '3.00'),
+                            decoration: const InputDecoration(
+                                labelText: 'Recargo (€)', hintText: '3.00'),
                             keyboardType: TextInputType.number,
                             onChanged: (_) => setState(() {}),
                           ),
@@ -280,11 +355,14 @@ class ManageLoteriaScreen extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.euro, size: 16, color: AppTheme.accentColor),
+                          const Icon(Icons.euro,
+                              size: 16, color: AppTheme.accentColor),
                           const SizedBox(width: 6),
                           Text(
                             'Precio de venta: ${precioVenta.toStringAsFixed(2)}€',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accentColor),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.accentColor),
                           ),
                         ],
                       ),
@@ -292,7 +370,9 @@ class ManageLoteriaScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     TextField(
                       controller: adminCtrl,
-                      decoration: const InputDecoration(labelText: 'Nombre administración', hintText: 'Ej: Adm. Lotería nº 3'),
+                      decoration: const InputDecoration(
+                          labelText: 'Nombre administración',
+                          hintText: 'Ej: Adm. Lotería nº 3'),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -306,10 +386,13 @@ class ManageLoteriaScreen extends StatelessWidget {
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime(2050),
                               );
-                              if (picked != null) setState(() => fechaInicio = picked);
+                              if (picked != null)
+                                setState(() => fechaInicio = picked);
                             },
                             icon: const Icon(Icons.calendar_today, size: 16),
-                            label: Text(fechaInicio != null ? fmt.format(fechaInicio!) : 'Fecha inicio'),
+                            label: Text(fechaInicio != null
+                                ? fmt.format(fechaInicio!)
+                                : 'Fecha inicio'),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -318,14 +401,18 @@ class ManageLoteriaScreen extends StatelessWidget {
                             onPressed: () async {
                               final picked = await showDatePicker(
                                 context: ctx,
-                                initialDate: fechaFin ?? DateTime(DateTime.now().year, 12, 22),
+                                initialDate: fechaFin ??
+                                    DateTime(DateTime.now().year, 12, 22),
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime(2050),
                               );
-                              if (picked != null) setState(() => fechaFin = picked);
+                              if (picked != null)
+                                setState(() => fechaFin = picked);
                             },
                             icon: const Icon(Icons.calendar_today, size: 16),
-                            label: Text(fechaFin != null ? fmt.format(fechaFin!) : 'Fecha fin'),
+                            label: Text(fechaFin != null
+                                ? fmt.format(fechaFin!)
+                                : 'Fecha fin'),
                           ),
                         ),
                       ],
@@ -335,7 +422,9 @@ class ManageLoteriaScreen extends StatelessWidget {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancelar')),
               ElevatedButton(
                 onPressed: () async {
                   final nombre = nombreCtrl.text.trim();
@@ -393,7 +482,9 @@ class _InfoChip extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: AppTheme.textSecondary),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+        Text(label,
+            style:
+                const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
       ],
     );
   }

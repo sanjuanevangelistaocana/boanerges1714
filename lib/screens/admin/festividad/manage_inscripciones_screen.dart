@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -259,7 +260,7 @@ class _ManageInscripcionesFestividadScreenState
     final cargoCtrl = TextEditingController();
     String? selectedMenuId;
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Row(
@@ -625,7 +626,7 @@ class _InscripcionCard extends StatelessWidget {
     final notesCtrl = TextEditingController(
       text: '${inscripcion['payment_notes'] ?? ''}',
     );
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Pago parcial'),
@@ -702,7 +703,7 @@ class _InscripcionCard extends StatelessWidget {
   }
 
   void _confirmarEliminar(BuildContext context) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar inscripción'),

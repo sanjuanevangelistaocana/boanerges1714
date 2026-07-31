@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
@@ -326,7 +327,7 @@ class _BillingAndCollectionsScreenState
     final conceptController = TextEditingController(text: draft.concept);
     var paymentMethod = draft.paymentMethod;
     final result =
-        await showDialog<({double amount, String concept, String method})>(
+        await showAppDialog<({double amount, String concept, String method})>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -459,7 +460,7 @@ class _BillingAndCollectionsScreenState
       if (!mounted) return;
       final text = '$e';
       if (text.contains('Ya existen precuotas')) {
-        final confirm = await showDialog<bool>(
+        final confirm = await showAppDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Regenerar precuotas'),
@@ -513,7 +514,7 @@ class _BillingAndCollectionsScreenState
               );
         final pendingCount =
             pending.isNotEmpty ? pending.length : pendingDrafts.length;
-        final proceed = await showDialog<bool>(
+        final proceed = await showAppDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Hay validaciones pendientes'),
@@ -701,7 +702,7 @@ class _BillingAndCollectionsScreenState
 
   Future<void> _rejectPayment(TreasuryPayment payment) async {
     final controller = TextEditingController(text: payment.rejectionReason);
-    final reason = await showDialog<String>(
+    final reason = await showAppDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Marcar recibo como rechazado'),
@@ -739,7 +740,7 @@ class _BillingAndCollectionsScreenState
     final auth = context.read<AuthService>();
     String method = 'cash';
     final referenceController = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -813,7 +814,7 @@ class _BillingAndCollectionsScreenState
   }
 
   void _showWarnings(List<String> warnings) {
-    showDialog<void>(
+    showAppDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Avisos de generación'),

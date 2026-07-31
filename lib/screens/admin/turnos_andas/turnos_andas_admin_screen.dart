@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/turno_andas.dart';
@@ -43,7 +44,10 @@ class _AdminHeader extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Administración — Turnos de Andas',
-                  style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
               IconButton(
@@ -86,7 +90,8 @@ class _AdminBodyState extends State<_AdminBody> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.fitness_center, size: 64, color: Colors.grey.shade300),
+                Icon(Icons.fitness_center,
+                    size: 64, color: Colors.grey.shade300),
                 const SizedBox(height: 16),
                 const Text('No hay eventos de turnos de andas.',
                     style: TextStyle(color: AppTheme.textSecondary)),
@@ -103,7 +108,8 @@ class _AdminBodyState extends State<_AdminBody> {
 
         // If an event is selected, show the detail
         if (_selectedEventoId != null) {
-          final evento = eventos.where((e) => e.id == _selectedEventoId).toList();
+          final evento =
+              eventos.where((e) => e.id == _selectedEventoId).toList();
           if (evento.isEmpty) {
             _selectedEventoId = null;
             return const SizedBox.shrink();
@@ -124,7 +130,8 @@ class _AdminBodyState extends State<_AdminBody> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Eventos',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 16,
@@ -132,7 +139,8 @@ class _AdminBodyState extends State<_AdminBody> {
                     children: eventos
                         .map((e) => _EventoListCard(
                               evento: e,
-                              onTap: () => setState(() => _selectedEventoId = e.id),
+                              onTap: () =>
+                                  setState(() => _selectedEventoId = e.id),
                             ))
                         .toList(),
                   ),
@@ -175,11 +183,13 @@ class _EventoListCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.fitness_center, color: AppTheme.primaryColor),
+                    const Icon(Icons.fitness_center,
+                        color: AppTheme.primaryColor),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(evento.titulo,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ],
                 ),
@@ -212,7 +222,8 @@ class _EventoDetail extends StatefulWidget {
   State<_EventoDetail> createState() => _EventoDetailState();
 }
 
-class _EventoDetailState extends State<_EventoDetail> with SingleTickerProviderStateMixin {
+class _EventoDetailState extends State<_EventoDetail>
+    with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
 
   @override
@@ -237,7 +248,8 @@ class _EventoDetailState extends State<_EventoDetail> with SingleTickerProviderS
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
                     IconButton(
@@ -247,7 +259,8 @@ class _EventoDetailState extends State<_EventoDetail> with SingleTickerProviderS
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(widget.evento.titulo,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 18)),
                     ),
                     _SmallBadge(estado: widget.evento.estado),
                     const SizedBox(width: 12),
@@ -262,9 +275,15 @@ class _EventoDetailState extends State<_EventoDetail> with SingleTickerProviderS
                 indicatorColor: AppTheme.primaryColor,
                 tabs: const [
                   Tab(text: 'Dashboard', icon: Icon(Icons.dashboard, size: 18)),
-                  Tab(text: 'Inscripciones', icon: Icon(Icons.people, size: 18)),
-                  Tab(text: 'Anda Visual', icon: Icon(Icons.view_column, size: 18)),
-                  Tab(text: 'Configuración', icon: Icon(Icons.settings, size: 18)),
+                  Tab(
+                      text: 'Inscripciones',
+                      icon: Icon(Icons.people, size: 18)),
+                  Tab(
+                      text: 'Anda Visual',
+                      icon: Icon(Icons.view_column, size: 18)),
+                  Tab(
+                      text: 'Configuración',
+                      icon: Icon(Icons.settings, size: 18)),
                 ],
               ),
             ],
@@ -314,21 +333,26 @@ class _EstadoActions extends StatelessWidget {
             color: Colors.orange,
             onPressed: () => service.cambiarEstado(evento.id, 'cerrado'),
           ),
-        if (evento.estado == 'propuesta_generada' || evento.estado == 'en_revision')
+        if (evento.estado == 'propuesta_generada' ||
+            evento.estado == 'en_revision')
           _ActionButton(
             label: 'Publicar',
             icon: Icons.publish,
             color: AppTheme.accentColor,
             onPressed: () async {
-              final confirm = await showDialog<bool>(
+              final confirm = await showAppDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Publicar turnos'),
                   content: const Text(
                       'Los cofrades podrán ver su asignación. ¿Continuar?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-                    ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Publicar')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancelar')),
+                    ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Publicar')),
                   ],
                 ),
               );
@@ -353,17 +377,21 @@ class _EstadoActions extends StatelessWidget {
             final confirmText = isPublished
                 ? '¡ATENCIÓN! Este evento está PUBLICADO. Esta acción eliminará la campaña de andas y todos sus datos asociados (inscripciones, puestos, sustituciones). No se puede deshacer.'
                 : 'Esta acción eliminará la campaña de andas y todos sus datos asociados (inscripciones, puestos, sustituciones). No se puede deshacer.';
-            final confirm = await showDialog<bool>(
+            final confirm = await showAppDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
                 title: const Text('Eliminar evento de andas'),
                 content: Text(confirmText),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancelar')),
                   ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.red),
                     onPressed: () => Navigator.pop(ctx, true),
-                    child: Text(isPublished ? 'Sí, eliminar igualmente' : 'Eliminar'),
+                    child: Text(
+                        isPublished ? 'Sí, eliminar igualmente' : 'Eliminar'),
                   ),
                 ],
               ),
@@ -373,13 +401,16 @@ class _EstadoActions extends StatelessWidget {
                 await service.eliminarEvento(evento.id);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Evento eliminado correctamente')),
+                    const SnackBar(
+                        content: Text('Evento eliminado correctamente')),
                   );
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('No se pudo eliminar el evento. Revisa permisos.')),
+                    SnackBar(
+                        content: Text(
+                            'No se pudo eliminar el evento. Revisa permisos.')),
                   );
                 }
               }
@@ -436,10 +467,14 @@ class _DashboardTab extends StatelessWidget {
       builder: (context, snap) {
         final inscripciones = snap.data ?? [];
         final total = inscripciones.length;
-        final portadores = inscripciones.where((i) => i.quierePortarEsteAnio).length;
-        final revisionRequerida = inscripciones.where((i) => i.requiereRevisionPortador).length;
-        final asignados = inscripciones.where((i) => i.estado == 'asignado').length;
-        final reservas = inscripciones.where((i) => i.estado == 'reserva').length;
+        final portadores =
+            inscripciones.where((i) => i.quierePortarEsteAnio).length;
+        final revisionRequerida =
+            inscripciones.where((i) => i.requiereRevisionPortador).length;
+        final asignados =
+            inscripciones.where((i) => i.estado == 'asignado').length;
+        final reservas =
+            inscripciones.where((i) => i.estado == 'reserva').length;
         final alturas = inscripciones
             .where((i) => i.estaturaCm > 0)
             .map((i) => i.estaturaCm)
@@ -514,13 +549,15 @@ class _DashboardTab extends StatelessWidget {
                     stream: service.watchPuestos(evento.id),
                     builder: (context, pSnap) {
                       final puestos = pSnap.data ?? [];
-                      final alertas = _computeAlerts(puestos, inscripciones, evento);
+                      final alertas =
+                          _computeAlerts(puestos, inscripciones, evento);
                       if (alertas.isEmpty) return const SizedBox.shrink();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Alertas',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 10),
                           ...alertas.map((a) => Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
@@ -536,9 +573,13 @@ class _DashboardTab extends StatelessWidget {
                   // Height distribution chart (text-based)
                   if (alturas.isNotEmpty) ...[
                     const Text('Distribución de alturas',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    _HeightDistribution(inscripciones: inscripciones.where((i) => i.estaturaCm > 0).toList()),
+                    _HeightDistribution(
+                        inscripciones: inscripciones
+                            .where((i) => i.estaturaCm > 0)
+                            .toList()),
                   ],
                 ],
               ),
@@ -549,8 +590,8 @@ class _DashboardTab extends StatelessWidget {
     );
   }
 
-  List<String> _computeAlerts(
-      List<Puesto> puestos, List<InscripcionTurno> inscripciones, TurnoAndasEvento evento) {
+  List<String> _computeAlerts(List<Puesto> puestos,
+      List<InscripcionTurno> inscripciones, TurnoAndasEvento evento) {
     final alertas = <String>[];
     final t1 = puestos.where((p) => p.turno == 1).toList();
     final t2 = puestos.where((p) => p.turno == 2).toList();
@@ -560,7 +601,8 @@ class _DashboardTab extends StatelessWidget {
     if (empty2 > 0) alertas.add('Turno 2: $empty2 puestos vacíos');
 
     final reservas = inscripciones.where((i) => i.estado == 'reserva').length;
-    if (reservas == 0 && puestos.isNotEmpty) alertas.add('No hay reservas disponibles');
+    if (reservas == 0 && puestos.isNotEmpty)
+      alertas.add('No hay reservas disponibles');
 
     // Height variance within each turn
     for (final turn in [t1, t2]) {
@@ -569,7 +611,8 @@ class _DashboardTab extends StatelessWidget {
         filled.sort((a, b) => a.estaturaCm.compareTo(b.estaturaCm));
         final diff = filled.last.estaturaCm - filled.first.estaturaCm;
         final turnoLabel = turn == t1 ? 'Turno 1' : 'Turno 2';
-        if (diff > 15) alertas.add('$turnoLabel: diferencia de altura excesiva (${diff}cm)');
+        if (diff > 15)
+          alertas.add('$turnoLabel: diferencia de altura excesiva (${diff}cm)');
       }
     }
     return alertas;
@@ -585,10 +628,12 @@ class _GenerarDistribucionButton extends StatefulWidget {
   const _GenerarDistribucionButton({required this.eventoId});
 
   @override
-  State<_GenerarDistribucionButton> createState() => _GenerarDistribucionButtonState();
+  State<_GenerarDistribucionButton> createState() =>
+      _GenerarDistribucionButtonState();
 }
 
-class _GenerarDistribucionButtonState extends State<_GenerarDistribucionButton> {
+class _GenerarDistribucionButtonState
+    extends State<_GenerarDistribucionButton> {
   bool _loading = false;
 
   @override
@@ -611,7 +656,8 @@ class _GenerarDistribucionButtonState extends State<_GenerarDistribucionButton> 
                 Icon(Icons.auto_awesome, color: AppTheme.accentColor),
                 SizedBox(width: 8),
                 Text('Motor de asignación automática',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             const SizedBox(height: 8),
@@ -626,7 +672,8 @@ class _GenerarDistribucionButtonState extends State<_GenerarDistribucionButton> 
                   : () async {
                       setState(() => _loading = true);
                       try {
-                        final result = await service.generarDistribucion(widget.eventoId);
+                        final result =
+                            await service.generarDistribucion(widget.eventoId);
                         if (mounted) {
                           _showResultDialog(context, result);
                         }
@@ -644,31 +691,36 @@ class _GenerarDistribucionButtonState extends State<_GenerarDistribucionButton> 
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.auto_awesome),
               label: const Text('Generar distribución automática'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.accentColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               ),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: _loading ? null : () async {
-                setState(() => _loading = true);
-                try {
-                  final result = await service.generarDistribucion(widget.eventoId);
-                  if (mounted) _showResultDialog(context, result);
-                } catch (error) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text('Error: $error')));
-                  }
-                } finally {
-                  if (mounted) setState(() => _loading = false);
-                }
-              },
+              onPressed: _loading
+                  ? null
+                  : () async {
+                      setState(() => _loading = true);
+                      try {
+                        final result =
+                            await service.generarDistribucion(widget.eventoId);
+                        if (mounted) _showResultDialog(context, result);
+                      } catch (error) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $error')));
+                        }
+                      } finally {
+                        if (mounted) setState(() => _loading = false);
+                      }
+                    },
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Recalcular huecos libres'),
             ),
@@ -679,7 +731,7 @@ class _GenerarDistribucionButtonState extends State<_GenerarDistribucionButton> 
   }
 
   void _showResultDialog(BuildContext context, AsignacionResult result) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Distribución generada'),
@@ -687,18 +739,24 @@ class _GenerarDistribucionButtonState extends State<_GenerarDistribucionButton> 
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Turno 1: ${result.turno1Count} asignados (media: ${result.mediaTurno1.toStringAsFixed(1)} cm)'),
-            Text('Turno 2: ${result.turno2Count} asignados (media: ${result.mediaTurno2.toStringAsFixed(1)} cm)'),
+            Text(
+                'Turno 1: ${result.turno1Count} asignados (media: ${result.mediaTurno1.toStringAsFixed(1)} cm)'),
+            Text(
+                'Turno 2: ${result.turno2Count} asignados (media: ${result.mediaTurno2.toStringAsFixed(1)} cm)'),
             Text('Reservas: ${result.reservaCount}'),
             if (result.alertas.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('Alertas:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...result.alertas.map((a) => Text('⚠ $a', style: TextStyle(color: Colors.orange.shade700))),
+              const Text('Alertas:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              ...result.alertas.map((a) => Text('⚠ $a',
+                  style: TextStyle(color: Colors.orange.shade700))),
             ],
           ],
         ),
         actions: [
-          ElevatedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Aceptar')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Aceptar')),
         ],
       ),
     );
@@ -739,7 +797,8 @@ class _InscripcionesTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('${inscripciones.length} inscripciones',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 18)),
                   const SizedBox(height: 16),
                   ...inscripciones.map((insc) => _InscripcionTile(
                         inscripcion: insc,
@@ -778,7 +837,10 @@ class _InscripcionTile extends StatelessWidget {
               backgroundColor: AppTheme.primaryColor.withAlpha(20),
               child: Text(
                 '${inscripcion.estaturaCm}',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor),
               ),
             ),
             const SizedBox(width: 12),
@@ -790,7 +852,8 @@ class _InscripcionTile extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600)),
                   Text(
                     '${inscripcion.estaturaCm} cm · ${_dispLabel(inscripcion.disponibilidad)}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -798,7 +861,8 @@ class _InscripcionTile extends StatelessWidget {
             if (inscripcion.requiereRevisionPortador)
               Tooltip(
                 message: 'Requiere revisión de portador',
-                child: Icon(Icons.pending_actions, color: Colors.amber.shade700, size: 20),
+                child: Icon(Icons.pending_actions,
+                    color: Colors.amber.shade700, size: 20),
               ),
             const SizedBox(width: 8),
             _SmallBadge(estado: inscripcion.estado),
@@ -806,9 +870,12 @@ class _InscripcionTile extends StatelessWidget {
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, size: 20),
               itemBuilder: (ctx) => [
-                const PopupMenuItem(value: 'asignado', child: Text('Marcar asignado')),
-                const PopupMenuItem(value: 'reserva', child: Text('Marcar reserva')),
-                const PopupMenuItem(value: 'descartado', child: Text('Descartar')),
+                const PopupMenuItem(
+                    value: 'asignado', child: Text('Marcar asignado')),
+                const PopupMenuItem(
+                    value: 'reserva', child: Text('Marcar reserva')),
+                const PopupMenuItem(
+                    value: 'descartado', child: Text('Descartar')),
               ],
               onSelected: (value) {
                 context.read<TurnosAndasService>().actualizarInscripcion(
@@ -901,14 +968,16 @@ class _AndaVisualTab extends StatelessWidget {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: _TurnoColumn(
+                            Expanded(
+                                child: _TurnoColumn(
                               turnoLabel: 'Turno 1',
                               puestos: turno1,
                               eventoId: evento.id,
                               config: evento.turno1,
                             )),
                             const SizedBox(width: 24),
-                            Expanded(child: _TurnoColumn(
+                            Expanded(
+                                child: _TurnoColumn(
                               turnoLabel: 'Turno 2',
                               puestos: turno2,
                               eventoId: evento.id,
@@ -965,7 +1034,8 @@ class _TurnoColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filled = puestos.where((p) => !p.isEmpty && p.estaturaCm > 0).toList();
+    final filled =
+        puestos.where((p) => !p.isEmpty && p.estaturaCm > 0).toList();
     final media = filled.isEmpty
         ? 0.0
         : filled.fold<int>(0, (s, p) => s + p.estaturaCm) / filled.length;
@@ -992,14 +1062,17 @@ class _TurnoColumn extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.view_column, color: AppTheme.primaryColor, size: 20),
+                const Icon(Icons.view_column,
+                    color: AppTheme.primaryColor, size: 20),
                 const SizedBox(width: 8),
                 Text(turnoLabel,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16)),
                 const Spacer(),
                 Text(
                   '${filled.length}/${config.numeroPuestos} · Media: ${media.toStringAsFixed(1)} cm',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ],
             ),
@@ -1008,10 +1081,12 @@ class _TurnoColumn extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
-              children: puestos.map((p) => _PuestoCard(
-                    puesto: p,
-                    eventoId: eventoId,
-                  )).toList(),
+              children: puestos
+                  .map((p) => _PuestoCard(
+                        puesto: p,
+                        eventoId: eventoId,
+                      ))
+                  .toList(),
             ),
           ),
         ],
@@ -1068,7 +1143,9 @@ class _PuestoCard extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: puesto.lateral ? Colors.blue.shade700 : AppTheme.primaryColor,
+                color: puesto.lateral
+                    ? Colors.blue.shade700
+                    : AppTheme.primaryColor,
               ),
             ),
           ),
@@ -1118,10 +1195,12 @@ class _PuestoCard extends StatelessWidget {
               ),
               PopupMenuItem(
                 value: 'lateral',
-                child: Text(puesto.lateral ? 'Quitar lateral' : 'Marcar lateral'),
+                child:
+                    Text(puesto.lateral ? 'Quitar lateral' : 'Marcar lateral'),
               ),
               if (!puesto.isEmpty)
-                const PopupMenuItem(value: 'vaciar', child: Text('Vaciar puesto')),
+                const PopupMenuItem(
+                    value: 'vaciar', child: Text('Vaciar puesto')),
             ],
             onSelected: (action) {
               switch (action) {
@@ -1191,7 +1270,8 @@ class _PuestoCard extends StatelessWidget {
 class _SustitucionesPanel extends StatelessWidget {
   final List<Sustitucion> sustituciones;
   final String eventoId;
-  const _SustitucionesPanel({required this.sustituciones, required this.eventoId});
+  const _SustitucionesPanel(
+      {required this.sustituciones, required this.eventoId});
 
   @override
   Widget build(BuildContext context) {
@@ -1212,7 +1292,8 @@ class _SustitucionesPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text('Sustituciones',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, size: 20),
@@ -1225,7 +1306,8 @@ class _SustitucionesPanel extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text('No hay sustituciones definidas.',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    style:
+                        TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
               )
             else
               ...sustituciones.asMap().entries.map((entry) {
@@ -1234,27 +1316,42 @@ class _SustitucionesPanel extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 8),
                   child: Row(
                     children: [
-                      Icon(Icons.swap_horiz, color: Colors.orange.shade700, size: 18),
+                      Icon(Icons.swap_horiz,
+                          color: Colors.orange.shade700, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                            style: const TextStyle(
+                                color: AppTheme.textPrimary, fontSize: 13),
                             children: [
-                              TextSpan(text: s.saleNombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(
+                                  text: s.saleNombre,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
                               const TextSpan(text: ' → '),
-                              TextSpan(text: s.entraNombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              if (s.momento.isNotEmpty || s.ubicacion.isNotEmpty)
+                              TextSpan(
+                                  text: s.entraNombre,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              if (s.momento.isNotEmpty ||
+                                  s.ubicacion.isNotEmpty)
                                 TextSpan(
-                                  text: ' (${[s.momento, s.ubicacion].where((t) => t.isNotEmpty).join(' · ')})',
-                                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                                  text: ' (${[
+                                    s.momento,
+                                    s.ubicacion
+                                  ].where((t) => t.isNotEmpty).join(' · ')})',
+                                  style: const TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 12),
                                 ),
                             ],
                           ),
                         ),
                       ),
                       Chip(
-                        label: Text('T${s.turno}', style: const TextStyle(fontSize: 11)),
+                        label: Text('T${s.turno}',
+                            style: const TextStyle(fontSize: 11)),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -1275,7 +1372,7 @@ class _SustitucionesPanel extends StatelessWidget {
     final ubicacionCtrl = TextEditingController();
     int turno = 1;
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDState) => AlertDialog(
@@ -1440,12 +1537,9 @@ class _ConfigTabState extends State<_ConfigTab> {
         'titulo': _tituloCtrl.text.trim(),
         'descripcion': _descCtrl.text.trim(),
         'mostrarAndaVisualACofrades': _mostrarAndaVisual,
-        'fechaProcesion': _fechaProcesion != null
-            ? _fechaProcesion
-            : null,
-        'deadlineInscripcion': _deadlineInscripcion != null
-            ? _deadlineInscripcion
-            : null,
+        'fechaProcesion': _fechaProcesion != null ? _fechaProcesion : null,
+        'deadlineInscripcion':
+            _deadlineInscripcion != null ? _deadlineInscripcion : null,
         'configuracionTurnos': {
           'turno1': {
             'numeroPuestos': int.tryParse(_puestos1Ctrl.text) ?? 24,
@@ -1464,8 +1558,8 @@ class _ConfigTabState extends State<_ConfigTab> {
         },
       });
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Configuración guardada')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Configuración guardada')));
       }
     } catch (error) {
       if (mounted) {
@@ -1521,7 +1615,8 @@ class _ConfigTabState extends State<_ConfigTab> {
                     child: _DateField(
                       label: 'Fecha límite inscripción',
                       date: _deadlineInscripcion,
-                      onChanged: (d) => setState(() => _deadlineInscripcion = d),
+                      onChanged: (d) =>
+                          setState(() => _deadlineInscripcion = d),
                     ),
                   ),
                 ],
@@ -1671,7 +1766,8 @@ class _DateField extends StatelessWidget {
   final DateTime? date;
   final ValueChanged<DateTime?> onChanged;
 
-  const _DateField({required this.label, required this.date, required this.onChanged});
+  const _DateField(
+      {required this.label, required this.date, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -1721,7 +1817,8 @@ class _HeightDistribution extends StatelessWidget {
     }
     final maxVal = buckets.values.fold<int>(0, (a, b) => a > b ? a : b);
 
-    final entries = buckets.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final entries = buckets.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
 
     return Card(
       elevation: 0,
@@ -1741,7 +1838,8 @@ class _HeightDistribution extends StatelessWidget {
                   SizedBox(
                       width: 80,
                       child: Text('${e.key} cm',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))),
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.textSecondary))),
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
@@ -1754,7 +1852,9 @@ class _HeightDistribution extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('${e.value}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text('${e.value}',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
             );
@@ -1774,7 +1874,11 @@ class _KpiCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
-  const _KpiCard({required this.label, required this.value, required this.icon, required this.color});
+  const _KpiCard(
+      {required this.label,
+      required this.value,
+      required this.icon,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1797,7 +1901,8 @@ class _KpiCard extends StatelessWidget {
                       fontSize: 24, fontWeight: FontWeight.bold, color: color)),
               const SizedBox(height: 4),
               Text(label,
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.textSecondary),
                   textAlign: TextAlign.center),
             ],
           ),
@@ -1823,7 +1928,9 @@ class _SmallBadge extends StatelessWidget {
       child: Text(
         _getLabel(estado),
         style: TextStyle(
-            color: _getColor(estado), fontWeight: FontWeight.w700, fontSize: 10),
+            color: _getColor(estado),
+            fontWeight: FontWeight.w700,
+            fontSize: 10),
       ),
     );
   }
@@ -1898,7 +2005,9 @@ class _SmallInfo extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: AppTheme.textSecondary),
           const SizedBox(width: 6),
-          Text(text, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(text,
+              style:
+                  const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
       ),
     );
@@ -1924,7 +2033,8 @@ class _AlertChip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
               child: Text(text,
-                  style: TextStyle(fontSize: 13, color: Colors.orange.shade900))),
+                  style:
+                      TextStyle(fontSize: 13, color: Colors.orange.shade900))),
         ],
       ),
     );
@@ -1936,10 +2046,11 @@ class _AlertChip extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 void _showCrearEvento(BuildContext context) {
-  final tituloCtrl = TextEditingController(text: 'Turnos de Andas — Semana Santa ${DateTime.now().year}');
+  final tituloCtrl = TextEditingController(
+      text: 'Turnos de Andas — Semana Santa ${DateTime.now().year}');
   final descCtrl = TextEditingController();
 
-  showDialog(
+  showAppDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Crear evento de Turnos de Andas'),

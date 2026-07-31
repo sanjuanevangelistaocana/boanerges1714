@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -474,7 +475,7 @@ class _NoticiaListItem extends StatelessWidget {
   }
 
   void _confirmDelete(BuildContext context, Noticia noticia) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar noticia'),
@@ -1743,7 +1744,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
   void _showTagPicker(
       String title, List<String> current, ValueChanged<List<String>> onDone) {
     final selected = Set<String>.from(current);
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
@@ -1796,7 +1797,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
     final routeCtrl = TextEditingController();
     String type = 'link';
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
@@ -1863,7 +1864,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
   // ---- Audit log ----
   void _showAuditLog(BuildContext context) {
     final service = context.read<NoticiasService>();
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Historial de cambios'),
@@ -1916,7 +1917,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
   // ---- Analytics dialog ----
   void _showAnalytics(BuildContext context) {
     final service = context.read<NoticiasService>();
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Analítica'),

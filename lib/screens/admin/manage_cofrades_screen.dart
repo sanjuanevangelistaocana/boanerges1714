@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -1067,7 +1068,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final fs = context.read<FirestoreService>();
     final tags = await fs.getTagsConfig().first;
     if (!mounted) return null;
-    return showDialog<String>(
+    return showAppDialog<String>(
       context: context,
       builder: (ctx) => SimpleDialog(
         title: const Text('Selecciona tag'),
@@ -1115,7 +1116,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   Future<void> _bulkSendMessage(List<Cofrade> cofrades) async {
     final subjectC = TextEditingController();
     final bodyC = TextEditingController();
-    final result = await showDialog<Map<String, String>>(
+    final result = await showAppDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Enviar mensaje a ${cofrades.length} cofrades'),
@@ -1262,7 +1263,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   }
 
   Future<bool?> _confirmBulk(String title, String message) {
-    return showDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
@@ -1285,7 +1286,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final gdprPending =
         cofrades.where((c) => !c.gdprDigitalAccepted && !c.gdprPapel).toList();
     final duplicateGroups = _duplicateGroups(cofrades);
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Panel de incidencias'),
@@ -1470,7 +1471,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
 
   void _showCofrade360Dialog(Cofrade cofrade) {
     final missing = _missingRequiredLabels(cofrade);
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Vista 360 · ${cofrade.nombreCompleto}'),
@@ -1599,7 +1600,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     var rol = 'cofrade';
     final dynamicValues = <String, dynamic>{};
     List<CofradeFieldConfig> latestFields = const [];
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -1830,7 +1831,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
 
   void _showTagsManagement(BuildContext context) {
     final fs = context.read<FirestoreService>();
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Gestión de tags'),
@@ -1955,7 +1956,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     var showInPrivateProfile = tag?.showInPrivateProfile ?? false;
     var combinator =
         '${tag?.criterio['combinator'] ?? tag?.criterio['combinador'] ?? 'AND'}';
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -2275,7 +2276,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final fs = context.read<FirestoreService>();
     final count = await fs.countCofradesWithTag(tag.id);
     if (!context.mounted) return;
-    final confirm = await showDialog<bool>(
+    final confirm = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Eliminar tag "${tag.nombre}"'),
@@ -2329,7 +2330,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   void _showFieldsConfig(BuildContext context) {
     final fs = context.read<FirestoreService>();
     unawaited(fs.seedDefaultCofradeFieldsConfig());
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Configuración de campos'),
@@ -2410,7 +2411,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     var editableByCofrade = field?.editableByCofrade ?? true;
     var visibleInPrivate = field?.visibleInPrivateProfile ?? true;
     var active = field?.active ?? true;
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -2536,7 +2537,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   void _showRoleAudit(BuildContext context) {
     final fs = context.read<FirestoreService>();
     final changedBy = context.read<AuthService>().cofrade?.id ?? 'unknown';
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Seguridad y permisos'),
@@ -2624,7 +2625,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   }
 
   void _showCofradeAudit(BuildContext context, Cofrade cofrade) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Auditoría · ${cofrade.nombreCompleto}'),
@@ -2747,7 +2748,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   void _showAddRoleUserDialog(BuildContext context) {
     final fs = context.read<FirestoreService>();
     var search = '';
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -2840,7 +2841,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
         'write': existing?['write'] == true,
       };
     }
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -2945,7 +2946,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
   Future<String?> _askBajaCause(BuildContext context, Cofrade cofrade) async {
     final controller = TextEditingController();
     final fs = context.read<FirestoreService>();
-    return showDialog<String>(
+    return showAppDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Dar de baja'),
@@ -3018,7 +3019,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     BuildContext context,
     Cofrade cofrade,
   ) {
-    return showDialog<bool>(
+    return showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Cómo quieres reactivar este cofrade?'),
@@ -3053,7 +3054,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final reasonController = TextEditingController();
     final actor = context.read<AuthService>().cofrade;
     final firestore = context.read<FirestoreService>();
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showAppDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Modificar n\u00famero de cofrade'),
@@ -3357,7 +3358,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final commentsController = TextEditingController();
     var type = 'Otro';
     var visibleToCofrade = true;
-    final config = await showDialog<Map<String, dynamic>>(
+    final config = await showAppDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -3535,7 +3536,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     bool requiresDigitalTutor = cofrade.requiresDigitalTutor;
     var tagsManual = List<String>.from(cofrade.tagsManual);
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -4124,7 +4125,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       BuildContext context) async {
     final notesController = TextEditingController();
     var reason = 'Petición presencial';
-    return showDialog<Map<String, String>>(
+    return showAppDialog<Map<String, String>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
@@ -4191,7 +4192,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final replyC = TextEditingController();
     final fs = context.read<FirestoreService>();
     final auth = context.read<AuthService>();
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Mensajes · ${cofrade.nombreCompleto}'),

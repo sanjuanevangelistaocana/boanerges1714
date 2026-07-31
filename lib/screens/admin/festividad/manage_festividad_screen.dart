@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -221,7 +222,7 @@ class _ManageFestividadScreenState extends State<ManageFestividadScreen> {
     TimeOfDay horaEvento = const TimeOfDay(hour: 14, minute: 0);
     TimeOfDay horaLimite = const TimeOfDay(hour: 23, minute: 59);
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
@@ -715,7 +716,7 @@ class _EdicionCard extends StatelessWidget {
                 hour: fechaLimite.hour != 0 ? fechaLimite.hour : 23,
                 minute: fechaLimite.minute);
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {

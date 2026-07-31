@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -429,7 +430,7 @@ class _SiteContentAdminScreenState extends State<SiteContentAdminScreen> {
     required List<Widget> content,
     required Future<void> Function() onSave,
   }) async {
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(title),

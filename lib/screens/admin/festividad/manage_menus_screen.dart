@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
@@ -32,11 +33,15 @@ class ManageMenusFestividadScreen extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.restaurant_menu, color: Colors.white70, size: 28),
+                  const Icon(Icons.restaurant_menu,
+                      color: Colors.white70, size: 28),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text('Gestión de Menús',
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold)),
                   ),
                   ElevatedButton.icon(
                     onPressed: () => _showCrearMenuDialog(context, fs),
@@ -68,13 +73,18 @@ class ManageMenusFestividadScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(40),
                         child: Column(
                           children: [
-                            Icon(Icons.restaurant_menu, size: 64, color: Colors.grey.shade300),
+                            Icon(Icons.restaurant_menu,
+                                size: 64, color: Colors.grey.shade300),
                             const SizedBox(height: 16),
                             const Text('No hay menús configurados.',
-                                style: TextStyle(fontSize: 16, color: AppTheme.textSecondary)),
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    color: AppTheme.textSecondary)),
                             const SizedBox(height: 8),
-                            const Text('Crea los menús disponibles para esta edición.',
-                                style: TextStyle(color: AppTheme.textSecondary)),
+                            const Text(
+                                'Crea los menús disponibles para esta edición.',
+                                style:
+                                    TextStyle(color: AppTheme.textSecondary)),
                           ],
                         ),
                       ),
@@ -90,29 +100,38 @@ class ManageMenusFestividadScreen extends StatelessWidget {
                       final item = reordered.removeAt(oldIdx);
                       reordered.insert(newIdx, item);
                       for (int i = 0; i < reordered.length; i++) {
-                        fs.updateFestividadMenu(edicionId, reordered[i]['id'], {'orden': i});
+                        fs.updateFestividadMenu(
+                            edicionId, reordered[i]['id'], {'orden': i});
                       }
                     },
                     itemBuilder: (context, idx) {
                       final m = menus[idx];
                       final activo = m['activo'] == true;
-                      final extra = (m['precio_extra'] as num?)?.toDouble() ?? 0;
+                      final extra =
+                          (m['precio_extra'] as num?)?.toDouble() ?? 0;
                       return Card(
                         key: ValueKey(m['id']),
                         elevation: 0,
                         margin: const EdgeInsets.only(bottom: 8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: activo ? AppTheme.accentColor.withAlpha(60) : Colors.grey.shade200),
+                          side: BorderSide(
+                              color: activo
+                                  ? AppTheme.accentColor.withAlpha(60)
+                                  : Colors.grey.shade200),
                         ),
                         child: ListTile(
                           leading: Icon(Icons.restaurant,
-                              color: activo ? AppTheme.accentColor : Colors.grey),
+                              color:
+                                  activo ? AppTheme.accentColor : Colors.grey),
                           title: Text(m['nombre'] ?? '',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: activo ? AppTheme.textPrimary : AppTheme.textSecondary,
-                                decoration: activo ? null : TextDecoration.lineThrough,
+                                color: activo
+                                    ? AppTheme.textPrimary
+                                    : AppTheme.textSecondary,
+                                decoration:
+                                    activo ? null : TextDecoration.lineThrough,
                               )),
                           subtitle: Text(
                             '${m['descripcion'] ?? ''}${extra > 0 ? ' · +${extra.toStringAsFixed(2)} €' : ''}',
@@ -124,15 +143,19 @@ class ManageMenusFestividadScreen extends StatelessWidget {
                               Switch(
                                 value: activo,
                                 activeColor: AppTheme.accentColor,
-                                onChanged: (v) => fs.updateFestividadMenu(edicionId, m['id'], {'activo': v}),
+                                onChanged: (v) => fs.updateFestividadMenu(
+                                    edicionId, m['id'], {'activo': v}),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.edit, size: 20),
-                                onPressed: () => _showEditMenuDialog(context, fs, m),
+                                onPressed: () =>
+                                    _showEditMenuDialog(context, fs, m),
                               ),
                               IconButton(
-                                icon: Icon(Icons.delete, size: 20, color: Colors.red.shade400),
-                                onPressed: () => _deleteMenu(context, fs, m['id']),
+                                icon: Icon(Icons.delete,
+                                    size: 20, color: Colors.red.shade400),
+                                onPressed: () =>
+                                    _deleteMenu(context, fs, m['id']),
                               ),
                             ],
                           ),
@@ -154,7 +177,7 @@ class ManageMenusFestividadScreen extends StatelessWidget {
     final descCtrl = TextEditingController();
     final precioExtraCtrl = TextEditingController(text: '0');
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Nuevo menú'),
@@ -163,21 +186,32 @@ class ManageMenusFestividadScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nombreCtrl,
-                  decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder(),
+              TextField(
+                  controller: nombreCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Nombre *',
+                      border: OutlineInputBorder(),
                       hintText: 'Ej: Adulto, Niño, Vegetariano...')),
               const SizedBox(height: 12),
-              TextField(controller: descCtrl,
-                  decoration: const InputDecoration(labelText: 'Descripción (opcional)', border: OutlineInputBorder())),
+              TextField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Descripción (opcional)',
+                      border: OutlineInputBorder())),
               const SizedBox(height: 12),
-              TextField(controller: precioExtraCtrl,
-                  decoration: const InputDecoration(labelText: 'Precio extra (€)', border: OutlineInputBorder()),
+              TextField(
+                  controller: precioExtraCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Precio extra (€)',
+                      border: OutlineInputBorder()),
                   keyboardType: TextInputType.number),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               if (nombreCtrl.text.trim().isEmpty) return;
@@ -198,12 +232,14 @@ class ManageMenusFestividadScreen extends StatelessWidget {
     );
   }
 
-  void _showEditMenuDialog(BuildContext context, FirestoreService fs, Map<String, dynamic> m) {
+  void _showEditMenuDialog(
+      BuildContext context, FirestoreService fs, Map<String, dynamic> m) {
     final nombreCtrl = TextEditingController(text: m['nombre'] ?? '');
     final descCtrl = TextEditingController(text: m['descripcion'] ?? '');
-    final precioExtraCtrl = TextEditingController(text: '${m['precio_extra'] ?? 0}');
+    final precioExtraCtrl =
+        TextEditingController(text: '${m['precio_extra'] ?? 0}');
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Editar menú'),
@@ -212,20 +248,29 @@ class ManageMenusFestividadScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nombreCtrl,
-                  decoration: const InputDecoration(labelText: 'Nombre *', border: OutlineInputBorder())),
+              TextField(
+                  controller: nombreCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Nombre *', border: OutlineInputBorder())),
               const SizedBox(height: 12),
-              TextField(controller: descCtrl,
-                  decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder())),
+              TextField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Descripción', border: OutlineInputBorder())),
               const SizedBox(height: 12),
-              TextField(controller: precioExtraCtrl,
-                  decoration: const InputDecoration(labelText: 'Precio extra (€)', border: OutlineInputBorder()),
+              TextField(
+                  controller: precioExtraCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Precio extra (€)',
+                      border: OutlineInputBorder()),
                   keyboardType: TextInputType.number),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               await fs.updateFestividadMenu(edicionId, m['id'], {
@@ -242,22 +287,27 @@ class ManageMenusFestividadScreen extends StatelessWidget {
     );
   }
 
-  void _deleteMenu(BuildContext context, FirestoreService fs, String menuId) async {
+  void _deleteMenu(
+      BuildContext context, FirestoreService fs, String menuId) async {
     final inUse = await fs.isMenuUsedInInscripciones(edicionId, menuId);
     if (inUse && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se puede eliminar: este menú está siendo usado en inscripciones.')),
+        const SnackBar(
+            content: Text(
+                'No se puede eliminar: este menú está siendo usado en inscripciones.')),
       );
       return;
     }
     if (!context.mounted) return;
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar menú'),
         content: const Text('¿Seguro que quieres eliminar este menú?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               await fs.deleteFestividadMenu(edicionId, menuId);

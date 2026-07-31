@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
@@ -142,7 +143,7 @@ class ManageVendedoresLoteriaScreen extends StatelessWidget {
                                       _showVendedorDialog(context, fs,
                                           vendedor: v);
                                     } else if (action == 'delete') {
-                                      final confirm = await showDialog<bool>(
+                                      final confirm = await showAppDialog<bool>(
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           title:
@@ -207,7 +208,7 @@ class ManageVendedoresLoteriaScreen extends StatelessWidget {
     String tipo = vendedor?.tipo ?? 'cofrade';
     String? selectedCofradeId = vendedor?.cofradeId;
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(

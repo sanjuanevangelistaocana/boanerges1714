@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -79,7 +80,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
     String? coverImageUrl = section?.coverImageUrl;
     final ownerId =
         section?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
@@ -566,7 +567,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
     );
     final ownerId =
         article?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => _editorDialog(
@@ -704,7 +705,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
     var published = item?.published ?? true;
     var featured = item?.featured ?? false;
     final ownerId = item?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => _editorDialog(
@@ -833,7 +834,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
     var active = item?.active ?? true;
     String? photoUrl = item?.photoUrl;
     final ownerId = item?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => _editorDialog(
@@ -912,7 +913,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
     var photos = List<Map<String, String>>.from(item?.photos ?? const []);
     var published = item?.published ?? true;
     final ownerId = item?.id ?? 'new_${DateTime.now().millisecondsSinceEpoch}';
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => _editorDialog(

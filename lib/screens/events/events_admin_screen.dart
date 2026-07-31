@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'dart:html' as html;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -640,7 +641,7 @@ class _ConfigurableCampaignAdminState
           date.day,
         ).subtract(const Duration(days: 1));
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -1544,7 +1545,7 @@ class _ConfigurableCampaignAdminState
     var type = '${menu['type'] ?? 'adulto'}';
     var required = menu['required'] == true;
     var active = menu['active'] != false;
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -1659,7 +1660,7 @@ class _ConfigurableCampaignAdminState
     var required = field['required'] == true;
     var active = field['active'] != false;
     var visible = field['visible'] != false;
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -2428,7 +2429,7 @@ class _CampaignAdminCard extends StatelessWidget {
   }
 
   Future<void> _archiveCampaign(BuildContext context) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Archivar evento'),
@@ -2511,7 +2512,7 @@ class _CampaignAdminCard extends StatelessWidget {
 
   Future<void> _confirmDelete(BuildContext context) async {
     final reasonCtrl = TextEditingController();
-    final confirm = await showDialog<bool>(
+    final confirm = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar evento'),
@@ -2563,7 +2564,7 @@ class _CampaignAdminCard extends StatelessWidget {
   }
 
   void _showDashboardDialog(BuildContext context) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Dashboard · ${campaign.name}'),
@@ -2692,7 +2693,7 @@ class _CampaignAdminCard extends StatelessWidget {
   }
 
   void _showRegistrationsDialog(BuildContext context) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(campaign.type == 'junta_general_ordinaria'
@@ -3022,7 +3023,7 @@ class _CampaignAdminCard extends StatelessWidget {
     EventCampaign campaign,
     List<Cofrade> pending,
   ) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Pendientes de respuesta · ${campaign.name}'),
@@ -3133,7 +3134,7 @@ class _CampaignAdminCard extends StatelessWidget {
       return;
     }
 
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -3343,7 +3344,7 @@ class _CampaignAdminCard extends StatelessWidget {
   }
 
   void _showReportDialog(BuildContext context) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Informe · ${campaign.name}'),
@@ -3400,7 +3401,7 @@ class _CampaignAdminCard extends StatelessWidget {
 
   Future<void> _showCoverDialog(BuildContext context) async {
     final storage = context.read<StorageService>();
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Portada del evento'),
@@ -3468,7 +3469,7 @@ class _CampaignAdminCard extends StatelessWidget {
     final storage = context.read<StorageService>();
     String category = 'documento_informativo';
     bool visibleToUsers = true;
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -3617,7 +3618,7 @@ class _CampaignAdminCard extends StatelessWidget {
     final bodyCtrl = TextEditingController(text: '${popup['body'] ?? ''}');
     final buttonCtrl = TextEditingController(
         text: '${popup['primaryButton'] ?? 'Ver evento'}');
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -3878,7 +3879,7 @@ class _CampaignAdminCard extends StatelessWidget {
     final paidCtrl =
         TextEditingController(text: reg.paidAmount.toStringAsFixed(2));
     final notesCtrl = TextEditingController(text: reg.paymentNotes);
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Pago parcial'),
@@ -3937,7 +3938,7 @@ class _CampaignAdminCard extends StatelessWidget {
   }
 
   void _confirmReminder(BuildContext context) {
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Lanzar recordatorio'),

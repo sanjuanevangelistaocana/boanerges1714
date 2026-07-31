@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
@@ -144,7 +145,7 @@ class ManageSabanasScreen extends StatelessWidget {
         text: (campana.precioDecimoBase * 10).toStringAsFixed(2));
     String? error;
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(

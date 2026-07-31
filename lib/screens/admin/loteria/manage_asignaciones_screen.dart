@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -208,7 +209,8 @@ class ManageAsignacionesScreen extends StatelessWidget {
                                                 onSelected: (action) async {
                                                   if (action == 'delete') {
                                                     final confirm =
-                                                        await showDialog<bool>(
+                                                        await showAppDialog<
+                                                            bool>(
                                                       context: context,
                                                       builder: (ctx) =>
                                                           AlertDialog(
@@ -376,7 +378,7 @@ class ManageAsignacionesScreen extends StatelessWidget {
     final decimosCtrl = TextEditingController(text: '10');
     bool generarToken = false;
 
-    showDialog(
+    showAppDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
@@ -630,7 +632,7 @@ class _DecimoAdminChip extends StatelessWidget {
       FirestoreService fs, DecimoLoteria decimo, String? adminId) async {
     Cofrade? selected;
     final notesCtrl = TextEditingController(text: decimo.paymentNotes);
-    await showDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(

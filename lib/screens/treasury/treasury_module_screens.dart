@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/cofrade.dart';
@@ -771,7 +772,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
       text: (center?.budgetAmount ?? 0).toStringAsFixed(2),
     );
     var isActive = center?.isActive ?? true;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
@@ -934,7 +935,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
     final personIdController = TextEditingController();
     final referenceController = TextEditingController();
     if (!mounted) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) {
@@ -1271,7 +1272,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
         TextEditingController(text: movement.personName);
     final personIdController = TextEditingController(text: movement.personId);
     if (!mounted) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) {
