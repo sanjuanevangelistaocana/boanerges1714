@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 const List<String> kElementosHabito = [
   'Túnica',
@@ -70,8 +71,7 @@ class _BancoTunicasScreenState extends State<BancoTunicasScreen>
                 child: Row(
                   children: [
                     IconButton(
-                      icon:
-                          const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => context.go('/tunicas'),
                     ),
                     const SizedBox(width: 8),
@@ -136,13 +136,12 @@ class _BancoTunicasScreenState extends State<BancoTunicasScreen>
                           child: ElevatedButton.icon(
                             onPressed: () =>
                                 context.go('/banco-tunicas/publicar-oferta'),
-                            icon: const Icon(Icons.add_circle_outline,
-                                size: 20),
+                            icon:
+                                const Icon(Icons.add_circle_outline, size: 20),
                             label: const Text('Publicar Oferta'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.accentColor,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                           ),
                         ),
@@ -155,10 +154,9 @@ class _BancoTunicasScreenState extends State<BancoTunicasScreen>
                             label: const Text('Publicar Demanda'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.accentColor,
-                              side: const BorderSide(
-                                  color: AppTheme.accentColor),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
+                              side:
+                                  const BorderSide(color: AppTheme.accentColor),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                           ),
                         ),
@@ -171,16 +169,14 @@ class _BancoTunicasScreenState extends State<BancoTunicasScreen>
                         children: [
                           const Text('Filtrar: ',
                               style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13)),
+                                  fontWeight: FontWeight.w600, fontSize: 13)),
                           const SizedBox(width: 8),
                           FilterChip(
                             label: const Text('Todos'),
                             selected: _filtroElemento == null,
                             onSelected: (_) =>
                                 setState(() => _filtroElemento = null),
-                            selectedColor:
-                                AppTheme.accentColor.withAlpha(30),
+                            selectedColor: AppTheme.accentColor.withAlpha(30),
                           ),
                           const SizedBox(width: 6),
                           ...kElementosHabito.map((e) => Padding(
@@ -206,6 +202,7 @@ class _BancoTunicasScreenState extends State<BancoTunicasScreen>
                       ),
                       child: TabBar(
                         controller: _tabController,
+                        isScrollable: !context.responsive.isDesktop,
                         labelColor: AppTheme.primaryColor,
                         unselectedLabelColor: AppTheme.textSecondary,
                         indicatorSize: TabBarIndicatorSize.tab,
@@ -385,9 +382,8 @@ class _PublicacionCard extends StatelessWidget {
                       tipo == 'oferta'
                           ? Icons.volunteer_activism
                           : Icons.search,
-                      color: tipo == 'oferta'
-                          ? AppTheme.accentColor
-                          : Colors.blue,
+                      color:
+                          tipo == 'oferta' ? AppTheme.accentColor : Colors.blue,
                       size: 20),
                 ),
                 const SizedBox(width: 10),
@@ -401,8 +397,7 @@ class _PublicacionCard extends StatelessWidget {
                       Text(
                           '$nombre${propiedad == "cofradia" && tipo == "oferta" ? " (Cofrad\u00eda)" : ""} \u00b7 ${_formatDate(fecha)}',
                           style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary)),
+                              fontSize: 12, color: AppTheme.textSecondary)),
                     ],
                   ),
                 ),
@@ -426,8 +421,7 @@ class _PublicacionCard extends StatelessWidget {
               runSpacing: 6,
               children: elementos
                   .map((e) => Chip(
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.compact,
                         avatar: Icon(kElementoIcons[e] ?? Icons.checkroom,
                             size: 16),
@@ -444,8 +438,9 @@ class _PublicacionCard extends StatelessWidget {
                 const Icon(Icons.straighten,
                     size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 6),
-                Flexible(child: Text('Talla/Medidas: $talla',
-                    style: const TextStyle(fontSize: 13))),
+                Flexible(
+                    child: Text('Talla/Medidas: $talla',
+                        style: const TextStyle(fontSize: 13))),
               ]),
             ],
             if (tipo == 'oferta' && conservacion.isNotEmpty) ...[
@@ -486,16 +481,14 @@ class _PublicacionCard extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF25D366),
                         foregroundColor: Colors.white,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 10)),
+                        padding: const EdgeInsets.symmetric(vertical: 10)),
                   ),
                 ),
                 if (puedeModificar) ...[
                   const SizedBox(width: 8),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
-                    onSelected: (action) =>
-                        _handleAction(context, action, id),
+                    onSelected: (action) => _handleAction(context, action, id),
                     itemBuilder: (_) => [
                       if (tipo == 'oferta') ...[
                         if (estado == 'disponible')
@@ -538,16 +531,18 @@ class _PublicacionCard extends StatelessWidget {
 
   static List<Widget> _buildTallaRows(Map<String, dynamic> data) {
     final tpe = Map<String, dynamic>.from(data['tallas_por_elemento'] as Map);
-    return tpe.entries.map((e) => Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(children: [
-        Icon(kElementoIcons[e.key] ?? Icons.straighten,
-            size: 16, color: AppTheme.textSecondary),
-        const SizedBox(width: 6),
-        Text('${e.key}: ${e.value}',
-            style: const TextStyle(fontSize: 13)),
-      ]),
-    )).toList();
+    return tpe.entries
+        .map((e) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(children: [
+                Icon(kElementoIcons[e.key] ?? Icons.straighten,
+                    size: 16, color: AppTheme.textSecondary),
+                const SizedBox(width: 6),
+                Text('${e.key}: ${e.value}',
+                    style: const TextStyle(fontSize: 13)),
+              ]),
+            ))
+        .toList();
   }
 
   void _handleAction(BuildContext context, String action, String id) {
@@ -575,15 +570,14 @@ class _PublicacionCard extends StatelessWidget {
       );
     } else {
       fs.cambiarEstadoPublicacionBanco(id, action);
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Estado cambiado a: ${_estadoLabel(action)}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Estado cambiado a: ${_estadoLabel(action)}')));
     }
   }
 
   static void _contactarWhatsApp(String telefono, String tipo) {
     final cleanPhone = telefono.replaceAll(RegExp(r'[^0-9+]'), '');
-    final phone =
-        cleanPhone.startsWith('+') ? cleanPhone : '+34$cleanPhone';
+    final phone = cleanPhone.startsWith('+') ? cleanPhone : '+34$cleanPhone';
     final mensaje = tipo == 'oferta'
         ? 'Hola, he visto tu oferta en el Banco de T\u00fanicas de San Juan y estoy interesado/a en los elementos que ofreces para Semana Santa.'
         : 'Hola, he visto tu demanda en el Banco de T\u00fanicas de San Juan y creo que puedo ayudarte con alguno de los elementos que necesitas para Semana Santa.';

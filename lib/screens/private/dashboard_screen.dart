@@ -25,6 +25,7 @@ import 'package:boanerges1714/services/treasury/treasury_invoice_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_repository.dart';
 import 'package:boanerges1714/models/turno_andas.dart';
 import 'package:boanerges1714/services/turnos_andas_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -71,6 +72,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: Column(
         children: [
           _DashboardHeader(cofrade: cofrade, authService: authService),
@@ -2222,7 +2226,6 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width > 700;
     return StreamBuilder<bool>(
       stream: authService.cofrade?.id == null
           ? Stream.value(false)
@@ -2256,13 +2259,11 @@ class _QuickActions extends StatelessWidget {
               builder: (context, settingsSnap) {
                 final showBankValidation = firstValidation != null &&
                     repository.isValidationCampaignOpen(settingsSnap.data);
-                return GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: isWide ? 4 : 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: isWide ? 1.6 : 1.4,
+                return ResponsiveGrid(
+                  smallColumns: 1,
+                  mediumColumns: 2,
+                  largeColumns: 4,
+                  wideColumns: 4,
                   children: [
                     _ActionCard(
                         icon: Icons.person,

@@ -8,6 +8,8 @@ import 'package:boanerges1714/models/encuesta.dart';
 import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/encuesta_service.dart';
+import 'package:boanerges1714/config/responsive.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class EncuestasScreen extends StatefulWidget {
   final String? highlightSurveyId;
@@ -47,9 +49,15 @@ class _EncuestasScreenState extends State<EncuestasScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 960),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: ResponsiveContentBox(
+        maxWidth: 960,
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -98,8 +106,8 @@ class _EncuestasScreenState extends State<EncuestasScreen> {
                 // Sort: put highlighted survey first if present
                 final sorted = [...encuestas];
                 if (widget.highlightSurveyId != null) {
-                  final idx = sorted.indexWhere(
-                      (e) => e.id == widget.highlightSurveyId);
+                  final idx = sorted
+                      .indexWhere((e) => e.id == widget.highlightSurveyId);
                   if (idx > 0) {
                     final item = sorted.removeAt(idx);
                     sorted.insert(0, item);
@@ -116,12 +124,14 @@ class _EncuestasScreenState extends State<EncuestasScreen> {
                 });
 
                 return Column(
-                  children: sorted.map((e) => _EncuestaCard(
-                    key: _cardKeys[e.id],
-                    encuesta: e,
-                    cofrade: cofrade,
-                    highlight: e.id == widget.highlightSurveyId,
-                  )).toList(),
+                  children: sorted
+                      .map((e) => _EncuestaCard(
+                            key: _cardKeys[e.id],
+                            encuesta: e,
+                            cofrade: cofrade,
+                            highlight: e.id == widget.highlightSurveyId,
+                          ))
+                      .toList(),
                 );
               },
             ),
@@ -191,9 +201,8 @@ class _EncuestaCardState extends State<_EncuestaCard> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: widget.highlight
-              ? AppTheme.primaryColor
-              : Colors.grey.shade200,
+          color:
+              widget.highlight ? AppTheme.primaryColor : Colors.grey.shade200,
           width: widget.highlight ? 2 : 1,
         ),
       ),
@@ -375,8 +384,7 @@ class _EncuestaCardState extends State<_EncuestaCard> {
     if (mounted) setState(() => _saving = false);
   }
 
-  Future<void> _saveMultiChoice(
-      List<String> ids, List<String> texts) async {
+  Future<void> _saveMultiChoice(List<String> ids, List<String> texts) async {
     setState(() => _saving = true);
     final resp = RespuestaEncuesta(
       id: widget.cofrade.id,
@@ -463,7 +471,8 @@ class _SingleChoiceArea extends StatelessWidget {
               onSelected: saving ? null : (_) => onSelect(option),
               selectedColor: AppTheme.primaryColor.withAlpha(38),
               labelStyle: TextStyle(
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                color:
+                    isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             );
@@ -530,7 +539,8 @@ class _MultiChoiceAreaState extends State<_MultiChoiceArea> {
               selected: isSelected,
               selectedColor: AppTheme.primaryColor.withAlpha(38),
               labelStyle: TextStyle(
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
+                color:
+                    isSelected ? AppTheme.primaryColor : AppTheme.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
               onSelected: widget.saving
@@ -665,8 +675,7 @@ class _ReactionArea extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Reacciona',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Reacciona', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Wrap(
           spacing: 12,
@@ -721,104 +730,103 @@ class _ImageVoteArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedId = myResponse?.selectedOptionId;
-    final width = MediaQuery.of(context).size.width;
-    final crossAxisCount = width > 900 ? 3 : width > 500 ? 2 : 1;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Selecciona una imagen',
             style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.85,
-          ),
-          itemCount: encuesta.opciones.length,
-          itemBuilder: (context, i) {
-            final option = encuesta.opciones[i];
-            final isSelected = selectedId == option.id;
-            return InkWell(
-              onTap: saving ? null : () => onSelect(option),
-              borderRadius: BorderRadius.circular(12),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppTheme.primaryColor
-                        : Colors.grey.shade200,
-                    width: isSelected ? 3 : 1,
-                  ),
-                  color: isSelected
-                      ? AppTheme.primaryColor.withAlpha(15)
-                      : Colors.white,
-                ),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(11)),
-                        child: (option.imageUrl ?? '').isNotEmpty
-                            ? Image.network(
-                                option.imageUrl!,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: Colors.grey.shade100,
-                                  child: const Center(
-                                      child: Icon(Icons.broken_image,
-                                          size: 40, color: Colors.grey)),
-                                ),
-                              )
-                            : Container(
-                                color: Colors.grey.shade100,
-                                child: const Center(
-                                    child: Icon(Icons.image,
-                                        size: 40, color: Colors.grey)),
-                              ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Row(
-                        children: [
-                          if (isSelected)
-                            const Icon(Icons.check_circle,
-                                color: AppTheme.primaryColor, size: 18),
-                          if (isSelected) const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              option.text,
-                              style: TextStyle(
-                                fontWeight: isSelected
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: isSelected
-                                    ? AppTheme.primaryColor
-                                    : AppTheme.textPrimary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+        ResponsiveGrid(
+          smallColumns: 1,
+          mediumColumns: 2,
+          largeColumns: 3,
+          wideColumns: 3,
+          children: [
+            for (final option in encuesta.opciones)
+              _buildImageOption(context, option, selectedId, saving, onSelect),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildImageOption(
+    BuildContext context,
+    EncuestaOpcion option,
+    String? selectedId,
+    bool saving,
+    ValueChanged<EncuestaOpcion> onSelect,
+  ) {
+    final isSelected = selectedId == option.id;
+    return InkWell(
+      onTap: saving ? null : () => onSelect(option),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200,
+            width: isSelected ? 3 : 1,
+          ),
+          color:
+              isSelected ? AppTheme.primaryColor.withAlpha(15) : Colors.white,
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 180,
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(11)),
+                child: (option.imageUrl ?? '').isNotEmpty
+                    ? Image.network(
+                        option.imageUrl!,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade100,
+                          child: const Center(
+                              child: Icon(Icons.broken_image,
+                                  size: 40, color: Colors.grey)),
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey.shade100,
+                        child: const Center(
+                            child: Icon(Icons.image,
+                                size: 40, color: Colors.grey)),
+                      ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  if (isSelected)
+                    const Icon(Icons.check_circle,
+                        color: AppTheme.primaryColor, size: 18),
+                  if (isSelected) const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      option.text,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : AppTheme.textPrimary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -912,12 +920,9 @@ class _InlineResults extends StatelessWidget {
 
         List<MapEntry<String, String>> items;
         if (encuesta.tipoRespuesta == EncuestaTipoRespuesta.reaccion) {
-          items =
-              encuesta.reactionEmojis.map((e) => MapEntry(e, e)).toList();
+          items = encuesta.reactionEmojis.map((e) => MapEntry(e, e)).toList();
         } else {
-          items = encuesta.opciones
-              .map((o) => MapEntry(o.id, o.text))
-              .toList();
+          items = encuesta.opciones.map((o) => MapEntry(o.id, o.text)).toList();
         }
 
         return Column(
@@ -1047,8 +1052,7 @@ class _EncuestaResultsBanner extends StatelessWidget {
 class _SingleResultBanner extends StatelessWidget {
   final Encuesta encuesta;
   final Cofrade cofrade;
-  const _SingleResultBanner(
-      {required this.encuesta, required this.cofrade});
+  const _SingleResultBanner({required this.encuesta, required this.cofrade});
 
   @override
   Widget build(BuildContext context) {
@@ -1168,9 +1172,8 @@ class _SingleResultBanner extends StatelessWidget {
                                 : Icons.visibility_outlined,
                             size: 16,
                           ),
-                          label: Text(hasPending
-                              ? 'Responder ahora'
-                              : 'Ver encuesta'),
+                          label: Text(
+                              hasPending ? 'Responder ahora' : 'Ver encuesta'),
                         ),
                       ],
                     ),
