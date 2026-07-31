@@ -14,6 +14,7 @@ import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
+import 'package:boanerges1714/widgets/responsive_data_table.dart';
 
 class ManageConvocatoriasScreen extends StatelessWidget {
   const ManageConvocatoriasScreen({super.key});
@@ -827,21 +828,28 @@ class _SurveyDetailDialog extends StatelessWidget {
                       child: Text('Todavía no hay respuestas registradas.'),
                     )
                   else
-                    DataTable(
+                    ResponsiveDataTable(
                       columns: const [
-                        DataColumn(label: Text('Cofrade')),
-                        DataColumn(label: Text('Respuesta')),
-                        DataColumn(label: Text('Fecha')),
+                        ResponsiveTableColumn(
+                            label: 'Cofrade', mobilePriority: 0),
+                        ResponsiveTableColumn(
+                            label: 'Respuesta', mobilePriority: 1),
+                        ResponsiveTableColumn(
+                            label: 'Fecha', mobilePriority: 2),
                       ],
                       rows: [
                         for (final response in responses)
-                          DataRow(cells: [
-                            DataCell(Text(response.cofradeNombre)),
-                            DataCell(Text(response.selectedOptionText)),
-                            DataCell(Text(DateFormat('dd/MM/yyyy HH:mm').format(
-                                response.updatedAt ??
-                                    response.fechaRespuesta))),
-                          ]),
+                          ResponsiveTableRow(
+                            cells: [
+                              Text(response.cofradeNombre),
+                              Text(response.selectedOptionText),
+                              Text(
+                                DateFormat('dd/MM/yyyy HH:mm').format(
+                                  response.updatedAt ?? response.fechaRespuesta,
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                 ],
