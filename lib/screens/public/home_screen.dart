@@ -1067,137 +1067,135 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 16),
               AppSurfaceCard(
                 padding: const EdgeInsets.all(24),
-                child: Padding(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppTheme.accentColor.withAlpha(20),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.volunteer_activism,
-                                size: 32, color: AppTheme.accentColor),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentColor.withAlpha(20),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Compromiso con nuestra comunidad',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'La Cofrad\u00eda de San Juan Evangelista mantiene un firme compromiso '
-                                  'con la asistencia social y la solidaridad. Colaboramos activamente '
-                                  'con las necesidades de nuestra comunidad en Oca\u00f1a.',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: AppTheme.textSecondary,
-                                        height: 1.6,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 32),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final columns = constraints.maxWidth >= 900
-                              ? 3
-                              : constraints.maxWidth >= 560
-                                  ? 2
-                                  : 1;
-                          final gap = 16.0;
-                          final width =
-                              (constraints.maxWidth - (columns - 1) * gap) /
-                                  columns;
-                          const items = [
-                            _AsistenciaItem(
-                              icon: Icons.food_bank,
-                              title: 'Banco de Alimentos',
-                              subtitle: 'Recogida y reparto de alimentos',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.shopping_basket_outlined,
-                              title: 'Bolsa solidaria',
-                              subtitle: 'Apoyo a necesidades b\u00e1sicas',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.volunteer_activism_outlined,
-                              title: 'Donaciones',
-                              subtitle: 'Aportaciones para ayuda social',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.church_outlined,
-                              title: 'Ayuda parroquial',
-                              subtitle: 'Colaboraci\u00f3n con la parroquia',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.favorite_outline,
-                              title: 'Colaboraci\u00f3n con C\u00e1ritas',
-                              subtitle: 'Apoyo a iniciativas solidarias',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.groups_outlined,
-                              title: 'Voluntariado',
-                              subtitle:
-                                  'Participaci\u00f3n y acompa\u00f1amiento',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.card_giftcard_outlined,
-                              title: 'Campa\u00f1as de Navidad',
-                              subtitle: 'Acciones solidarias de temporada',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.inventory_2_outlined,
-                              title: 'Recogidas extraordinarias',
-                              subtitle: 'Campañas puntuales de apoyo',
-                            ),
-                            _AsistenciaItem(
-                              icon: Icons.accessibility_new,
-                              title:
-                                  'Colaboración con el Centro Ocupacional de Ocaña',
-                              subtitle: 'Centro Ocupacional de Ocaña',
-                            ),
-                          ];
-                          return Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: gap,
-                            runSpacing: gap,
-                            children: items
-                                .map((item) =>
-                                    SizedBox(width: width, child: item))
-                                .toList(),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      Center(
-                        child: OutlinedButton.icon(
-                          onPressed: () => context.go('/contact'),
-                          icon: const Icon(Icons.mail_outline),
-                          label: const Text(
-                              '\u00bfQuieres colaborar? Cont\u00e1ctanos'),
+                          child: const Icon(Icons.volunteer_activism,
+                              size: 32, color: AppTheme.accentColor),
                         ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Compromiso con nuestra comunidad',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'La Cofrad\u00eda de San Juan Evangelista mantiene un firme compromiso '
+                                'con la asistencia social y la solidaridad. Colaboramos activamente '
+                                'con las necesidades de nuestra comunidad en Oca\u00f1a.',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: AppTheme.textSecondary,
+                                      height: 1.6,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 32),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 900
+                            ? 3
+                            : constraints.maxWidth >= 560
+                                ? 2
+                                : 1;
+                        final gap = 16.0;
+                        final width =
+                            (constraints.maxWidth - (columns - 1) * gap) /
+                                columns;
+                        const items = [
+                          _AsistenciaItem(
+                            icon: Icons.food_bank,
+                            title: 'Banco de Alimentos',
+                            subtitle: 'Recogida y reparto de alimentos',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.shopping_basket_outlined,
+                            title: 'Bolsa solidaria',
+                            subtitle: 'Apoyo a necesidades b\u00e1sicas',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.volunteer_activism_outlined,
+                            title: 'Donaciones',
+                            subtitle: 'Aportaciones para ayuda social',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.church_outlined,
+                            title: 'Ayuda parroquial',
+                            subtitle: 'Colaboraci\u00f3n con la parroquia',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.favorite_outline,
+                            title: 'Colaboraci\u00f3n con C\u00e1ritas',
+                            subtitle: 'Apoyo a iniciativas solidarias',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.groups_outlined,
+                            title: 'Voluntariado',
+                            subtitle:
+                                'Participaci\u00f3n y acompa\u00f1amiento',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.card_giftcard_outlined,
+                            title: 'Campa\u00f1as de Navidad',
+                            subtitle: 'Acciones solidarias de temporada',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.inventory_2_outlined,
+                            title: 'Recogidas extraordinarias',
+                            subtitle: 'Campañas puntuales de apoyo',
+                          ),
+                          _AsistenciaItem(
+                            icon: Icons.accessibility_new,
+                            title:
+                                'Colaboración con el Centro Ocupacional de Ocaña',
+                            subtitle: 'Centro Ocupacional de Ocaña',
+                          ),
+                        ];
+                        return Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: gap,
+                          runSpacing: gap,
+                          children: items
+                              .map(
+                                  (item) => SizedBox(width: width, child: item))
+                              .toList(),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.go('/contact'),
+                        icon: const Icon(Icons.mail_outline),
+                        label: const Text(
+                            '\u00bfQuieres colaborar? Cont\u00e1ctanos'),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],

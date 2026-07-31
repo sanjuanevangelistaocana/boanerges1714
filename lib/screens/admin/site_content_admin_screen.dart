@@ -495,24 +495,22 @@ class _AdminSection extends StatelessWidget {
     return AppSurfaceCard(
       admin: true,
       padding: const EdgeInsets.all(20),
-      child: Padding(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: AppTheme.primaryColor),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: Text(title,
-                        style: Theme.of(context).textTheme.titleLarge)),
-                if (action != null) action!,
-              ],
-            ),
-            const Divider(height: 24),
-            child,
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppTheme.primaryColor),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Text(title,
+                      style: Theme.of(context).textTheme.titleLarge)),
+              if (action != null) action!,
+            ],
+          ),
+          const Divider(height: 24),
+          child,
+        ],
       ),
     );
   }
