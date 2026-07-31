@@ -14,6 +14,7 @@ import 'package:boanerges1714/widgets/app_surface_card.dart';
 import 'package:boanerges1714/utils/liturgical_calendar.dart';
 import 'package:boanerges1714/models/content_models.dart';
 import 'package:boanerges1714/services/content_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -145,9 +146,12 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildFeatureCards(BuildContext context) {
+    final horizontalPadding = context.responsive.isDesktop
+        ? 24.0
+        : context.responsive.horizontalPadding;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 24, horizontalPadding, 0),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: _contentWidth),
@@ -464,24 +468,15 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final columns = constraints.maxWidth >= 900
-                            ? 3
-                            : constraints.maxWidth >= 560
-                                ? 2
-                                : 1;
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: links.length,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: columns,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: columns == 1 ? 3.2 : 1.75,
-                          ),
-                          itemBuilder: (context, index) =>
-                              _InterestLinkCard(link: links[index]),
+                        return ResponsiveGrid(
+                          smallColumns: 1,
+                          mediumColumns: 2,
+                          largeColumns: 3,
+                          wideColumns: 3,
+                          children: [
+                            for (final link in links)
+                              _InterestLinkCard(link: link),
+                          ],
                         );
                       },
                     ),
@@ -1115,76 +1110,59 @@ class HomeScreen extends StatelessWidget {
                       ],
                     ),
                     const Divider(height: 32),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final columns = constraints.maxWidth >= 900
-                            ? 3
-                            : constraints.maxWidth >= 560
-                                ? 2
-                                : 1;
-                        final gap = 16.0;
-                        final width =
-                            (constraints.maxWidth - (columns - 1) * gap) /
-                                columns;
-                        const items = [
-                          _AsistenciaItem(
-                            icon: Icons.food_bank,
-                            title: 'Banco de Alimentos',
-                            subtitle: 'Recogida y reparto de alimentos',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.shopping_basket_outlined,
-                            title: 'Bolsa solidaria',
-                            subtitle: 'Apoyo a necesidades b\u00e1sicas',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.volunteer_activism_outlined,
-                            title: 'Donaciones',
-                            subtitle: 'Aportaciones para ayuda social',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.church_outlined,
-                            title: 'Ayuda parroquial',
-                            subtitle: 'Colaboraci\u00f3n con la parroquia',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.favorite_outline,
-                            title: 'Colaboraci\u00f3n con C\u00e1ritas',
-                            subtitle: 'Apoyo a iniciativas solidarias',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.groups_outlined,
-                            title: 'Voluntariado',
-                            subtitle:
-                                'Participaci\u00f3n y acompa\u00f1amiento',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.card_giftcard_outlined,
-                            title: 'Campa\u00f1as de Navidad',
-                            subtitle: 'Acciones solidarias de temporada',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.inventory_2_outlined,
-                            title: 'Recogidas extraordinarias',
-                            subtitle: 'Campañas puntuales de apoyo',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.accessibility_new,
-                            title:
-                                'Colaboración con el Centro Ocupacional de Ocaña',
-                            subtitle: 'Centro Ocupacional de Ocaña',
-                          ),
-                        ];
-                        return Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: gap,
-                          runSpacing: gap,
-                          children: items
-                              .map(
-                                  (item) => SizedBox(width: width, child: item))
-                              .toList(),
-                        );
-                      },
+                    ResponsiveGrid(
+                      smallColumns: 1,
+                      mediumColumns: 2,
+                      largeColumns: 3,
+                      wideColumns: 3,
+                      children: const [
+                        _AsistenciaItem(
+                          icon: Icons.food_bank,
+                          title: 'Banco de Alimentos',
+                          subtitle: 'Recogida y reparto de alimentos',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.shopping_basket_outlined,
+                          title: 'Bolsa solidaria',
+                          subtitle: 'Apoyo a necesidades b\u00e1sicas',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.volunteer_activism_outlined,
+                          title: 'Donaciones',
+                          subtitle: 'Aportaciones para ayuda social',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.church_outlined,
+                          title: 'Ayuda parroquial',
+                          subtitle: 'Colaboraci\u00f3n con la parroquia',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.favorite_outline,
+                          title: 'Colaboraci\u00f3n con C\u00e1ritas',
+                          subtitle: 'Apoyo a iniciativas solidarias',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.groups_outlined,
+                          title: 'Voluntariado',
+                          subtitle: 'Participaci\u00f3n y acompa\u00f1amiento',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.card_giftcard_outlined,
+                          title: 'Campa\u00f1as de Navidad',
+                          subtitle: 'Acciones solidarias de temporada',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.inventory_2_outlined,
+                          title: 'Recogidas extraordinarias',
+                          subtitle: 'Campañas puntuales de apoyo',
+                        ),
+                        _AsistenciaItem(
+                          icon: Icons.accessibility_new,
+                          title:
+                              'Colaboración con el Centro Ocupacional de Ocaña',
+                          subtitle: 'Centro Ocupacional de Ocaña',
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
                     Center(
@@ -1344,11 +1322,18 @@ class _FeatureCardState extends State<_FeatureCard> {
   @override
   Widget build(BuildContext context) {
     final viewport = MediaQuery.sizeOf(context).width;
-    final width = viewport < 600
-        ? viewport - 48
-        : viewport < 1000
-            ? (viewport - 64) / 2
-            : (viewport - 96) / 4;
+    final columns = Responsive.gridColumns(
+      viewport,
+      small: 1,
+      medium: 2,
+      large: 4,
+      wide: 4,
+    );
+    final horizontalPadding = (context.responsive.isDesktop
+            ? 24.0
+            : context.responsive.horizontalPadding) *
+        2;
+    final width = (viewport - horizontalPadding - (columns - 1) * 16) / columns;
     return SizedBox(
       width: width.clamp(220, 280).toDouble(),
       child: MouseRegion(

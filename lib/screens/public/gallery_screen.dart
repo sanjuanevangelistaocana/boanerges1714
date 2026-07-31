@@ -9,6 +9,7 @@ import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
 import 'package:boanerges1714/utils/gallery_error.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class GalleryScreen extends StatelessWidget {
   const GalleryScreen({super.key});
@@ -70,30 +71,18 @@ class GalleryScreen extends StatelessWidget {
                                 'Pronto compartiremos aquí los recuerdos de la Cofradía.',
                           );
                         }
-                        return LayoutBuilder(
-                          builder: (context, constraints) {
-                            final columns = constraints.maxWidth >= 900
-                                ? 4
-                                : constraints.maxWidth >= 600
-                                    ? 3
-                                    : 2;
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: folders.length,
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: columns,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
-                                childAspectRatio: 0.82,
-                              ),
-                              itemBuilder: (_, index) => _FolderCard(
-                                folder: folders[index],
+                        return ResponsiveGrid(
+                          smallColumns: 1,
+                          mediumColumns: 2,
+                          largeColumns: 3,
+                          wideColumns: 4,
+                          children: [
+                            for (final folder in folders)
+                              _FolderCard(
+                                folder: folder,
                                 showPrivate: isLoggedIn,
                               ),
-                            );
-                          },
+                          ],
                         );
                       },
                     ),

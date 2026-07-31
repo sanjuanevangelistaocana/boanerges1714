@@ -7,6 +7,8 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/noticia.dart';
 import 'package:boanerges1714/services/noticias_service.dart';
 import 'package:boanerges1714/services/auth_service.dart';
+import 'package:boanerges1714/config/responsive.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 // =============================================================================
 // NEWS SCREEN (Public portal + private feed)
@@ -87,13 +89,13 @@ class _NewsScreenState extends State<NewsScreen> {
                             onTap: () =>
                                 setState(() => _selectedCategory = 'Todas'),
                           ),
-                          ...Noticia.defaultCategories.map((cat) =>
-                              _CategoryChip(
-                                label: cat,
-                                selected: _selectedCategory == cat,
-                                onTap: () =>
-                                    setState(() => _selectedCategory = cat),
-                              )),
+                          ...Noticia.defaultCategories
+                              .map((cat) => _CategoryChip(
+                                    label: cat,
+                                    selected: _selectedCategory == cat,
+                                    onTap: () =>
+                                        setState(() => _selectedCategory = cat),
+                                  )),
                         ],
                       ),
                     ),
@@ -169,7 +171,8 @@ class _NewsScreenState extends State<NewsScreen> {
 
                     return LayoutBuilder(
                       builder: (context, constraints) {
-                        final isWide = constraints.maxWidth > 600;
+                        final isWide = constraints.maxWidth >=
+                            ResponsiveBreakpoints.tablet;
                         if (isWide) {
                           return _buildGrid(noticias);
                         }
@@ -199,20 +202,20 @@ class _NewsScreenState extends State<NewsScreen> {
   }
 
   Widget _buildGrid(List<Noticia> noticias) {
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: noticias.map((n) => SizedBox(
-            width: 296,
-            child: _NoticiaCard(noticia: n),
-          )).toList(),
+    return ResponsiveGrid(
+      smallColumns: 1,
+      mediumColumns: 2,
+      largeColumns: 3,
+      wideColumns: 3,
+      children: [
+        for (final noticia in noticias) _NoticiaCard(noticia: noticia),
+      ],
     );
   }
 
   Widget _buildList(List<Noticia> noticias) {
     return Column(
-      children:
-          noticias.map((n) => _NoticiaCard(noticia: n)).toList(),
+      children: noticias.map((n) => _NoticiaCard(noticia: n)).toList(),
     );
   }
 }
@@ -236,8 +239,7 @@ class _HeroSection extends StatelessWidget {
         if (destacadas.isEmpty) {
           return Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.primaryDark, AppTheme.primaryColor],

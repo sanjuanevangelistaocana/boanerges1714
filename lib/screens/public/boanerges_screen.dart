@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/revista.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class BoanergesScreen extends StatelessWidget {
   const BoanergesScreen({super.key});
@@ -129,23 +130,19 @@ class BoanergesScreen extends StatelessWidget {
                             ),
                           );
                         }
-                        final isWide = MediaQuery.of(context).size.width > 700;
-                        return GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: isWide ? 3 : 1,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: isWide ? 0.75 : 2.5,
-                          ),
-                          itemCount: revistas.length,
-                          itemBuilder: (context, index) {
-                            final revista = revistas[index];
-                            return _RevistaCard(
-                                revista: revista, isWide: isWide);
-                          },
+                        final isWide = MediaQuery.of(context).size.width >= 768;
+                        return ResponsiveGrid(
+                          smallColumns: 1,
+                          mediumColumns: 1,
+                          largeColumns: 3,
+                          wideColumns: 3,
+                          children: [
+                            for (final revista in revistas)
+                              _RevistaCard(
+                                revista: revista,
+                                isWide: isWide,
+                              ),
+                          ],
                         );
                       },
                     ),

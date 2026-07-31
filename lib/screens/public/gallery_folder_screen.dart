@@ -12,6 +12,7 @@ import 'package:boanerges1714/models/gallery.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/gallery_service.dart';
 import 'package:boanerges1714/utils/gallery_error.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 class GalleryFolderScreen extends StatefulWidget {
   final String folderId;
@@ -317,13 +318,13 @@ class _FolderContent extends StatelessWidget {
             sliver: SliverLayoutBuilder(
               builder: (context, constraints) {
                 final width = constraints.crossAxisExtent;
-                final columns = width >= 1000
-                    ? 5
-                    : width >= 700
-                        ? 4
-                        : width >= 450
-                            ? 3
-                            : 2;
+                final columns = Responsive.gridColumns(
+                  width,
+                  small: 2,
+                  medium: 3,
+                  large: 4,
+                  wide: 5,
+                );
                 return SliverGrid(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
@@ -339,11 +340,14 @@ class _FolderContent extends StatelessWidget {
                     },
                     childCount: images.length + (loadingMore ? 1 : 0),
                   ),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: columns == 2
+                        ? 240
+                        : columns == 3
+                            ? 260
+                            : 280,
                     crossAxisSpacing: 6,
                     mainAxisSpacing: 6,
-                    childAspectRatio: 1.08,
                   ),
                 );
               },

@@ -10,6 +10,7 @@ import 'package:boanerges1714/services/content_service.dart';
 import 'package:boanerges1714/widgets/app_surface_card.dart';
 import 'package:boanerges1714/widgets/content_block_view.dart';
 import 'package:boanerges1714/screens/public/history_screen.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class ContentRootScreen extends StatelessWidget {
   final String rootSlug;
@@ -331,44 +332,30 @@ class _SectionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900
-            ? 3
-            : constraints.maxWidth >= 560
-                ? 2
-                : 1;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.35,
+    return ResponsiveGrid(
+      smallColumns: 1,
+      mediumColumns: 2,
+      largeColumns: 3,
+      wideColumns: 3,
+      children: [
+        for (final section in sections)
+          AppSurfaceCard(
+            onTap: () => context.go('/$rootSlug/${section.slug}'),
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(_sectionIcon(section.type),
+                    color: AppTheme.primaryColor, size: 34),
+                const SizedBox(height: 24),
+                Text(section.title,
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(section.shortDescription),
+              ],
+            ),
           ),
-          itemCount: sections.length,
-          itemBuilder: (context, index) {
-            final section = sections[index];
-            return AppSurfaceCard(
-              onTap: () => context.go('/$rootSlug/${section.slug}'),
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(_sectionIcon(section.type),
-                      color: AppTheme.primaryColor, size: 34),
-                  const Spacer(),
-                  Text(section.title,
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 6),
-                  Text(section.shortDescription),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      ],
     );
   }
 }
@@ -472,65 +459,52 @@ class _FichaGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 900
-            ? 3
-            : constraints.maxWidth >= 560
-                ? 2
-                : 1;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.15,
-          ),
-          itemCount: fichas.length,
-          itemBuilder: (context, index) {
-            final ficha = fichas[index];
-            final image =
-                ficha.photos.isEmpty ? null : ficha.photos.first['url'];
-            return AppSurfaceCard(
-              onTap: () =>
-                  context.go('/patrimonio/${section.slug}/ficha/${ficha.slug}'),
-              padding: EdgeInsets.zero,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (image != null)
-                    ClipRRect(
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(14)),
-                      child: CachedNetworkImage(
-                        imageUrl: image,
-                        height: 150,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(ficha.name,
-                            style: Theme.of(context).textTheme.titleLarge),
-                        if (ficha.period.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(ficha.period),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+    return ResponsiveGrid(
+      smallColumns: 1,
+      mediumColumns: 2,
+      largeColumns: 3,
+      wideColumns: 3,
+      children: [
+        for (final ficha in fichas) _buildFichaCard(context, ficha),
+      ],
+    );
+  }
+
+  Widget _buildFichaCard(BuildContext context, PatrimonioFicha ficha) {
+    final image = ficha.photos.isEmpty ? null : ficha.photos.first['url'];
+    return AppSurfaceCard(
+      onTap: () =>
+          context.go('/patrimonio/${section.slug}/ficha/${ficha.slug}'),
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (image != null)
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(14)),
+              child: CachedNetworkImage(
+                imageUrl: image,
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
-            );
-          },
-        );
-      },
+            ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(ficha.name, style: Theme.of(context).textTheme.titleLarge),
+                if (ficha.period.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(ficha.period),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -834,10 +808,15 @@ class _PublicPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
+        child: ResponsiveContentBox(
+          maxWidth: 1100,
+          padding: EdgeInsets.fromLTRB(
+            context.responsive.horizontalPadding,
+            32,
+            context.responsive.horizontalPadding,
+            48,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
