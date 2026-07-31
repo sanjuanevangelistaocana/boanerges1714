@@ -6,6 +6,7 @@ import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/treasury.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_repository.dart';
+import 'package:boanerges1714/widgets/responsive_data_table.dart';
 
 class IndividualTrackingScreen extends StatefulWidget {
   const IndividualTrackingScreen({super.key});
@@ -461,42 +462,41 @@ class _IndividualTrackingDetail extends StatelessWidget {
                 if (allRows.isEmpty)
                   const Text('No hay movimientos para esta selección.')
                 else
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 560),
-                    child: SingleChildScrollView(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columns: const [
-                            DataColumn(label: Text('Fecha')),
-                            DataColumn(label: Text('Tipo')),
-                            DataColumn(label: Text('Concepto')),
-                            DataColumn(label: Text('Importe')),
-                            DataColumn(label: Text('Estado')),
-                            DataColumn(label: Text('Método')),
-                            DataColumn(label: Text('Centro')),
-                            DataColumn(label: Text('Origen')),
-                            DataColumn(label: Text('Referencia')),
+                  ResponsiveDataTable(
+                    columns: const [
+                      ResponsiveTableColumn(label: 'Fecha', mobilePriority: 0),
+                      ResponsiveTableColumn(label: 'Tipo', mobilePriority: 1),
+                      ResponsiveTableColumn(
+                          label: 'Concepto', mobilePriority: 0),
+                      ResponsiveTableColumn(
+                          label: 'Importe', mobilePriority: 1, numeric: true),
+                      ResponsiveTableColumn(label: 'Estado', mobilePriority: 1),
+                      ResponsiveTableColumn(label: 'Método', mobilePriority: 2),
+                      ResponsiveTableColumn(label: 'Centro', mobilePriority: 3),
+                      ResponsiveTableColumn(label: 'Origen', mobilePriority: 3),
+                      ResponsiveTableColumn(
+                          label: 'Referencia', mobilePriority: 3),
+                    ],
+                    rows: [
+                      for (final row in allRows)
+                        ResponsiveTableRow(
+                          cells: [
+                            Text(_fmt(row.date)),
+                            Text(row.type),
+                            Text(row.concept),
+                            Text('${row.amount.toStringAsFixed(2)} €'),
+                            Text(row.status),
+                            Text(row.method),
+                            Text(
+                              row.subCostCenter.isEmpty
+                                  ? row.costCenter
+                                  : '${row.costCenter} / ${row.subCostCenter}',
+                            ),
+                            Text(row.origin),
+                            Text(row.reference),
                           ],
-                          rows: allRows
-                              .map((row) => DataRow(cells: [
-                                    DataCell(Text(_fmt(row.date))),
-                                    DataCell(Text(row.type)),
-                                    DataCell(Text(row.concept)),
-                                    DataCell(Text(
-                                        '${row.amount.toStringAsFixed(2)} €')),
-                                    DataCell(Text(row.status)),
-                                    DataCell(Text(row.method)),
-                                    DataCell(Text(row.subCostCenter.isEmpty
-                                        ? row.costCenter
-                                        : '${row.costCenter} / ${row.subCostCenter}')),
-                                    DataCell(Text(row.origin)),
-                                    DataCell(Text(row.reference)),
-                                  ]))
-                              .toList(),
                         ),
-                      ),
-                    ),
+                    ],
                   ),
               ],
             ),
