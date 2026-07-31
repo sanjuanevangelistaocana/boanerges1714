@@ -83,7 +83,8 @@ class ResponsiveGrid extends StatelessWidget {
         final availableWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
             : MediaQuery.of(context).size.width;
-        final columns = context.responsive.gridColumns(
+        final columns = Responsive.gridColumns(
+          availableWidth,
           small: smallColumns ?? 1,
           medium: mediumColumns ?? 2,
           large: largeColumns ?? 3,

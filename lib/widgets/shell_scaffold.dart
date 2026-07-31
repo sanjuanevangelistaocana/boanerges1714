@@ -7,6 +7,7 @@ import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/content_models.dart';
 import 'package:boanerges1714/services/content_service.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 class ShellScaffold extends StatelessWidget {
   final Widget child;
@@ -18,7 +19,7 @@ class ShellScaffold extends StatelessWidget {
     final authService = context.watch<AuthService>();
     final isLoggedIn = authService.isLoggedIn;
     final isAdmin = authService.isAdmin;
-    final isDesktop = MediaQuery.of(context).size.width >= 1180;
+    final isDesktop = context.responsive.isWideDesktop;
 
     return Scaffold(
       appBar: AppBar(
@@ -425,7 +426,11 @@ class _DrawerSectionGroups extends StatelessWidget {
               title: Text(root.title),
               children: children
                   .map((section) => ListTile(
+                        selected: _isCurrentRoute(
+                            context, '/${root.slug}/${section.slug}'),
+                        selectedColor: AppTheme.primaryColor,
                         title: Text(section.title),
+                        minTileHeight: 48,
                         contentPadding:
                             const EdgeInsets.only(left: 56, right: 16),
                         onTap: () {
@@ -460,7 +465,10 @@ class _DrawerStaticSection extends StatelessWidget {
       title: Text(title),
       children: children
           .map((child) => ListTile(
+                selected: _isCurrentRoute(context, '/$rootSlug/${child.slug}'),
+                selectedColor: AppTheme.primaryColor,
                 title: Text(child.label),
+                minTileHeight: 48,
                 contentPadding: const EdgeInsets.only(left: 56, right: 16),
                 onTap: () {
                   Navigator.pop(context);
@@ -753,6 +761,9 @@ class _DrawerItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      selected: _isCurrentRoute(context, route),
+      selectedColor: AppTheme.primaryColor,
+      minTileHeight: 48,
       leading: Icon(icon),
       title: Text(label),
       onTap: () {
@@ -771,6 +782,7 @@ class _DrawerAccessButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: ListTile(
+        minTileHeight: 48,
         leading: const Icon(Icons.login, color: AppTheme.primaryColor),
         title: const Text(
           'Acceso Cofrades',
@@ -790,6 +802,11 @@ class _DrawerAccessButton extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _isCurrentRoute(BuildContext context, String route) {
+  final path = GoRouterState.of(context).uri.path;
+  return path == route || path.startsWith('$route/');
 }
 
 class _InstitutionalFooter extends StatelessWidget {

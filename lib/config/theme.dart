@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:boanerges1714/config/responsive.dart';
 
 class AppTheme {
   // Gama principal: escala de granates
@@ -43,6 +44,11 @@ class AppTheme {
   );
 
   static ThemeData get lightTheme {
+    return lightThemeForWidth(double.infinity);
+  }
+
+  static ThemeData lightThemeForWidth(double width) {
+    final compactTargets = width < ResponsiveBreakpoints.desktop;
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
@@ -125,18 +131,20 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
-          minimumSize: const Size(48, 48),
+          minimumSize: compactTargets ? const Size(48, 48) : null,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
         ),
       ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(48, 48),
-        ),
-      ),
+      filledButtonTheme: compactTargets
+          ? FilledButtonThemeData(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(48, 48),
+              ),
+            )
+          : null,
       cardTheme: CardThemeData(
         elevation: 1,
         color: surfaceColor,
@@ -148,7 +156,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primaryColor,
-          minimumSize: const Size(48, 48),
+          minimumSize: compactTargets ? const Size(48, 48) : null,
           side: const BorderSide(color: primaryColor),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
@@ -156,22 +164,27 @@ class AppTheme {
           ),
         ),
       ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          minimumSize: const Size(48, 48),
-        ),
-      ),
-      iconButtonTheme: IconButtonThemeData(
-        style: ButtonStyle(
-          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
-          tapTargetSize:
-              const WidgetStatePropertyAll(MaterialTapTargetSize.padded),
-        ),
-      ),
-      chipTheme: ChipThemeData(
-        materialTapTargetSize: MaterialTapTargetSize.padded,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      ),
+      textButtonTheme: compactTargets
+          ? TextButtonThemeData(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 48),
+              ),
+            )
+          : null,
+      iconButtonTheme: compactTargets
+          ? IconButtonThemeData(
+              style: IconButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                tapTargetSize: MaterialTapTargetSize.padded,
+              ),
+            )
+          : null,
+      chipTheme: compactTargets
+          ? ChipThemeData(
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            )
+          : null,
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),

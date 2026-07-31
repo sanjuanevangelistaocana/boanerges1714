@@ -26,6 +26,13 @@ import 'package:boanerges1714/services/encuesta_service.dart';
 import 'package:boanerges1714/services/noticias_service.dart';
 import 'package:boanerges1714/services/turnos_andas_service.dart';
 
+Widget _responsiveThemeBuilder(BuildContext context, Widget? child) {
+  return Theme(
+    data: AppTheme.lightThemeForWidth(MediaQuery.of(context).size.width),
+    child: child ?? const SizedBox.shrink(),
+  );
+}
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const AppBootstrap());
@@ -68,6 +75,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
+            builder: _responsiveThemeBuilder,
             home: Scaffold(
               backgroundColor: AppTheme.primaryColor,
               body: Center(
@@ -104,6 +112,7 @@ class _AppBootstrapState extends State<AppBootstrap> {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
+            builder: _responsiveThemeBuilder,
             home: const Scaffold(
               backgroundColor: AppTheme.primaryColor,
               body: Center(
@@ -214,6 +223,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
       child: MaterialApp.router(
         title: 'Cofradía San Juan Evangelista - Ocaña',
         theme: AppTheme.lightTheme,
+        builder: _responsiveThemeBuilder,
         routerConfig: goRouter,
         debugShowCheckedModeBanner: false,
       ),
