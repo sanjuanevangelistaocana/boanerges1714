@@ -16,6 +16,7 @@ import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/encuesta_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
+import 'package:boanerges1714/widgets/responsive_data_table.dart';
 
 class ManageEncuestasScreen extends StatelessWidget {
   const ManageEncuestasScreen({super.key});
@@ -1623,32 +1624,31 @@ class _ResponsesTable extends StatelessWidget {
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Cofrade')),
-                      DataColumn(label: Text('Respuesta')),
-                      DataColumn(label: Text('Fecha')),
-                    ],
-                    rows: responses.map((r) {
-                      String respText;
-                      if (encuesta.tipoRespuesta ==
-                          EncuestaTipoRespuesta.multiple) {
-                        respText = r.selectedOptionTexts.join(', ');
-                      } else if (encuesta.tipoRespuesta ==
-                          EncuestaTipoRespuesta.reaccion) {
-                        respText = r.reaccion ?? '';
-                      } else {
-                        respText = r.selectedOptionText ?? '';
-                      }
-                      return DataRow(cells: [
-                        DataCell(Text(r.cofradeNombre)),
-                        DataCell(Text(respText)),
-                        DataCell(Text(fmt.format(r.fechaRespuesta))),
-                      ]);
-                    }).toList(),
-                  ),
+                ResponsiveDataTable(
+                  columns: const [
+                    ResponsiveTableColumn(label: 'Cofrade', mobilePriority: 0),
+                    ResponsiveTableColumn(
+                        label: 'Respuesta', mobilePriority: 1),
+                    ResponsiveTableColumn(label: 'Fecha', mobilePriority: 2),
+                  ],
+                  rows: [
+                    for (final r in responses)
+                      ResponsiveTableRow(
+                        cells: [
+                          Text(r.cofradeNombre),
+                          Text(
+                            encuesta.tipoRespuesta ==
+                                    EncuestaTipoRespuesta.multiple
+                                ? r.selectedOptionTexts.join(', ')
+                                : encuesta.tipoRespuesta ==
+                                        EncuestaTipoRespuesta.reaccion
+                                    ? r.reaccion ?? ''
+                                    : r.selectedOptionText ?? '',
+                          ),
+                          Text(fmt.format(r.fechaRespuesta)),
+                        ],
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -1836,33 +1836,35 @@ class _EncuestasDashboardPage extends StatelessWidget {
                           if (enc.isEmpty) {
                             return const Text('Sin encuestas.');
                           }
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              columns: const [
-                                DataColumn(label: Text('Título')),
-                                DataColumn(label: Text('Estado')),
-                                DataColumn(label: Text('Respuestas')),
-                                DataColumn(label: Text('Destinatarios')),
-                                DataColumn(label: Text('Participación')),
-                              ],
-                              rows: enc.map((e) {
-                                final targeted =
-                                    service.countTargetedCofrades(e, cofrades);
-                                final rate = targeted > 0
-                                    ? (e.totalRespuestas / targeted * 100)
-                                        .toStringAsFixed(1)
-                                    : '-';
-                                return DataRow(cells: [
-                                  DataCell(Text(e.titulo,
-                                      overflow: TextOverflow.ellipsis)),
-                                  DataCell(Text(e.estadoLabel)),
-                                  DataCell(Text('${e.totalRespuestas}')),
-                                  DataCell(Text('$targeted')),
-                                  DataCell(Text('$rate%')),
-                                ]);
-                              }).toList(),
-                            ),
+                          return ResponsiveDataTable(
+                            columns: const [
+                              ResponsiveTableColumn(
+                                  label: 'Título', mobilePriority: 0),
+                              ResponsiveTableColumn(
+                                  label: 'Estado', mobilePriority: 1),
+                              ResponsiveTableColumn(
+                                  label: 'Respuestas', mobilePriority: 2),
+                              ResponsiveTableColumn(
+                                  label: 'Destinatarios', mobilePriority: 3),
+                              ResponsiveTableColumn(
+                                  label: 'Participación', mobilePriority: 2),
+                            ],
+                            rows: [
+                              for (final e in enc)
+                                ResponsiveTableRow(
+                                  cells: [
+                                    Text(e.titulo,
+                                        overflow: TextOverflow.ellipsis),
+                                    Text(e.estadoLabel),
+                                    Text('${e.totalRespuestas}'),
+                                    Text(
+                                        '${service.countTargetedCofrades(e, cofrades)}'),
+                                    Text(
+                                      '${service.countTargetedCofrades(e, cofrades) > 0 ? (e.totalRespuestas / service.countTargetedCofrades(e, cofrades) * 100).toStringAsFixed(1) : '-'}%',
+                                    ),
+                                  ],
+                                ),
+                            ],
                           );
                         },
                       ),
