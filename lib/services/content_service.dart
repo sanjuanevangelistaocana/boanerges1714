@@ -12,6 +12,18 @@ class ContentService {
   final Map<String, Stream<List<PatrimonioFicha>>> _patrimonioStreams = {};
   final Map<String, Stream<List<JuntaMiembro>>> _juntaStreams = {};
   final Map<String, Stream<List<ContentGroup>>> _groupStreams = {};
+  late final Stream<List<InterestLink>> publishedInterestLinksStream =
+      _createInterestLinksStream(admin: false).asBroadcastStream();
+  late final Stream<List<InterestLink>> adminInterestLinksStream =
+      _createInterestLinksStream(admin: true).asBroadcastStream();
+  late final Stream<List<LegalPage>> publishedLegalPagesStream =
+      _createLegalPagesStream(admin: false).asBroadcastStream();
+  late final Stream<List<LegalPage>> adminLegalPagesStream =
+      _createLegalPagesStream(admin: true).asBroadcastStream();
+  late final Stream<List<ManagedCelebration>> publishedCelebrationsStream =
+      _createCelebrationsStream(admin: false).asBroadcastStream();
+  late final Stream<List<ManagedCelebration>> adminCelebrationsStream =
+      _createCelebrationsStream(admin: true).asBroadcastStream();
 
   CollectionReference<Map<String, dynamic>> get _sections =>
       _db.collection('content_sections');
@@ -23,6 +35,149 @@ class ContentService {
       _db.collection('junta_miembros');
   CollectionReference<Map<String, dynamic>> get _groups =>
       _db.collection('grupos');
+  CollectionReference<Map<String, dynamic>> get _interestLinks =>
+      _db.collection('interest_links');
+  CollectionReference<Map<String, dynamic>> get _legalPages =>
+      _db.collection('legal_pages');
+  CollectionReference<Map<String, dynamic>> get _celebrations =>
+      _db.collection('managed_celebrations');
+
+  Stream<List<InterestLink>> watchInterestLinks({bool admin = false}) =>
+      admin ? adminInterestLinksStream : publishedInterestLinksStream;
+
+  Stream<List<LegalPage>> watchLegalPages({bool admin = false}) =>
+      admin ? adminLegalPagesStream : publishedLegalPagesStream;
+
+  Stream<List<ManagedCelebration>> watchCelebrations({bool admin = false}) =>
+      admin ? adminCelebrationsStream : publishedCelebrationsStream;
+
+  Stream<List<InterestLink>> _createInterestLinksStream({
+    required bool admin,
+  }) {
+    Query<Map<String, dynamic>> query = _interestLinks;
+    if (!admin) query = query.where('active', isEqualTo: true);
+    return query.orderBy('order').snapshots().map((snapshot) {
+      final links = snapshot.docs.map(InterestLink.fromFirestore).toList();
+      links.sort((a, b) => a.order.compareTo(b.order));
+      return links;
+    });
+  }
+
+  Stream<List<LegalPage>> _createLegalPagesStream({required bool admin}) {
+    Query<Map<String, dynamic>> query = _legalPages;
+    if (!admin) query = query.where('published', isEqualTo: true);
+    return query
+        .orderBy('updated_at', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      final pages = snapshot.docs.map(LegalPage.fromFirestore).toList();
+      pages.sort((a, b) => a.title.compareTo(b.title));
+      return pages;
+    });
+  }
+
+  Stream<List<ManagedCelebration>> _createCelebrationsStream({
+    required bool admin,
+  }) {
+    Query<Map<String, dynamic>> query = _celebrations;
+    if (!admin) query = query.where('published', isEqualTo: true);
+    return query.orderBy('title').snapshots().map((snapshot) {
+      final items =
+          snapshot.docs.map(ManagedCelebration.fromFirestore).toList();
+      items.sort((a, b) => a.title.compareTo(b.title));
+      return items;
+    });
+  }
+
+  Future<String> saveInterestLink(String? id, Map<String, dynamic> data) =>
+      _save(_interestLinks, id, data);
+
+  Future<void> deleteInterestLink(String id) => _interestLinks.doc(id).delete();
+
+  Future<String> saveLegalPage(String id, Map<String, dynamic> data) =>
+      _save(_legalPages, id, data);
+
+  Future<void> ensureLegalPages() async {
+    const pages = [
+      ('aviso-legal', 'Aviso Legal'),
+      ('politica-privacidad', 'Política de Privacidad'),
+      ('politica-cookies', 'Política de Cookies'),
+    ];
+    for (final page in pages) {
+      final ref = _legalPages.doc(page.$1);
+      final snapshot = await ref.get();
+      if (snapshot.exists) continue;
+      final now = DateTime.now();
+      await ref.set({
+        'title': page.$2,
+        'rich_content': <Map<String, dynamic>>[],
+        'published': false,
+        'content_updated_at': null,
+        'created_at': Timestamp.fromDate(now),
+        'updated_at': Timestamp.fromDate(now),
+        'created_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+      });
+    }
+  }
+
+  Future<String> saveCelebration(String? id, Map<String, dynamic> data) =>
+      _save(_celebrations, id, data);
+
+  Future<void> deleteCelebration(String id) => _celebrations.doc(id).delete();
+
+  Future<void> seedPatrimonioCatalog() async {
+    final section = await getSectionBySlug('patrimonio-artistico');
+    if (section == null) throw StateError('No existe Patrimonio Artístico.');
+    const pieces = [
+      ('paso-de-san-juan-evangelista', 'Paso de San Juan Evangelista', 0),
+      ('bandera', 'Bandera', 1),
+      ('cetros', 'Cetros', 2),
+      ('habito', 'Hábito', 3),
+      ('insignia', 'Insignia', 4),
+    ];
+    for (final piece in pieces) {
+      final existing = await _patrimonio
+          .where('section_id', isEqualTo: section.id)
+          .where('slug', isEqualTo: piece.$1)
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) {
+        final data = existing.docs.first.data();
+        final changes = <String, dynamic>{};
+        if ((data['order'] as num?)?.toInt() != piece.$3) {
+          changes['order'] = piece.$3;
+        }
+        if (changes.isNotEmpty) {
+          changes['updated_at'] = FieldValue.serverTimestamp();
+          await existing.docs.first.reference.update(changes);
+        }
+        continue;
+      }
+      final now = DateTime.now();
+      await _patrimonio.add({
+        'section_id': section.id,
+        'slug': piece.$1,
+        'name': piece.$2,
+        'author': '',
+        'date_or_period': '',
+        'materials': '',
+        'measurements': '',
+        'description': '',
+        'rich_description': <Map<String, dynamic>>[],
+        'restorations': <Map<String, dynamic>>[],
+        'photos': <Map<String, String>>[],
+        'related_documents': <Map<String, String>>[],
+        'order': piece.$3,
+        'featured': false,
+        'published': false,
+        'created_at': Timestamp.fromDate(now),
+        'updated_at': Timestamp.fromDate(now),
+        'created_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+        'updated_by': FirebaseAuth.instance.currentUser?.uid ?? '',
+      });
+    }
+  }
 
   late final Stream<List<ContentSection>> publishedSectionsStream =
       _createSectionsStream(admin: false).asBroadcastStream();

@@ -811,7 +811,7 @@ class _InstitutionalFooter extends StatelessWidget {
         runSpacing: 8,
         children: [
           const Text(
-            '© 2026 Cofradía San Juan Evangelista de Ocaña. '
+            '© ${DateTime.now().year} Cofradía San Juan Evangelista de Ocaña. '
             'Todos los derechos reservados.',
             style: TextStyle(
               color: AppTheme.textSecondary,

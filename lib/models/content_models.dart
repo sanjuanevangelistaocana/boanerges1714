@@ -443,3 +443,120 @@ class ContentGroup {
         'updated_by': updatedBy,
       };
 }
+
+class InterestLink {
+  final String id;
+  final String title;
+  final String url;
+  final String description;
+  final String? icon;
+  final String? imageUrl;
+  final bool active;
+  final int order;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const InterestLink({
+    required this.id,
+    required this.title,
+    required this.url,
+    this.description = '',
+    this.icon,
+    this.imageUrl,
+    this.active = true,
+    this.order = 0,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory InterestLink.fromFirestore(DocumentSnapshot doc) {
+    final data = Map<String, dynamic>.from(doc.data() as Map);
+    return InterestLink(
+      id: doc.id,
+      title: data['title'] ?? '',
+      url: data['url'] ?? '',
+      description: data['description'] ?? '',
+      icon: data['icon'],
+      imageUrl: data['image_url'],
+      active: data['active'] ?? true,
+      order: (data['order'] as num?)?.toInt() ?? 0,
+      createdAt: _date(data['created_at']),
+      updatedAt: _date(data['updated_at']),
+    );
+  }
+}
+
+class LegalPage {
+  final String id;
+  final String title;
+  final List<ContentBlock> content;
+  final bool published;
+  final DateTime? updatedContentAt;
+  final DateTime updatedAt;
+
+  const LegalPage({
+    required this.id,
+    required this.title,
+    this.content = const [],
+    this.published = false,
+    this.updatedContentAt,
+    required this.updatedAt,
+  });
+
+  factory LegalPage.fromFirestore(DocumentSnapshot doc) {
+    final data = Map<String, dynamic>.from(doc.data() as Map);
+    return LegalPage(
+      id: doc.id,
+      title: data['title'] ?? '',
+      content: _blocks(data['rich_content'] ?? data['content']),
+      published: data['published'] ?? false,
+      updatedContentAt: _optionalDate(data['content_updated_at']),
+      updatedAt: _date(data['updated_at']),
+    );
+  }
+}
+
+class ManagedCelebration {
+  final String id;
+  final String title;
+  final String type;
+  final String description;
+  final DateTime? date;
+  final int? month;
+  final int? day;
+  final bool annual;
+  final bool published;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const ManagedCelebration({
+    required this.id,
+    required this.title,
+    required this.type,
+    this.description = '',
+    this.date,
+    this.month,
+    this.day,
+    this.annual = false,
+    this.published = true,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory ManagedCelebration.fromFirestore(DocumentSnapshot doc) {
+    final data = Map<String, dynamic>.from(doc.data() as Map);
+    return ManagedCelebration(
+      id: doc.id,
+      title: data['title'] ?? '',
+      type: data['type'] ?? 'Cofradía',
+      description: data['description'] ?? '',
+      date: _optionalDate(data['date']),
+      month: (data['month'] as num?)?.toInt(),
+      day: (data['day'] as num?)?.toInt(),
+      annual: data['annual'] ?? false,
+      published: data['published'] ?? true,
+      createdAt: _date(data['created_at']),
+      updatedAt: _date(data['updated_at']),
+    );
+  }
+}

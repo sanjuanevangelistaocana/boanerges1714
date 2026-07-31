@@ -70,6 +70,7 @@ import 'package:boanerges1714/screens/admin/manage_encuestas_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_gallery_screen.dart';
 import 'package:boanerges1714/screens/admin/manage_evangelio_screen.dart';
 import 'package:boanerges1714/screens/admin/content_admin_screen.dart';
+import 'package:boanerges1714/screens/admin/site_content_admin_screen.dart';
 import 'package:boanerges1714/screens/private/encuestas_screen.dart';
 import 'package:boanerges1714/screens/private/turnos_andas/turnos_andas_screen.dart';
 import 'package:boanerges1714/screens/admin/turnos_andas/turnos_andas_admin_screen.dart';
@@ -172,6 +173,7 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/aviso-legal',
               builder: (context, state) => const LegalScreen(
+                    pageId: 'aviso-legal',
                     title: 'Aviso Legal',
                     summary:
                         'Información legal del sitio web de la Cofradía de San Juan Evangelista de Ocaña.',
@@ -179,6 +181,7 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/politica-privacidad',
               builder: (context, state) => const LegalScreen(
+                    pageId: 'politica-privacidad',
                     title: 'Política de Privacidad',
                     summary:
                         'Información sobre el tratamiento de datos personales en este sitio web.',
@@ -186,6 +189,7 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/politica-cookies',
               builder: (context, state) => const LegalScreen(
+                    pageId: 'politica-cookies',
                     title: 'Política de Cookies',
                     summary:
                         'Información sobre el uso de cookies y tecnologías similares en este sitio web.',
@@ -358,6 +362,10 @@ GoRouter createRouter(AuthService authService) {
           GoRoute(
               path: '/admin/evangelio',
               builder: (context, state) => const ManageEvangelioScreen()),
+          GoRoute(
+            path: '/admin/contenido-sitio',
+            builder: (context, state) => const SiteContentAdminScreen(),
+          ),
           GoRoute(
               path: '/admin/contenido',
               builder: (context, state) => const ContentAdminScreen()),

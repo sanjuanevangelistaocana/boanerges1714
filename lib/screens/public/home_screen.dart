@@ -12,6 +12,8 @@ import 'package:boanerges1714/widgets/home_carousel.dart';
 import 'package:boanerges1714/utils/madrid_date.dart';
 import 'package:boanerges1714/widgets/app_surface_card.dart';
 import 'package:boanerges1714/utils/liturgical_calendar.dart';
+import 'package:boanerges1714/models/content_models.dart';
+import 'package:boanerges1714/services/content_service.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -35,6 +37,8 @@ class HomeScreen extends StatelessWidget {
           _buildCalendarioEventos(context, firestoreService),
           const SizedBox(height: _sectionGap),
           _buildCalendarioLiturgico(context),
+          const SizedBox(height: _sectionGap),
+          _buildInterestLinks(context),
           const SizedBox(height: _sectionGap),
           _buildUltimasNoticias(context, firestoreService),
           const SizedBox(height: _sectionGap),
@@ -351,7 +355,17 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildCalendarioLiturgico(BuildContext context) {
-    final celebrations = LiturgicalCalendar.next(limit: 4);
+    return StreamBuilder<List<ManagedCelebration>>(
+      stream: context.read<ContentService>().watchCelebrations(),
+      builder: (context, snapshot) {
+        final celebrations = _mergedCelebrations(snapshot.data ?? const []);
+        return _buildLiturgicalCard(context, celebrations);
+      },
+    );
+  }
+
+  Widget _buildLiturgicalCard(
+      BuildContext context, List<LiturgicalCelebration> celebrations) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Center(
@@ -397,6 +411,90 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  List<LiturgicalCelebration> _mergedCelebrations(
+      List<ManagedCelebration> managed) {
+    final start = MadridDate.now();
+    final values = <LiturgicalCelebration>[
+      ...LiturgicalCalendar.next(from: start, limit: 8),
+    ];
+    for (final item in managed) {
+      DateTime? date;
+      if (item.annual && item.month != null && item.day != null) {
+        final candidate = DateTime(start.year, item.month!, item.day!);
+        date = candidate.isBefore(DateTime(start.year, start.month, start.day))
+            ? DateTime(start.year + 1, item.month!, item.day!)
+            : candidate;
+      } else if (!item.annual && item.date != null) {
+        date = DateTime(item.date!.year, item.date!.month, item.date!.day);
+      }
+      if (date == null ||
+          date.isBefore(DateTime(start.year, start.month, start.day))) {
+        continue;
+      }
+      values.add(LiturgicalCelebration(
+        date: date,
+        name: item.title,
+        season: item.type,
+        color: item.type,
+        sourceType: item.type,
+        description: item.description,
+      ));
+    }
+    values.sort((a, b) => a.date.compareTo(b.date));
+    return values.take(4).toList();
+  }
+
+  Widget _buildInterestLinks(BuildContext context) {
+    return StreamBuilder<List<InterestLink>>(
+      stream: context.read<ContentService>().watchInterestLinks(),
+      builder: (context, snapshot) {
+        final links = snapshot.data ?? const <InterestLink>[];
+        if (links.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _contentWidth),
+              child: AppSurfaceCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Enlaces de interés',
+                        style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: links
+                          .map((link) => Tooltip(
+                                message: link.description.isEmpty
+                                    ? link.url
+                                    : link.description,
+                                child: ActionChip(
+                                  avatar: link.imageUrl?.isNotEmpty == true
+                                      ? CircleAvatar(
+                                          backgroundImage:
+                                              NetworkImage(link.imageUrl!))
+                                      : const Icon(Icons.link, size: 18),
+                                  label: Text(link.title),
+                                  onPressed: () => launchUrl(
+                                    Uri.parse(link.url),
+                                    mode: LaunchMode.externalApplication,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Color _liturgicalColor(String? color) {
     switch (color) {
       case 'Morado':
@@ -404,6 +502,12 @@ class HomeScreen extends StatelessWidget {
       case 'Rojo':
         return const Color(0xFFB3261E);
       case 'Blanco':
+        return AppTheme.accentColor;
+      case 'Iglesia Católica':
+        return const Color(0xFF6A4C93);
+      case 'Hermandades invitadas':
+        return const Color(0xFF496A72);
+      case 'Festividades especiales':
         return AppTheme.accentColor;
       default:
         return AppTheme.primaryColor;
@@ -1215,6 +1319,7 @@ class _LiturgicalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = celebration.date;
+    final description = celebration.description;
     final month = DateFormat('MMM', 'es_ES')
         .format(date)
         .replaceAll('.', '')
@@ -1278,6 +1383,13 @@ class _LiturgicalRow extends StatelessWidget {
                   ),
                 ],
               ),
+              if ((description ?? '').isNotEmpty)
+                Text(
+                  description!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                ),
             ],
           ),
         ),

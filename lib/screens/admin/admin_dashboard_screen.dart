@@ -185,6 +185,11 @@ class AdminDashboardScreen extends StatelessWidget {
                           subtitle: 'Cofradía y patrimonio',
                           onTap: () => context.go('/admin/contenido')),
                       _AdminActionCard(
+                          icon: Icons.link,
+                          title: 'Contenido del sitio',
+                          subtitle: 'Enlaces, legales y calendario',
+                          onTap: () => context.go('/admin/contenido-sitio')),
+                      _AdminActionCard(
                           icon: Icons.article,
                           title: 'Noticias',
                           subtitle: 'Publicar y editar',

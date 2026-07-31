@@ -5,12 +5,16 @@ class LiturgicalCelebration {
   final String name;
   final String season;
   final String? color;
+  final String? sourceType;
+  final String? description;
 
   const LiturgicalCelebration({
     required this.date,
     required this.name,
     required this.season,
     this.color,
+    this.sourceType,
+    this.description,
   });
 }
 

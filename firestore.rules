@@ -384,6 +384,24 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
+    match /interest_links/{linkId} {
+      allow get: if isAdmin() || resource.data.active == true;
+      allow list: if isAdmin() || resource.data.active == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /legal_pages/{pageId} {
+      allow get: if isAdmin() || resource.data.published == true;
+      allow list: if isAdmin() || resource.data.published == true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /managed_celebrations/{celebrationId} {
+      allow get: if isAdmin() || resource.data.published == true;
+      allow list: if isAdmin() || resource.data.published == true;
+      allow create, update, delete: if isAdmin();
+    }
+
     // Documentos collection
     match /documentos/{documentoId} {
       // Only authenticated users can read documents
