@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:boanerges1714/widgets/responsive_dialog.dart';
+import 'package:boanerges1714/widgets/responsive_data_table.dart';
 import 'dart:html' as html;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -3348,48 +3349,44 @@ class _CampaignAdminCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Informe · ${campaign.name}'),
-        content: SizedBox(
-          width: 720,
-          child: StreamBuilder<List<EventRegistration>>(
-            stream: service.watchRegistrations(campaign.id),
-            builder: (context, snap) {
-              final regs = snap.data ?? const <EventRegistration>[];
-              final rows = <DataRow>[];
-              for (final reg in regs) {
-                for (final participant in reg.participants) {
-                  rows.add(DataRow(cells: [
-                    DataCell(Text(reg.cofradeName)),
-                    DataCell(Text('${participant['name'] ?? ''}')),
-                    DataCell(Text('${participant['type'] ?? 'cofrade'}')),
-                    DataCell(Text(_registrationStatusLabel(reg.status))),
-                    DataCell(Text(_paymentStatusLabel(reg.paymentStatus))),
-                    DataCell(Text(
-                        '${((participant['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)} €')),
-                  ]));
-                }
+        content: StreamBuilder<List<EventRegistration>>(
+          stream: service.watchRegistrations(campaign.id),
+          builder: (context, snap) {
+            final regs = snap.data ?? const <EventRegistration>[];
+            final rows = <ResponsiveTableRow>[];
+            for (final reg in regs) {
+              for (final participant in reg.participants) {
+                rows.add(ResponsiveTableRow(cells: [
+                  Text(reg.cofradeName),
+                  Text('${participant['name'] ?? ''}'),
+                  Text('${participant['type'] ?? 'cofrade'}'),
+                  Text(_registrationStatusLabel(reg.status)),
+                  Text(_paymentStatusLabel(reg.paymentStatus)),
+                  Text(
+                    '${((participant['price'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)} €',
+                  ),
+                ]));
               }
-              if (rows.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No hay datos para el informe.'),
-                );
-              }
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: const [
-                    DataColumn(label: Text('Titular')),
-                    DataColumn(label: Text('Participante')),
-                    DataColumn(label: Text('Tipo')),
-                    DataColumn(label: Text('Estado')),
-                    DataColumn(label: Text('Pago')),
-                    DataColumn(label: Text('Importe')),
-                  ],
-                  rows: rows,
-                ),
+            }
+            if (rows.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No hay datos para el informe.'),
               );
-            },
-          ),
+            }
+            return ResponsiveDataTable(
+              columns: const [
+                ResponsiveTableColumn(label: 'Titular', mobilePriority: 0),
+                ResponsiveTableColumn(label: 'Participante', mobilePriority: 0),
+                ResponsiveTableColumn(label: 'Tipo', mobilePriority: 2),
+                ResponsiveTableColumn(label: 'Estado', mobilePriority: 1),
+                ResponsiveTableColumn(label: 'Pago', mobilePriority: 1),
+                ResponsiveTableColumn(
+                    label: 'Importe', mobilePriority: 2, numeric: true),
+              ],
+              rows: rows,
+            );
+          },
         ),
         actions: [
           TextButton(
