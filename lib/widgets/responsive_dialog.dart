@@ -18,10 +18,35 @@ Future<T?> showAppDialog<T>({
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (dialogContext) {
+      final content = builder(dialogContext);
+      if (content is AlertDialog && useFullscreen) {
+        return _fullscreenAlertDialog(dialogContext, content);
+      }
+      if (content is SimpleDialog && useFullscreen) {
+        return _fullscreenSimpleDialog(dialogContext, content);
+      }
+      if (content is Dialog ||
+          content is AlertDialog ||
+          content is SimpleDialog) {
+        if (useFullscreen) {
+          return Dialog.fullscreen(
+            child: SafeArea(child: content),
+          );
+        }
+        final width = MediaQuery.of(dialogContext).size.width;
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: _dialogWidth(width, desiredWidth),
+            ),
+            child: content,
+          ),
+        );
+      }
       final body = _ResponsiveDialogBody(
         title: title,
         actions: actions,
-        builder: builder,
+        content: content,
       );
       if (useFullscreen) {
         return Dialog.fullscreen(
@@ -43,15 +68,84 @@ Future<T?> showAppDialog<T>({
   );
 }
 
+double _dialogWidth(double screenWidth, double desiredWidth) {
+  return (screenWidth - 32).clamp(0, desiredWidth).toDouble();
+}
+
+Widget _fullscreenAlertDialog(BuildContext context, AlertDialog dialog) {
+  return Dialog.fullscreen(
+    child: SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (dialog.title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              child: DefaultTextStyle(
+                style: Theme.of(context).textTheme.titleLarge!,
+                child: dialog.title!,
+              ),
+            ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: dialog.content ?? const SizedBox.shrink(),
+            ),
+          ),
+          if (dialog.actions != null && dialog.actions!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: dialog.actions!,
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _fullscreenSimpleDialog(BuildContext context, SimpleDialog dialog) {
+  return Dialog.fullscreen(
+    child: SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (dialog.title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              child: DefaultTextStyle(
+                style: Theme.of(context).textTheme.titleLarge!,
+                child: dialog.title!,
+              ),
+            ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: dialog.children,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _ResponsiveDialogBody extends StatelessWidget {
   final String? title;
   final List<Widget> actions;
-  final WidgetBuilder builder;
+  final Widget content;
 
   const _ResponsiveDialogBody({
     required this.title,
     required this.actions,
-    required this.builder,
+    required this.content,
   });
 
   @override
@@ -69,7 +163,7 @@ class _ResponsiveDialogBody extends StatelessWidget {
           ],
           Flexible(
             child: SingleChildScrollView(
-              child: builder(context),
+              child: content,
             ),
           ),
           if (actions.isNotEmpty) ...[
