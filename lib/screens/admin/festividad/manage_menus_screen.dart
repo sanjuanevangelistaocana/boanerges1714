@@ -181,7 +181,7 @@ class ManageMenusFestividadScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Nuevo menú'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -243,7 +243,7 @@ class ManageMenusFestividadScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Editar menú'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,

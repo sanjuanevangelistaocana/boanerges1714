@@ -778,7 +778,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
         builder: (ctx, setLocalState) => AlertDialog(
           title:
               Text(center == null ? 'Crear centro de coste' : 'Editar centro'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 420,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -943,7 +943,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
               centers.where((center) => center.parentId == centerId).toList();
           return AlertDialog(
             title: const Text('Nuevo movimiento contable'),
-            content: SizedBox(
+            content: ResponsiveDialogBox(
               width: 620,
               child: SingleChildScrollView(
                 child: Column(
@@ -1280,7 +1280,7 @@ class _AccountingScreenState extends State<AccountingScreen> {
               centers.where((center) => center.parentId == centerId).toList();
           return AlertDialog(
             title: const Text('Editar movimiento'),
-            content: SizedBox(
+            content: ResponsiveDialogBox(
               width: 620,
               child: SingleChildScrollView(
                 child: Column(

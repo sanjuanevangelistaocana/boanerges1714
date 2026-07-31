@@ -434,7 +434,7 @@ class _SiteContentAdminScreenState extends State<SiteContentAdminScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(title),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 720,
           child: SingleChildScrollView(child: Column(children: content)),
         ),

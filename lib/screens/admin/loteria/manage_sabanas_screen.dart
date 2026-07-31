@@ -150,7 +150,7 @@ class ManageSabanasScreen extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           title: const Text('Añadir Sábana'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 400,
             child: Column(
               mainAxisSize: MainAxisSize.min,

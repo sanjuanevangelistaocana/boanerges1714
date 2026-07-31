@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 
@@ -312,7 +313,7 @@ class _AdminEncuestaCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Historial de auditoría'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 500,
           child: encuesta.auditLog.isEmpty
               ? const Text('Sin registros de auditoría.')
@@ -592,7 +593,7 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
     return AlertDialog(
       title:
           Text(widget.encuesta == null ? 'Nueva encuesta' : 'Editar encuesta'),
-      content: SizedBox(
+      content: ResponsiveDialogBox(
         width: 780,
         child: Form(
           key: _formKey,

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -136,7 +137,7 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(folder == null ? 'Nueva carpeta' : 'Editar carpeta'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 500,
             child: Column(
               mainAxisSize: MainAxisSize.min,

@@ -1751,7 +1751,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
           title: Text(title),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 400,
             child: SingleChildScrollView(
               child: Wrap(
@@ -1870,7 +1870,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Historial de cambios'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 500,
           height: 400,
           child: StreamBuilder<List<Map<String, dynamic>>>(
@@ -1923,7 +1923,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Analítica'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 400,
           child: FutureBuilder<Map<String, dynamic>>(
             future: service.getAnalytics(widget.noticia!.id),

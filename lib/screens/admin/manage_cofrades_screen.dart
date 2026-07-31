@@ -1290,7 +1290,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Panel de incidencias'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 720,
           height: 520,
           child: ListView(
@@ -1475,7 +1475,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Vista 360 · ${cofrade.nombreCompleto}'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 760,
           height: 620,
           child: ListView(
@@ -1605,7 +1605,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('Nuevo cofrade'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 460,
             child: SingleChildScrollView(
               child: Column(
@@ -1835,7 +1835,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Gestión de tags'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 720,
           child: StreamBuilder<List<TagConfig>>(
             stream: fs.getTagsConfig(),
@@ -1961,7 +1961,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(tag == null ? 'Crear tag' : 'Editar tag'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 460,
             child: SingleChildScrollView(
               child: Column(
@@ -2334,7 +2334,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Configuración de campos'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 760,
           child: StreamBuilder<List<CofradeFieldConfig>>(
             stream: fs.getCofradeFieldsConfig(),
@@ -2416,7 +2416,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(field == null ? 'Crear campo' : 'Editar campo'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 460,
             child: SingleChildScrollView(
               child: Column(
@@ -2541,7 +2541,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Seguridad y permisos'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 760,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2629,7 +2629,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Auditoría · ${cofrade.nombreCompleto}'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 700,
           height: 420,
           child: StreamBuilder(
@@ -2753,7 +2753,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('Añadir usuario a roles'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 640,
             height: 480,
             child: Column(
@@ -2846,7 +2846,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text('Permisos · ${cofrade.nombreCompleto}'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 720,
             child: SingleChildScrollView(
               child: Column(
@@ -2950,7 +2950,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Dar de baja'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 520,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -3058,7 +3058,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Modificar n\u00famero de cofrade'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 460,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -3541,7 +3541,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text('Editar: ${cofrade.nombreCompleto}'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 600,
             child: SingleChildScrollView(
               child: Column(
@@ -4196,7 +4196,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Mensajes · ${cofrade.nombreCompleto}'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 720,
           height: 520,
           child: Column(

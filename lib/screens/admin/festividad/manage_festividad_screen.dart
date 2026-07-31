@@ -229,7 +229,7 @@ class _ManageFestividadScreenState extends State<ManageFestividadScreen> {
           final fmt = DateFormat('dd/MM/yyyy');
           return AlertDialog(
             title: const Text('Nueva edición'),
-            content: SizedBox(
+            content: ResponsiveDialogBox(
               width: 500,
               child: SingleChildScrollView(
                 child: Column(
@@ -723,7 +723,7 @@ class _EdicionCard extends StatelessWidget {
           final fmt = DateFormat('dd/MM/yyyy');
           return AlertDialog(
             title: const Text('Editar edición'),
-            content: SizedBox(
+            content: ResponsiveDialogBox(
               width: 500,
               child: SingleChildScrollView(
                 child: Column(

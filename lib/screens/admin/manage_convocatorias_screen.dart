@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 // CSV export for Flutter Web. The project already targets web for admin tools.
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
@@ -186,7 +187,7 @@ class _SurveyEditorDialogState extends State<_SurveyEditorDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(widget.survey == null ? 'Nueva encuesta' : 'Editar encuesta'),
-      content: SizedBox(
+      content: ResponsiveDialogBox(
         width: 720,
         child: Form(
           key: _formKey,
@@ -761,7 +762,7 @@ class _SurveyDetailDialog extends StatelessWidget {
     final service = context.read<FirestoreService>();
     return AlertDialog(
       title: Text('Detalle · ${survey.titulo}'),
-      content: SizedBox(
+      content: ResponsiveDialogBox(
         width: 780,
         child: StreamBuilder<List<RespuestaConvocatoria>>(
           stream: service.getRespuestas(survey.id),

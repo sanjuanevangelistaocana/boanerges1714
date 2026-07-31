@@ -213,7 +213,7 @@ class ManageVendedoresLoteriaScreen extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           title: Text(isEdit ? 'Editar Vendedor' : 'Nuevo Vendedor'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 450,
             child: Column(
               mainAxisSize: MainAxisSize.min,

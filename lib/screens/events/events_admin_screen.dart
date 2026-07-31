@@ -648,7 +648,7 @@ class _ConfigurableCampaignAdminState
         builder: (ctx, setLocalState) => AlertDialog(
           title:
               Text(campaign == null ? 'Crear nuevo evento' : 'Editar evento'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 620,
             child: SingleChildScrollView(
               child: Column(
@@ -1551,7 +1551,7 @@ class _ConfigurableCampaignAdminState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: const Text('Menú del evento'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 440,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1666,7 +1666,7 @@ class _ConfigurableCampaignAdminState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: const Text('Campo personalizado'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 460,
             child: SingleChildScrollView(
               child: Column(
@@ -2517,7 +2517,7 @@ class _CampaignAdminCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar evento'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2569,7 +2569,7 @@ class _CampaignAdminCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Dashboard · ${campaign.name}'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 620,
           child: StreamBuilder<List<EventRegistration>>(
             stream: service.watchRegistrations(campaign.id),
@@ -2702,7 +2702,7 @@ class _CampaignAdminCard extends StatelessWidget {
             : campaign.type == 'palmas'
                 ? 'Peticiones · ${campaign.name}'
                 : 'Inscripciones · ${campaign.name}'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 760,
           child: StreamBuilder<List<EventRegistration>>(
             stream: service.watchRegistrations(campaign.id),
@@ -3028,7 +3028,7 @@ class _CampaignAdminCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Pendientes de respuesta · ${campaign.name}'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 560,
           child: pending.isEmpty
               ? const Text('No quedan cofrades pendientes de respuesta.')
@@ -3140,7 +3140,7 @@ class _CampaignAdminCard extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: Text('Delegaciones · ${registration.cofradeName}'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 620,
             child: SingleChildScrollView(
               child: Column(
@@ -3402,7 +3402,7 @@ class _CampaignAdminCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Portada del evento'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 440,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -3471,7 +3471,7 @@ class _CampaignAdminCard extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: const Text('Adjuntos del evento'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 560,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -3620,7 +3620,7 @@ class _CampaignAdminCard extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: const Text('Aviso emergente al iniciar sesión'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 520,
             child: SingleChildScrollView(
               child: Column(

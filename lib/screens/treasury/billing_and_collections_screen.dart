@@ -333,7 +333,7 @@ class _BillingAndCollectionsScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: Text('Editar precuota de ${draft.cofradeName}'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 420,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -746,7 +746,7 @@ class _BillingAndCollectionsScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: Text('Registrar cobro de ${invoice.invoiceNumber}'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 420,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -819,7 +819,7 @@ class _BillingAndCollectionsScreenState
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Avisos de generación'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 520,
           child: ListView(
             shrinkWrap: true,

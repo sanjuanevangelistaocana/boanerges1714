@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
@@ -220,7 +221,7 @@ class _GalleryModerationSectionState extends State<GalleryModerationSection> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text('Importar «${request.titulo}»'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 760,
             height: 560,
             child: Column(

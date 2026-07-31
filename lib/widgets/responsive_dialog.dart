@@ -1,6 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:boanerges1714/config/responsive.dart';
 
+class ResponsiveDialogBox extends StatelessWidget {
+  final double width;
+  final double? height;
+  final Widget child;
+
+  const ResponsiveDialogBox({
+    super.key,
+    required this.width,
+    this.height,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final availableWidth = MediaQuery.sizeOf(context).width - 64;
+    final availableHeight = MediaQuery.sizeOf(context).height * .72;
+    return SizedBox(
+      width: width > availableWidth ? availableWidth : width,
+      height: height == null
+          ? null
+          : height! > availableHeight
+              ? availableHeight
+              : height,
+      child: child,
+    );
+  }
+}
+
 Future<T?> showAppDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,

@@ -301,7 +301,7 @@ class ManageLoteriaScreen extends StatelessWidget {
 
           return AlertDialog(
             title: Text(isEdit ? 'Editar Campaña' : 'Nueva Campaña'),
-            content: SizedBox(
+            content: ResponsiveDialogBox(
               width: 500,
               child: SingleChildScrollView(
                 child: Column(

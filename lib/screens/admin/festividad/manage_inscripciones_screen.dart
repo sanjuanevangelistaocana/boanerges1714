@@ -270,7 +270,7 @@ class _ManageInscripcionesFestividadScreenState
             Text('Asistente de Protocolo'),
           ],
         ),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 400,
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: fs.getFestividadMenus(widget.edicionId),
@@ -630,7 +630,7 @@ class _InscripcionCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Pago parcial'),
-        content: SizedBox(
+        content: ResponsiveDialogBox(
           width: 380,
           child: Column(
             mainAxisSize: MainAxisSize.min,

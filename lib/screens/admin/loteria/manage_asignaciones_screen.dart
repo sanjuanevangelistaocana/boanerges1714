@@ -383,7 +383,7 @@ class ManageAsignacionesScreen extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           title: const Text('Nueva Asignación'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 450,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -637,7 +637,7 @@ class _DecimoAdminChip extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
           title: const Text('Pago entregado a la Cofradía'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 420,
             child: Column(
               mainAxisSize: MainAxisSize.min,

@@ -85,7 +85,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(section == null ? 'Nueva sección' : 'Editar sección'),
-          content: SizedBox(
+          content: ResponsiveDialogBox(
             width: 520,
             child: SingleChildScrollView(
               child: Column(
@@ -1004,7 +1004,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
   }) {
     return AlertDialog(
       title: Text(title),
-      content: SizedBox(width: 760, child: content),
+      content: ResponsiveDialogBox(width: 760, child: content),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
