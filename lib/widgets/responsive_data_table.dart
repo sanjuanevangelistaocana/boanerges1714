@@ -1,27 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:boanerges1714/config/responsive.dart';
 
+typedef ResponsiveSortCallback = void Function(
+  int columnIndex,
+  bool ascending,
+);
+
+typedef ResponsiveRowSelectionCallback = void Function(
+  int rowIndex,
+  bool selected,
+);
+
 class ResponsiveTableColumn {
   final String label;
   final Widget? heading;
   final int mobilePriority;
   final bool numeric;
+  final void Function(int columnIndex, bool ascending)? onSort;
 
   const ResponsiveTableColumn({
     required this.label,
     this.heading,
     this.mobilePriority = 0,
     this.numeric = false,
+    this.onSort,
   });
 }
 
 class ResponsiveTableRow {
   final List<Widget> cells;
   final Widget? actions;
+  final bool selected;
+  final ValueChanged<bool?>? onSelectChanged;
 
   const ResponsiveTableRow({
     required this.cells,
     this.actions,
+    this.selected = false,
+    this.onSelectChanged,
   });
 }
 
@@ -31,6 +47,13 @@ class ResponsiveDataTable extends StatelessWidget {
   final int maxMobilePriority;
   final double columnSpacing;
   final double? headingRowHeight;
+  final int? sortColumnIndex;
+  final bool sortAscending;
+  final ResponsiveSortCallback? onSort;
+  final bool showCheckboxColumn;
+  final Widget? header;
+  final Widget? headerActions;
+  final Widget? emptyState;
 
   const ResponsiveDataTable({
     super.key,
@@ -39,27 +62,46 @@ class ResponsiveDataTable extends StatelessWidget {
     this.maxMobilePriority = 2,
     this.columnSpacing = 56,
     this.headingRowHeight,
+    this.sortColumnIndex,
+    this.sortAscending = true,
+    this.onSort,
+    this.showCheckboxColumn = false,
+    this.header,
+    this.headerActions,
+    this.emptyState,
   });
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
+    final tableContent = LayoutBuilder(
       builder: (context, constraints) {
+        if (rows.isEmpty && emptyState != null) {
+          return emptyState!;
+        }
         if (!context.responsive.isMobile) {
           return DataTable(
             columnSpacing: columnSpacing,
             headingRowHeight: headingRowHeight,
+            sortColumnIndex: sortColumnIndex,
+            sortAscending: sortAscending,
+            showCheckboxColumn: showCheckboxColumn,
             columns: columns
                 .map(
                   (column) => DataColumn(
                     label: column.heading ?? Text(column.label),
                     numeric: column.numeric,
+                    onSort: column.onSort ??
+                        (onSort == null
+                            ? null
+                            : (index, ascending) => onSort!(index, ascending)),
                   ),
                 )
                 .toList(),
             rows: rows
                 .map(
                   (row) => DataRow(
+                    selected: row.selected,
+                    onSelectChanged: row.onSelectChanged,
                     cells: row.cells.map((cell) => DataCell(cell)).toList(),
                   ),
                 )
@@ -79,6 +121,24 @@ class ResponsiveDataTable extends StatelessWidget {
               .toList(),
         );
       },
+    );
+    if (header == null && headerActions == null) return tableContent;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (header != null || headerActions != null)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (header != null) Expanded(child: header!),
+              if (headerActions != null) ...[
+                if (header != null) const SizedBox(width: 12),
+                headerActions!,
+              ],
+            ],
+          ),
+        tableContent,
+      ],
     );
   }
 }
@@ -130,6 +190,13 @@ class _ResponsiveDataCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ...cells,
+            if (row.onSelectChanged != null)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: row.selected,
+                onChanged: row.onSelectChanged,
+                title: const Text('Seleccionar fila'),
+              ),
             if (row.actions != null) ...[
               const Divider(height: 20),
               Align(
