@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/models/solicitud.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 const Map<String, String> _localidadesCp = {
   'Oca\u00f1a': '45300',
@@ -160,9 +161,15 @@ class _SolicitudAltaScreenState extends State<SolicitudAltaScreen> {
       ),
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 500),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: ResponsiveContentBox(
+            maxWidth: 500,
+            padding: EdgeInsets.zero,
             child: Column(
               children: [
                 const Icon(Icons.person_add,

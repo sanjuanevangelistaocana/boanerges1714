@@ -50,7 +50,8 @@ class _PublicarOfertaScreenState extends State<PublicarOfertaScreen> {
   }
 
   TextEditingController _getTallaController(String elemento) {
-    return _tallaControllers.putIfAbsent(elemento, () => TextEditingController());
+    return _tallaControllers.putIfAbsent(
+        elemento, () => TextEditingController());
   }
 
   Future<void> _publicar() async {
@@ -73,11 +74,15 @@ class _PublicarOfertaScreenState extends State<PublicarOfertaScreen> {
         final t = _getTallaController(e).text.trim();
         if (t.isNotEmpty) tallasPorElemento[e] = t;
       }
-      final tallaResumen = tallasPorElemento.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+      final tallaResumen = tallasPorElemento.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join(', ');
 
       await fs.crearOferta(
         cofradeId: auth.cofrade?.id ?? '',
-        nombrePublicador: '${auth.cofrade?.nombre ?? ''} ${auth.cofrade?.apellidos ?? ''}'.trim(),
+        nombrePublicador:
+            '${auth.cofrade?.nombre ?? ''} ${auth.cofrade?.apellidos ?? ''}'
+                .trim(),
         telefonoPublicador: _telefonoController.text.trim(),
         elementos: _elementosSeleccionados.toList(),
         talla: tallaResumen,
@@ -110,6 +115,9 @@ class _PublicarOfertaScreenState extends State<PublicarOfertaScreen> {
     final isAdmin = auth.isAdmin;
 
     return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: Column(
         children: [
           Container(
@@ -162,12 +170,10 @@ class _PublicarOfertaScreenState extends State<PublicarOfertaScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: kElementosHabito.map((e) {
-                          final selected =
-                              _elementosSeleccionados.contains(e);
+                          final selected = _elementosSeleccionados.contains(e);
                           return FilterChip(
                             label: Text(e),
-                            avatar: Icon(
-                                kElementoIcons[e] ?? Icons.checkroom,
+                            avatar: Icon(kElementoIcons[e] ?? Icons.checkroom,
                                 size: 18),
                             selected: selected,
                             onSelected: (val) {
@@ -179,28 +185,31 @@ class _PublicarOfertaScreenState extends State<PublicarOfertaScreen> {
                                 }
                               });
                             },
-                            selectedColor:
-                                AppTheme.accentColor.withAlpha(30),
+                            selectedColor: AppTheme.accentColor.withAlpha(30),
                           );
                         }).toList(),
                       ),
                       const SizedBox(height: 20),
                       if (_elementosSeleccionados.isNotEmpty) ...[
                         const Text('Talla / Medidas por elemento',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 8),
                         ..._elementosSeleccionados.map((elemento) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: TextFormField(
-                            controller: _getTallaController(elemento),
-                            decoration: InputDecoration(
-                              labelText: 'Talla de $elemento',
-                              hintText: 'Ej: M, 42, 1.75m...',
-                              prefixIcon: Icon(kElementoIcons[elemento] ?? Icons.straighten, size: 20),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        )),
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: TextFormField(
+                                controller: _getTallaController(elemento),
+                                decoration: InputDecoration(
+                                  labelText: 'Talla de $elemento',
+                                  hintText: 'Ej: M, 42, 1.75m...',
+                                  prefixIcon: Icon(
+                                      kElementoIcons[elemento] ??
+                                          Icons.straighten,
+                                      size: 20),
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                            )),
                         const SizedBox(height: 6),
                       ],
                       DropdownButtonFormField<String>(
@@ -211,8 +220,8 @@ class _PublicarOfertaScreenState extends State<PublicarOfertaScreen> {
                           border: OutlineInputBorder(),
                         ),
                         items: _estadosConservacion
-                            .map((e) => DropdownMenuItem(
-                                value: e, child: Text(e)))
+                            .map((e) =>
+                                DropdownMenuItem(value: e, child: Text(e)))
                             .toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -282,15 +291,14 @@ class _PublicarOfertaScreenState extends State<PublicarOfertaScreen> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2))
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.publish),
                           label: Text(
                               _isLoading ? 'Publicando...' : 'Publicar Oferta'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.accentColor,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
                       ),

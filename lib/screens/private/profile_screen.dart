@@ -6,6 +6,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 import 'package:boanerges1714/models/cofrade_field_config.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -122,9 +123,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bool dniLocked = cofrade?.dni != null && cofrade!.dni!.isNotEmpty;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: ResponsiveContentBox(
+        maxWidth: 600,
+        padding: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -367,31 +374,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        Row(
+                        ResponsiveFormRow(
                           children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  setState(() => _isEditing = false);
-                                  _resetFields();
-                                },
-                                child: const Text('Cancelar'),
-                              ),
+                            OutlinedButton(
+                              onPressed: () {
+                                setState(() => _isEditing = false);
+                                _resetFields();
+                              },
+                              child: const Text('Cancelar'),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _isSaving ? null : _saveProfile,
-                                child: _isSaving
-                                    ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white),
-                                      )
-                                    : const Text('Guardar'),
-                              ),
+                            ElevatedButton(
+                              onPressed: _isSaving ? null : _saveProfile,
+                              child: _isSaving
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Text('Guardar'),
                             ),
                           ],
                         ),

@@ -40,7 +40,8 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
   }
 
   TextEditingController _getTallaController(String elemento) {
-    return _tallaControllers.putIfAbsent(elemento, () => TextEditingController());
+    return _tallaControllers.putIfAbsent(
+        elemento, () => TextEditingController());
   }
 
   Future<void> _publicar() async {
@@ -63,11 +64,15 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
         final t = _getTallaController(e).text.trim();
         if (t.isNotEmpty) tallasPorElemento[e] = t;
       }
-      final tallaResumen = tallasPorElemento.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+      final tallaResumen = tallasPorElemento.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join(', ');
 
       await fs.crearDemanda(
         cofradeId: auth.cofrade?.id ?? '',
-        nombreDemandante: '${auth.cofrade?.nombre ?? ''} ${auth.cofrade?.apellidos ?? ''}'.trim(),
+        nombreDemandante:
+            '${auth.cofrade?.nombre ?? ''} ${auth.cofrade?.apellidos ?? ''}'
+                .trim(),
         telefonoDemandante: _telefonoController.text.trim(),
         elementos: _elementosSeleccionados.toList(),
         talla: tallaResumen,
@@ -95,6 +100,9 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
       child: Column(
         children: [
           Container(
@@ -146,12 +154,10 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: kElementosHabito.map((e) {
-                          final selected =
-                              _elementosSeleccionados.contains(e);
+                          final selected = _elementosSeleccionados.contains(e);
                           return FilterChip(
                             label: Text(e),
-                            avatar: Icon(
-                                kElementoIcons[e] ?? Icons.checkroom,
+                            avatar: Icon(kElementoIcons[e] ?? Icons.checkroom,
                                 size: 18),
                             selected: selected,
                             onSelected: (val) {
@@ -163,28 +169,31 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
                                 }
                               });
                             },
-                            selectedColor:
-                                AppTheme.accentColor.withAlpha(30),
+                            selectedColor: AppTheme.accentColor.withAlpha(30),
                           );
                         }).toList(),
                       ),
                       const SizedBox(height: 20),
                       if (_elementosSeleccionados.isNotEmpty) ...[
                         const Text('Talla / Medidas por elemento',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
                         const SizedBox(height: 8),
                         ..._elementosSeleccionados.map((elemento) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: TextFormField(
-                            controller: _getTallaController(elemento),
-                            decoration: InputDecoration(
-                              labelText: 'Talla de $elemento',
-                              hintText: 'Ej: M, 42, 1.75m...',
-                              prefixIcon: Icon(kElementoIcons[elemento] ?? Icons.straighten, size: 20),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        )),
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: TextFormField(
+                                controller: _getTallaController(elemento),
+                                decoration: InputDecoration(
+                                  labelText: 'Talla de $elemento',
+                                  hintText: 'Ej: M, 42, 1.75m...',
+                                  prefixIcon: Icon(
+                                      kElementoIcons[elemento] ??
+                                          Icons.straighten,
+                                      size: 20),
+                                  border: const OutlineInputBorder(),
+                                ),
+                              ),
+                            )),
                         const SizedBox(height: 6),
                       ],
                       TextFormField(
@@ -224,16 +233,15 @@ class _PublicarDemandaScreenState extends State<PublicarDemandaScreen> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2))
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.publish),
                           label: Text(_isLoading
                               ? 'Publicando...'
                               : 'Publicar Demanda'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.accentColor,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
                       ),

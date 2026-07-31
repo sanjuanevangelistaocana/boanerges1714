@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/app_logo.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,9 +37,15 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: ResponsiveContentBox(
+            maxWidth: 400,
+            padding: EdgeInsets.zero,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -193,8 +200,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('¿Eres cofrade y no tienes cuenta? '),
                     TextButton(
@@ -204,8 +212,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('¿No eres cofrade? '),
                     TextButton(

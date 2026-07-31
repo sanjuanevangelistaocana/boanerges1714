@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/widgets/app_logo.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -35,9 +36,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 450),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: ResponsiveContentBox(
+            maxWidth: 450,
+            padding: EdgeInsets.zero,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -163,8 +170,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text('¿Ya tienes cuenta? '),
                     TextButton(

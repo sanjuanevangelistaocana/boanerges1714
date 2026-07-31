@@ -12,6 +12,7 @@ import 'package:boanerges1714/config/theme.dart';
 import 'package:boanerges1714/services/auth_service.dart';
 import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
+import 'package:boanerges1714/widgets/responsive_layout.dart';
 
 class GdprConsentScreen extends StatefulWidget {
   const GdprConsentScreen({super.key});
@@ -69,146 +70,147 @@ class _GdprConsentScreenState extends State<GdprConsentScreen> {
             _tutorRelationshipController.text.trim().isEmpty);
     final canSubmit = _read && _treatment && _communications && !_saving;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 820),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${consent['title'] ?? 'Consentimiento de protección de datos'}',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Versión: ${consent['versionId'] ?? 'gdpr-rgpd-v1'}'),
-                  if (requiresTutor) ...[
-                    const SizedBox(height: 12),
-                    Card(
-                      color: tutorDataMissing
-                          ? Colors.red.shade50
-                          : Colors.blue.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Firma por tutela digital',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                                'Cofrade tutelado: ${cofrade?.nombreCompleto ?? "-"}'),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        24,
+        24,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: ResponsiveContentBox(
+        maxWidth: 820,
+        padding: EdgeInsets.zero,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${consent['title'] ?? 'Consentimiento de protección de datos'}',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 8),
+                Text('Versión: ${consent['versionId'] ?? 'gdpr-rgpd-v1'}'),
+                if (requiresTutor) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    color: tutorDataMissing
+                        ? Colors.red.shade50
+                        : Colors.blue.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Firma por tutela digital',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                              'Cofrade tutelado: ${cofrade?.nombreCompleto ?? "-"}'),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _tutorNameController,
+                            decoration: const InputDecoration(
+                                labelText: 'Nombre del tutor'),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          TextField(
+                            controller: _tutorDniController,
+                            decoration:
+                                const InputDecoration(labelText: 'DNI tutor'),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          TextField(
+                            controller: _tutorPhoneController,
+                            decoration: const InputDecoration(
+                                labelText: 'Teléfono tutor'),
+                            keyboardType: TextInputType.phone,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          TextField(
+                            controller: _tutorEmailController,
+                            decoration:
+                                const InputDecoration(labelText: 'Email tutor'),
+                            keyboardType: TextInputType.emailAddress,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          TextField(
+                            controller: _tutorRelationshipController,
+                            decoration:
+                                const InputDecoration(labelText: 'Parentesco'),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                          if (tutorDataMissing) ...[
                             const SizedBox(height: 8),
-                            TextField(
-                              controller: _tutorNameController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Nombre del tutor'),
-                              onChanged: (_) => setState(() {}),
+                            const Text(
+                              'Faltan datos obligatorios del tutor. Contacta con la Cofradía para completarlos antes de firmar.',
+                              style: TextStyle(color: Colors.red),
                             ),
-                            TextField(
-                              controller: _tutorDniController,
-                              decoration:
-                                  const InputDecoration(labelText: 'DNI tutor'),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            TextField(
-                              controller: _tutorPhoneController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Teléfono tutor'),
-                              keyboardType: TextInputType.phone,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            TextField(
-                              controller: _tutorEmailController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Email tutor'),
-                              keyboardType: TextInputType.emailAddress,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            TextField(
-                              controller: _tutorRelationshipController,
-                              decoration: const InputDecoration(
-                                  labelText: 'Parentesco'),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            if (tutorDataMissing) ...[
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Faltan datos obligatorios del tutor. Contacta con la Cofradía para completarlos antes de firmar.',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
                           ],
-                        ),
+                        ],
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 16),
-                  Container(
-                    height: 360,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SingleChildScrollView(
-                      child: Text(
-                          '${consent['legalText'] ?? defaultGdprLegalText}'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _read,
-                    onChanged: (value) =>
-                        setState(() => _read = value ?? false),
-                    title: const Text(
-                        'He leído y comprendido la información sobre protección de datos'),
-                  ),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _treatment,
-                    onChanged: (value) =>
-                        setState(() => _treatment = value ?? false),
-                    title: const Text(
-                        'Consiento el tratamiento de mis datos personales para la gestión interna de la Cofradía'),
-                  ),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _communications,
-                    onChanged: (value) =>
-                        setState(() => _communications = value ?? false),
-                    title: const Text(
-                        'Consiento recibir comunicaciones relacionadas con la actividad de la Cofradía'),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed:
-                          canSubmit && !tutorDataMissing ? _accept : null,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Firmar y aceptar consentimiento'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Podrás consultar posteriormente la fecha, versión y estado del consentimiento desde tu perfil.',
-                    style: TextStyle(color: AppTheme.textSecondary),
                   ),
                 ],
-              ),
+                const SizedBox(height: 16),
+                Container(
+                  height: 360,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SingleChildScrollView(
+                    child:
+                        Text('${consent['legalText'] ?? defaultGdprLegalText}'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _read,
+                  onChanged: (value) => setState(() => _read = value ?? false),
+                  title: const Text(
+                      'He leído y comprendido la información sobre protección de datos'),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _treatment,
+                  onChanged: (value) =>
+                      setState(() => _treatment = value ?? false),
+                  title: const Text(
+                      'Consiento el tratamiento de mis datos personales para la gestión interna de la Cofradía'),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _communications,
+                  onChanged: (value) =>
+                      setState(() => _communications = value ?? false),
+                  title: const Text(
+                      'Consiento recibir comunicaciones relacionadas con la actividad de la Cofradía'),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: canSubmit && !tutorDataMissing ? _accept : null,
+                    child: _saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Firmar y aceptar consentimiento'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Podrás consultar posteriormente la fecha, versión y estado del consentimiento desde tu perfil.',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+              ],
             ),
           ),
         ),
