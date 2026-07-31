@@ -30,6 +30,17 @@ class AppTheme {
   static const Color errorColor = Color(0xFFB71C1C);
   static const Color textPrimary = Color(0xFF212121);
   static const Color textSecondary = Color(0xFF757575);
+  static const Color adminBorderColor = Color(0x33FFFFFF);
+  static const LinearGradient publicCardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF8FCF9), Color(0xFFEAF3EC)],
+  );
+  static const LinearGradient adminCardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFFCF7F8), Color(0xFFF4E8EB)],
+  );
 
   static ThemeData get lightTheme {
     return ThemeData(

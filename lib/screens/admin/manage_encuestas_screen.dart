@@ -123,9 +123,11 @@ class _EmptyState extends StatelessWidget {
         child: Center(
           child: Column(
             children: [
-              const Icon(Icons.poll_outlined, size: 54, color: AppTheme.textSecondary),
+              const Icon(Icons.poll_outlined,
+                  size: 54, color: AppTheme.textSecondary),
               const SizedBox(height: 12),
-              Text(message, style: const TextStyle(color: AppTheme.textSecondary)),
+              Text(message,
+                  style: const TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 14),
               ElevatedButton.icon(
                 onPressed: action,
@@ -171,7 +173,8 @@ class _AdminEncuestaCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _Chip(label: encuesta.estadoLabel, estado: encuesta.estado),
+                      _Chip(
+                          label: encuesta.estadoLabel, estado: encuesta.estado),
                       _Chip(
                         label: encuesta.tipoRespuestaLabel,
                         estado: EncuestaEstado.activa,
@@ -198,18 +201,20 @@ class _AdminEncuestaCard extends StatelessWidget {
                         value: 'results', child: Text('Ver resultados')),
                     const PopupMenuItem(
                         value: 'export', child: Text('Exportar CSV')),
-                    const PopupMenuItem(value: 'audit', child: Text('Auditoría')),
+                    const PopupMenuItem(
+                        value: 'audit', child: Text('Auditoría')),
                     const PopupMenuItem(
                         value: 'delete',
-                        child:
-                            Text('Eliminar', style: TextStyle(color: Colors.red))),
+                        child: Text('Eliminar',
+                            style: TextStyle(color: Colors.red))),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(encuesta.titulo,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
             Text(
               encuesta.descripcion,
@@ -220,13 +225,16 @@ class _AdminEncuestaCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.people_outline, size: 16, color: AppTheme.textSecondary),
+                const Icon(Icons.people_outline,
+                    size: 16, color: AppTheme.textSecondary),
                 const SizedBox(width: 4),
                 Text('${encuesta.totalRespuestas} respuestas',
-                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                    style: const TextStyle(
+                        color: AppTheme.textSecondary, fontSize: 13)),
                 if (encuesta.fechaLimite != null) ...[
                   const SizedBox(width: 16),
-                  const Icon(Icons.timer_outlined, size: 16, color: AppTheme.textSecondary),
+                  const Icon(Icons.timer_outlined,
+                      size: 16, color: AppTheme.textSecondary),
                   const SizedBox(width: 4),
                   Text('Límite: ${fmt.format(encuesta.fechaLimite!)}',
                       style: const TextStyle(
@@ -243,7 +251,8 @@ class _AdminEncuestaCard extends StatelessWidget {
               stream: service.getRespuestas(encuesta.id),
               builder: (context, snap) {
                 final responses = snap.data ?? [];
-                return _MiniResultsBar(encuesta: encuesta, responses: responses);
+                return _MiniResultsBar(
+                    encuesta: encuesta, responses: responses);
               },
             ),
           ],
@@ -264,8 +273,7 @@ class _AdminEncuestaCard extends StatelessWidget {
       case 'results':
         Navigator.push(
           context,
-          MaterialPageRoute(
-              builder: (_) => _ResultsPage(encuesta: encuesta)),
+          MaterialPageRoute(builder: (_) => _ResultsPage(encuesta: encuesta)),
         );
         break;
       case 'export':
@@ -355,7 +363,8 @@ class _AdminEncuestaCard extends StatelessWidget {
                 );
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Encuesta eliminada correctamente.')),
+                    const SnackBar(
+                        content: Text('Encuesta eliminada correctamente.')),
                   );
                 }
               } catch (e) {
@@ -363,7 +372,8 @@ class _AdminEncuestaCard extends StatelessWidget {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('No se pudo eliminar la encuesta. Revisa los permisos o vuelve a intentarlo.'),
+                      content: Text(
+                          'No se pudo eliminar la encuesta. Revisa los permisos o vuelve a intentarlo.'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -550,10 +560,15 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
     _publicacionInmediata = e?.publicacionInmediata ?? true;
     _allCofrades = e?.targeting.allCofrades ?? true;
     _selectedTags = List.from(e?.targeting.tags ?? []);
-    _opciones = e?.opciones.map((o) => EncuestaOpcion(
-          id: o.id, text: o.text, order: o.order,
-          imageUrl: o.imageUrl, imagePath: o.imagePath,
-        )).toList() ??
+    _opciones = e?.opciones
+            .map((o) => EncuestaOpcion(
+                  id: o.id,
+                  text: o.text,
+                  order: o.order,
+                  imageUrl: o.imageUrl,
+                  imagePath: o.imagePath,
+                ))
+            .toList() ??
         [
           const EncuestaOpcion(id: 'option_1', text: 'Sí', order: 1),
           const EncuestaOpcion(id: 'option_2', text: 'No', order: 2),
@@ -574,7 +589,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.encuesta == null ? 'Nueva encuesta' : 'Editar encuesta'),
+      title:
+          Text(widget.encuesta == null ? 'Nueva encuesta' : 'Editar encuesta'),
       content: SizedBox(
         width: 780,
         child: Form(
@@ -609,10 +625,15 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                         decoration:
                             const InputDecoration(labelText: 'Categoría'),
                         items: const [
-                          DropdownMenuItem(value: 'opinion', child: Text('Opinión')),
-                          DropdownMenuItem(value: 'preferencias', child: Text('Preferencias')),
-                          DropdownMenuItem(value: 'valoracion', child: Text('Valoración')),
-                          DropdownMenuItem(value: 'consulta', child: Text('Consulta')),
+                          DropdownMenuItem(
+                              value: 'opinion', child: Text('Opinión')),
+                          DropdownMenuItem(
+                              value: 'preferencias',
+                              child: Text('Preferencias')),
+                          DropdownMenuItem(
+                              value: 'valoracion', child: Text('Valoración')),
+                          DropdownMenuItem(
+                              value: 'consulta', child: Text('Consulta')),
                         ],
                         onChanged: (v) => setState(() => _type = v ?? _type),
                       ),
@@ -641,8 +662,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                 const _SectionTitle(title: 'Tipo de respuesta'),
                 DropdownButtonFormField<EncuestaTipoRespuesta>(
                   value: _tipoRespuesta,
-                  decoration: const InputDecoration(
-                      labelText: 'Modo de respuesta'),
+                  decoration:
+                      const InputDecoration(labelText: 'Modo de respuesta'),
                   items: EncuestaTipoRespuesta.values
                       .map((t) => DropdownMenuItem(
                             value: t,
@@ -674,13 +695,15 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                     _tipoRespuesta == EncuestaTipoRespuesta.multiple ||
                     _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen) ...[
                   _SectionTitle(
-                    title: _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen
-                        ? 'Opciones con imagen'
-                        : 'Opciones de respuesta',
+                    title:
+                        _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen
+                            ? 'Opciones con imagen'
+                            : 'Opciones de respuesta',
                   ),
                   _OptionsEditor(
                     opciones: _opciones,
-                    showImageUpload: _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen,
+                    showImageUpload:
+                        _tipoRespuesta == EncuestaTipoRespuesta.votacionImagen,
                     encuestaId: _encuestaId,
                     onChanged: (opts) => setState(() => _opciones = opts),
                   ),
@@ -693,9 +716,10 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                     spacing: 8,
                     children: _reactionEmojis
                         .map((emoji) => Chip(
-                              label: Text(emoji, style: const TextStyle(fontSize: 20)),
-                              onDeleted: () => setState(
-                                  () => _reactionEmojis.remove(emoji)),
+                              label: Text(emoji,
+                                  style: const TextStyle(fontSize: 20)),
+                              onDeleted: () =>
+                                  setState(() => _reactionEmojis.remove(emoji)),
                             ))
                         .toList(),
                   ),
@@ -724,8 +748,7 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Todos los cofrades'),
-                  subtitle: const Text(
-                      'Desactiva para segmentar por tags.'),
+                  subtitle: const Text('Desactiva para segmentar por tags.'),
                   value: _allCofrades,
                   onChanged: (v) => setState(() => _allCofrades = v),
                 ),
@@ -746,13 +769,11 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                         spacing: 8,
                         runSpacing: 8,
                         children: tags.map((tag) {
-                          final selected =
-                              _selectedTags.contains(tag.nombre);
+                          final selected = _selectedTags.contains(tag.nombre);
                           return FilterChip(
                             label: Text(tag.nombre),
                             selected: selected,
-                            selectedColor:
-                                AppTheme.primaryColor.withAlpha(38),
+                            selectedColor: AppTheme.primaryColor.withAlpha(38),
                             onSelected: (sel) {
                               setState(() {
                                 if (sel) {
@@ -804,16 +825,16 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                   title: Text(_deadline == null
                       ? 'Sin fecha límite'
                       : 'Fecha límite: ${DateFormat('dd/MM/yyyy').format(_deadline!)}'),
-                  subtitle: const Text('Después de esta fecha se cierra automáticamente.'),
+                  subtitle: const Text(
+                      'Después de esta fecha se cierra automáticamente.'),
                   onTap: () async {
                     final d = await showDatePicker(
                       context: context,
-                      initialDate:
-                          _deadline ?? DateTime.now().add(const Duration(days: 7)),
+                      initialDate: _deadline ??
+                          DateTime.now().add(const Duration(days: 7)),
                       firstDate:
                           DateTime.now().subtract(const Duration(days: 1)),
-                      lastDate:
-                          DateTime.now().add(const Duration(days: 3650)),
+                      lastDate: DateTime.now().add(const Duration(days: 3650)),
                     );
                     if (d != null) setState(() => _deadline = d);
                   },
@@ -825,8 +846,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                 if ((_coverUrl ?? '').isNotEmpty) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(_coverUrl!, height: 150,
-                        width: double.infinity, fit: BoxFit.cover),
+                    child: Image.network(_coverUrl!,
+                        height: 150, width: double.infinity, fit: BoxFit.cover),
                   ),
                   Align(
                     alignment: Alignment.centerRight,
@@ -869,8 +890,7 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
                     title: Text(_attachments[i]['nombre'] ?? 'PDF adjunto'),
                     trailing: IconButton(
                       icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: () =>
-                          setState(() => _attachments.removeAt(i)),
+                      onPressed: () => setState(() => _attachments.removeAt(i)),
                     ),
                   ),
               ],
@@ -916,8 +936,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
   Future<void> _uploadCover() async {
     setState(() => _uploading = true);
     try {
-      final result =
-          await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+      final result = await FilePicker.platform
+          .pickFiles(type: FileType.image, withData: true);
       if (result == null || result.files.first.bytes == null) return;
       final file = result.files.first;
       final uploaded = await context.read<StorageService>().uploadFile(
@@ -950,7 +970,7 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
             bytes: file.bytes!,
             fileName: file.name,
             allowedExtensions: {'pdf'},
-            maxSizeBytes: 20 * 1024 * 1024,
+            maxSizeBytes: 20 * 1024 * 1024 - 1,
           );
       setState(() => _attachments.add(uploaded));
     } catch (e) {
@@ -1011,9 +1031,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
         fechaPublicacion: _publicacionInmediata ? null : _publishDate,
         fechaLimite: _deadline,
         publicacionInmediata: _publicacionInmediata,
-        creadaPor: widget.encuesta?.creadaPor ??
-            actor?.nombreCompleto ??
-            'Admin',
+        creadaPor:
+            widget.encuesta?.creadaPor ?? actor?.nombreCompleto ?? 'Admin',
         creadaPorId: widget.encuesta?.creadaPorId ?? actor?.id ?? '',
         mostrarResultados: _mostrarResultados,
         totalRespuestas: widget.encuesta?.totalRespuestas ?? 0,
@@ -1062,8 +1081,8 @@ class _EncuestaEditorDialogState extends State<_EncuestaEditorDialog> {
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 }
 
@@ -1080,7 +1099,9 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10, top: 4),
       child: Text(title,
           style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.primaryColor)),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primaryColor)),
     );
   }
 }
@@ -1129,7 +1150,8 @@ class _OptionsEditor extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudo subir la imagen. Comprueba el formato y vuelve a intentarlo.'),
+            content: Text(
+                'No se pudo subir la imagen. Comprueba el formato y vuelve a intentarlo.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1185,7 +1207,8 @@ class _OptionsEditor extends StatelessWidget {
                         child: TextFormField(
                           key: ValueKey('text_${opciones[i].id}'),
                           initialValue: opciones[i].text,
-                          decoration: InputDecoration(labelText: 'Opción ${i + 1}'),
+                          decoration:
+                              InputDecoration(labelText: 'Opción ${i + 1}'),
                           onChanged: (value) {
                             final copy = [...opciones];
                             copy[i] = EncuestaOpcion(
@@ -1207,7 +1230,8 @@ class _OptionsEditor extends StatelessWidget {
                                 final copy = [...opciones]..removeAt(i);
                                 onChanged(copy);
                               },
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        icon:
+                            const Icon(Icons.delete_outline, color: Colors.red),
                       ),
                     ],
                   ),
@@ -1224,7 +1248,8 @@ class _OptionsEditor extends StatelessWidget {
                           errorBuilder: (_, __, ___) => Container(
                             height: 80,
                             color: Colors.grey.shade200,
-                            child: const Center(child: Icon(Icons.broken_image)),
+                            child:
+                                const Center(child: Icon(Icons.broken_image)),
                           ),
                         ),
                       ),
@@ -1248,7 +1273,8 @@ class _OptionsEditor extends StatelessWidget {
                               );
                               onChanged(copy);
                             },
-                            icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                            icon: const Icon(Icons.close,
+                                size: 16, color: Colors.red),
                             label: const Text('Quitar imagen',
                                 style: TextStyle(color: Colors.red)),
                           ),
@@ -1331,10 +1357,8 @@ class _ResultsPage extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _StatItem(
-                              label: 'Destinatarios', value: '$targeted'),
-                          _StatItem(
-                              label: 'Respuestas', value: '$responded'),
+                          _StatItem(label: 'Destinatarios', value: '$targeted'),
+                          _StatItem(label: 'Respuestas', value: '$responded'),
                           _StatItem(label: 'Pendientes', value: '$pending'),
                           _StatItem(label: 'Participación', value: '$pct%'),
                         ],
@@ -1406,13 +1430,9 @@ class _VisualResults extends StatelessWidget {
 
         List<MapEntry<String, String>> items;
         if (encuesta.tipoRespuesta == EncuestaTipoRespuesta.reaccion) {
-          items = encuesta.reactionEmojis
-              .map((e) => MapEntry(e, e))
-              .toList();
+          items = encuesta.reactionEmojis.map((e) => MapEntry(e, e)).toList();
         } else {
-          items = encuesta.opciones
-              .map((o) => MapEntry(o.id, o.text))
-              .toList();
+          items = encuesta.opciones.map((o) => MapEntry(o.id, o.text)).toList();
         }
 
         // Find winner
@@ -1483,8 +1503,7 @@ class _VisualResults extends StatelessWidget {
                                         fontWeight: FontWeight.w700)),
                               ),
                             const SizedBox(width: 8),
-                            Text(
-                                '$count (${(pct * 100).toStringAsFixed(1)}%)',
+                            Text('$count (${(pct * 100).toStringAsFixed(1)}%)',
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: isWinner
@@ -1710,8 +1729,7 @@ class _EncuestasDashboardPage extends StatelessWidget {
                           const SizedBox(width: 16),
                           _DashCard(
                               title: 'Participación media',
-                              value:
-                                  '${(avgRate * 100).toStringAsFixed(1)}%',
+                              value: '${(avgRate * 100).toStringAsFixed(1)}%',
                               icon: Icons.trending_up),
                         ],
                       ),
@@ -1781,8 +1799,7 @@ class _EncuestasDashboardPage extends StatelessWidget {
                                 Expanded(
                                   child: TweenAnimationBuilder<double>(
                                     tween: Tween(begin: 0, end: pct),
-                                    duration:
-                                        const Duration(milliseconds: 800),
+                                    duration: const Duration(milliseconds: 800),
                                     curve: Curves.easeOutCubic,
                                     builder: (_, val, __) => ClipRRect(
                                       borderRadius: BorderRadius.circular(6),
@@ -1798,8 +1815,7 @@ class _EncuestasDashboardPage extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Text(
-                                    '${(pct * 100).toStringAsFixed(1)}%',
+                                Text('${(pct * 100).toStringAsFixed(1)}%',
                                     style: const TextStyle(
                                         fontWeight: FontWeight.w600)),
                               ],
@@ -1831,8 +1847,8 @@ class _EncuestasDashboardPage extends StatelessWidget {
                                 DataColumn(label: Text('Participación')),
                               ],
                               rows: enc.map((e) {
-                                final targeted = service
-                                    .countTargetedCofrades(e, cofrades);
+                                final targeted =
+                                    service.countTargetedCofrades(e, cofrades);
                                 final rate = targeted > 0
                                     ? (e.totalRespuestas / targeted * 100)
                                         .toStringAsFixed(1)
@@ -1893,8 +1909,7 @@ class _DashCard extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           color: AppTheme.primaryColor)),
                   Text(title,
-                      style:
-                          const TextStyle(color: AppTheme.textSecondary)),
+                      style: const TextStyle(color: AppTheme.textSecondary)),
                 ],
               ),
             ],

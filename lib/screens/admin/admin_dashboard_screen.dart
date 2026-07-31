@@ -7,6 +7,7 @@ import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/models/cofrade.dart';
 import 'package:boanerges1714/models/solicitud.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
+import 'package:boanerges1714/widgets/app_surface_card.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -685,51 +686,44 @@ class _AdminActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              badgeCount > 0
-                  ? Badge(
-                      label: Text('$badgeCount',
-                          style: const TextStyle(fontSize: 11)),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withAlpha(15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child:
-                            Icon(icon, size: 28, color: AppTheme.primaryColor),
-                      ),
-                    )
-                  : Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withAlpha(15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(icon, size: 28, color: AppTheme.primaryColor),
+    return AppSurfaceCard(
+      admin: true,
+      padding: const EdgeInsets.all(16),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          badgeCount > 0
+              ? Badge(
+                  label:
+                      Text('$badgeCount', style: const TextStyle(fontSize: 11)),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withAlpha(15),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-              const SizedBox(height: 10),
-              Text(title,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
-              const SizedBox(height: 2),
-              Text(subtitle,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 12),
-                  textAlign: TextAlign.center),
-            ],
-          ),
-        ),
+                    child: Icon(icon, size: 28, color: AppTheme.primaryColor),
+                  ),
+                )
+              : Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withAlpha(15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 28, color: AppTheme.primaryColor),
+                ),
+          const SizedBox(height: 10),
+          Text(title,
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 2),
+          Text(subtitle,
+              style:
+                  const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+              textAlign: TextAlign.center),
+        ],
       ),
     );
   }

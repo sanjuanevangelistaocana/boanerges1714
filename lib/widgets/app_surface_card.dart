@@ -6,6 +6,7 @@ class AppSurfaceCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Color? color;
   final VoidCallback? onTap;
+  final bool admin;
 
   const AppSurfaceCard({
     super.key,
@@ -13,16 +14,30 @@ class AppSurfaceCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
     this.color,
     this.onTap,
+    this.admin = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final card = Card(
-      elevation: 1,
-      color: color,
-      shape: RoundedRectangleBorder(
+    final card = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: color == null
+            ? (admin ? AppTheme.adminCardGradient : AppTheme.publicCardGradient)
+            : null,
+        color: color,
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: AppTheme.primaryColor.withAlpha(18)),
+        border: Border.all(
+          color: admin
+              ? AppTheme.adminBorderColor
+              : AppTheme.primaryColor.withAlpha(18),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -30,10 +45,14 @@ class AppSurfaceCard extends StatelessWidget {
         ? card
         : Semantics(
             button: true,
-            child: InkWell(
-              onTap: onTap,
+            child: Material(
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(14),
-              child: card,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: card,
+              ),
             ),
           );
   }

@@ -859,6 +859,21 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
   DateTime? _publishAt;
   DateTime? _expireAt;
   List<ContentBlock> _richContent = [];
+
+  Future<void> _removeUploadedFile(
+    List<Map<String, String>> files,
+    int index,
+  ) async {
+    final file = files[index];
+    final url = file['url'];
+    if (url != null && url.isNotEmpty) {
+      await context.read<StorageService>().deleteFile(url);
+    }
+    if (mounted) {
+      setState(() => files.removeAt(index));
+    }
+  }
+
   bool _uploading = false;
   bool _saving = false;
   bool _slugManuallyEdited = false;
@@ -1328,8 +1343,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                                 top: 2,
                                 right: 2,
                                 child: GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _gallery.removeAt(i)),
+                                  onTap: () => _removeUploadedFile(_gallery, i),
                                   child: Container(
                                     decoration: const BoxDecoration(
                                       color: Colors.red,
@@ -1376,7 +1390,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
                     trailing: IconButton(
                       icon:
                           const Icon(Icons.close, size: 18, color: Colors.red),
-                      onPressed: () => setState(() => _attachments.removeAt(i)),
+                      onPressed: () => _removeUploadedFile(_attachments, i),
                     ),
                   );
                 }),
@@ -1655,6 +1669,7 @@ class _NoticiaEditorScreenState extends State<_NoticiaEditorScreen> {
             path: 'news/$newsId/attachments',
             bytes: file.bytes!,
             fileName: file.name,
+            maxSizeBytes: 20 * 1024 * 1024 - 1,
           );
           setState(() => _attachments.add(uploaded));
         }

@@ -7,6 +7,7 @@ import 'package:boanerges1714/models/content_block.dart';
 import 'package:boanerges1714/models/content_models.dart';
 import 'package:boanerges1714/services/content_service.dart';
 import 'package:boanerges1714/widgets/content_block_editor.dart';
+import 'package:boanerges1714/widgets/app_surface_card.dart';
 
 class SiteContentAdminScreen extends StatefulWidget {
   const SiteContentAdminScreen({super.key});
@@ -81,7 +82,9 @@ class _SiteContentAdminScreenState extends State<SiteContentAdminScreen> {
               const SizedBox(height: 24),
               _buildCelebrations(),
               const SizedBox(height: 24),
-              Card(
+              AppSurfaceCard(
+                admin: true,
+                padding: EdgeInsets.zero,
                 child: ListTile(
                   leading: const Icon(Icons.museum_outlined,
                       color: AppTheme.primaryColor),
@@ -489,9 +492,10 @@ class _AdminSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return AppSurfaceCard(
+      admin: true,
+      padding: const EdgeInsets.all(20),
       child: Padding(
-        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

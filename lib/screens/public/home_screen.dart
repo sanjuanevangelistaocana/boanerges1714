@@ -462,28 +462,28 @@ class HomeScreen extends StatelessWidget {
                     Text('Enlaces de interés',
                         style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: links
-                          .map((link) => Tooltip(
-                                message: link.description.isEmpty
-                                    ? link.url
-                                    : link.description,
-                                child: ActionChip(
-                                  avatar: link.imageUrl?.isNotEmpty == true
-                                      ? CircleAvatar(
-                                          backgroundImage:
-                                              NetworkImage(link.imageUrl!))
-                                      : const Icon(Icons.link, size: 18),
-                                  label: Text(link.title),
-                                  onPressed: () => launchUrl(
-                                    Uri.parse(link.url),
-                                    mode: LaunchMode.externalApplication,
-                                  ),
-                                ),
-                              ))
-                          .toList(),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 900
+                            ? 3
+                            : constraints.maxWidth >= 560
+                                ? 2
+                                : 1;
+                        return GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: links.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: columns,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: columns == 1 ? 3.2 : 1.75,
+                          ),
+                          itemBuilder: (context, index) =>
+                              _InterestLinkCard(link: links[index]),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1065,10 +1065,9 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Card(
-                elevation: 1,
+              AppSurfaceCard(
+                padding: const EdgeInsets.all(24),
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1117,58 +1116,76 @@ class HomeScreen extends StatelessWidget {
                         ],
                       ),
                       const Divider(height: 32),
-                      Wrap(
-                        spacing: 24,
-                        runSpacing: 16,
-                        children: const [
-                          _AsistenciaItem(
-                            icon: Icons.food_bank,
-                            title: 'Banco de Alimentos',
-                            subtitle: 'Recogida y reparto de alimentos',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.shopping_basket_outlined,
-                            title: 'Bolsa solidaria',
-                            subtitle: 'Apoyo a necesidades b\u00e1sicas',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.volunteer_activism_outlined,
-                            title: 'Donaciones',
-                            subtitle: 'Aportaciones para ayuda social',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.church_outlined,
-                            title: 'Ayuda parroquial',
-                            subtitle: 'Colaboraci\u00f3n con la parroquia',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.favorite_outline,
-                            title: 'Colaboraci\u00f3n con C\u00e1ritas',
-                            subtitle: 'Apoyo a iniciativas solidarias',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.groups_outlined,
-                            title: 'Voluntariado',
-                            subtitle:
-                                'Participaci\u00f3n y acompa\u00f1amiento',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.card_giftcard_outlined,
-                            title: 'Campa\u00f1as de Navidad',
-                            subtitle: 'Acciones solidarias de temporada',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.inventory_2_outlined,
-                            title: 'Recogidas extraordinarias',
-                            subtitle: 'Campañas puntuales de apoyo',
-                          ),
-                          _AsistenciaItem(
-                            icon: Icons.accessibility_new,
-                            title:
-                                'Colaboración con el Centro Ocupacional de Ocaña',
-                            subtitle: 'Centro Ocupacional de Ocaña',
-                          ),
-                        ],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth >= 900
+                              ? 3
+                              : constraints.maxWidth >= 560
+                                  ? 2
+                                  : 1;
+                          final gap = 16.0;
+                          final width =
+                              (constraints.maxWidth - (columns - 1) * gap) /
+                                  columns;
+                          const items = [
+                            _AsistenciaItem(
+                              icon: Icons.food_bank,
+                              title: 'Banco de Alimentos',
+                              subtitle: 'Recogida y reparto de alimentos',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.shopping_basket_outlined,
+                              title: 'Bolsa solidaria',
+                              subtitle: 'Apoyo a necesidades b\u00e1sicas',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.volunteer_activism_outlined,
+                              title: 'Donaciones',
+                              subtitle: 'Aportaciones para ayuda social',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.church_outlined,
+                              title: 'Ayuda parroquial',
+                              subtitle: 'Colaboraci\u00f3n con la parroquia',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.favorite_outline,
+                              title: 'Colaboraci\u00f3n con C\u00e1ritas',
+                              subtitle: 'Apoyo a iniciativas solidarias',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.groups_outlined,
+                              title: 'Voluntariado',
+                              subtitle:
+                                  'Participaci\u00f3n y acompa\u00f1amiento',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.card_giftcard_outlined,
+                              title: 'Campa\u00f1as de Navidad',
+                              subtitle: 'Acciones solidarias de temporada',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.inventory_2_outlined,
+                              title: 'Recogidas extraordinarias',
+                              subtitle: 'Campañas puntuales de apoyo',
+                            ),
+                            _AsistenciaItem(
+                              icon: Icons.accessibility_new,
+                              title:
+                                  'Colaboración con el Centro Ocupacional de Ocaña',
+                              subtitle: 'Centro Ocupacional de Ocaña',
+                            ),
+                          ];
+                          return Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: gap,
+                            runSpacing: gap,
+                            children: items
+                                .map((item) =>
+                                    SizedBox(width: width, child: item))
+                                .toList(),
+                          );
+                        },
                       ),
                       const SizedBox(height: 20),
                       Center(
@@ -1206,6 +1223,103 @@ class HomeScreen extends StatelessWidget {
       'DIC'
     ];
     return months[month - 1];
+  }
+}
+
+class _InterestLinkCard extends StatefulWidget {
+  final InterestLink link;
+
+  const _InterestLinkCard({required this.link});
+
+  @override
+  State<_InterestLinkCard> createState() => _InterestLinkCardState();
+}
+
+class _InterestLinkCardState extends State<_InterestLinkCard> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final link = widget.link;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        transform: Matrix4.translationValues(0, _hovered ? -2 : 0, 0),
+        child: AppSurfaceCard(
+          padding: const EdgeInsets.all(16),
+          onTap: () => launchUrl(
+            Uri.parse(link.url),
+            mode: LaunchMode.externalApplication,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (link.imageUrl?.isNotEmpty == true)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    link.imageUrl!,
+                    width: 52,
+                    height: 52,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentColor.withAlpha(24),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.link,
+                      color: AppTheme.accentColor, size: 26),
+                ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            link.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        const Icon(Icons.open_in_new,
+                            size: 16, color: AppTheme.primaryColor),
+                      ],
+                    ),
+                    if (link.description.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        link.description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppTheme.textSecondary,
+                              height: 1.35,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

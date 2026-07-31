@@ -440,9 +440,8 @@ class _ConfigurableCampaignAdminState
   List<EventCampaign> _applyFilters(List<EventCampaign> campaigns) {
     var filtered = campaigns.toList();
     if (_yearFilter != null) {
-      filtered = filtered
-          .where((campaign) => campaign.year == _yearFilter)
-          .toList();
+      filtered =
+          filtered.where((campaign) => campaign.year == _yearFilter).toList();
     }
     switch (_statusFilter) {
       case 'activos':
@@ -455,16 +454,15 @@ class _ConfigurableCampaignAdminState
         break;
       case 'borradores':
         filtered = filtered
-            .where((campaign) =>
-                !campaign.deleted && campaign.status == 'draft')
+            .where(
+                (campaign) => !campaign.deleted && campaign.status == 'draft')
             .toList();
         break;
       case 'finalizados':
         filtered = filtered
             .where((campaign) =>
                 !campaign.deleted &&
-                (campaign.status == 'finished' ||
-                    campaign.status == 'closed'))
+                (campaign.status == 'finished' || campaign.status == 'closed'))
             .toList();
         break;
       case 'archivados':
@@ -474,9 +472,7 @@ class _ConfigurableCampaignAdminState
             .toList();
         break;
       case 'todos':
-        filtered = filtered
-            .where((campaign) => !campaign.deleted)
-            .toList();
+        filtered = filtered.where((campaign) => !campaign.deleted).toList();
         break;
     }
     return filtered;
@@ -488,8 +484,9 @@ class _ConfigurableCampaignAdminState
       child: OutlinedButton.icon(
         onPressed: () => setState(() => _showHistorical = !_showHistorical),
         icon: Icon(_showHistorical ? Icons.visibility_off : Icons.history),
-        label:
-            Text(_showHistorical ? 'Ocultar hist\u00f3rico' : 'Mostrar hist\u00f3rico'),
+        label: Text(_showHistorical
+            ? 'Ocultar hist\u00f3rico'
+            : 'Mostrar hist\u00f3rico'),
       ),
     );
   }
@@ -1817,13 +1814,18 @@ class _CampaignTypeKpis extends StatelessWidget {
     final isPalmas = campaigns.isNotEmpty &&
         campaigns.every((campaign) => campaign.type == 'palmas');
     final isJunta = campaigns.isNotEmpty &&
-        campaigns.every((campaign) => campaign.type == 'junta_general_ordinaria');
+        campaigns
+            .every((campaign) => campaign.type == 'junta_general_ordinaria');
 
     // Palmas-specific status KPIs
     final palmasPending = isPalmas
         ? registrations
-            .where((reg) => const {'solicitada', 'requested', 'pending', 'pendiente'}
-                .contains(reg.status))
+            .where((reg) => const {
+                  'solicitada',
+                  'requested',
+                  'pending',
+                  'pendiente'
+                }.contains(reg.status))
             .length
         : 0;
     final palmasConfirmed = isPalmas
@@ -1837,11 +1839,13 @@ class _CampaignTypeKpis extends StatelessWidget {
         : 0;
 
     // Sanjuandereta / general payment KPIs
-    final paidCount = registrations
-        .where((reg) => reg.paymentStatus == 'paid')
-        .length;
+    final paidCount =
+        registrations.where((reg) => reg.paymentStatus == 'paid').length;
     final companionCount = registrations.fold<int>(
-        0, (total, reg) => total + (reg.participants.length > 1 ? reg.participants.length - 1 : 0));
+        0,
+        (total, reg) =>
+            total +
+            (reg.participants.length > 1 ? reg.participants.length - 1 : 0));
 
     return Wrap(
       spacing: 10,
@@ -2023,8 +2027,7 @@ class _CampaignAdminCard extends StatelessWidget {
             Expanded(child: Text(campaign.name)),
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: _statusColor().withAlpha(20),
                 borderRadius: BorderRadius.circular(12),
@@ -2050,12 +2053,10 @@ class _CampaignAdminCard extends StatelessWidget {
               Text('A\u00f1o ${campaign.year}'),
               if (dateFormat.isNotEmpty)
                 Text(dateFormat,
-                    style:
-                        const TextStyle(color: AppTheme.textSecondary)),
+                    style: const TextStyle(color: AppTheme.textSecondary)),
               if (campaign.location.isNotEmpty)
                 Text(campaign.location,
-                    style:
-                        const TextStyle(color: AppTheme.textSecondary)),
+                    style: const TextStyle(color: AppTheme.textSecondary)),
             ],
           ),
         ),
@@ -2335,12 +2336,10 @@ class _CampaignAdminCard extends StatelessWidget {
     final parts = <String>[];
     if (campaign.eventDate != null) {
       final eventDate = campaign.eventDate!;
-      parts.add(
-          '${eventDate.day}/${eventDate.month}/${eventDate.year}');
+      parts.add('${eventDate.day}/${eventDate.month}/${eventDate.year}');
     }
     if (campaign.endDate != null && campaign.isOpen) {
-      final remaining =
-          campaign.endDate!.difference(DateTime.now()).inDays;
+      final remaining = campaign.endDate!.difference(DateTime.now()).inDays;
       if (remaining >= 0) {
         parts.add(remaining == 0
             ? 'Cierre hoy'
@@ -2400,27 +2399,21 @@ class _CampaignAdminCard extends StatelessWidget {
       menusEnabled: campaign.menusEnabled,
       menuRequired: campaign.menuRequired,
       menus: List<Map<String, dynamic>>.from(campaign.menus),
-      customFields:
-          List<Map<String, dynamic>>.from(campaign.customFields),
+      customFields: List<Map<String, dynamic>>.from(campaign.customFields),
       registrationConfig:
           Map<String, dynamic>.from(campaign.registrationConfig),
-      pricingConfig:
-          Map<String, dynamic>.from(campaign.pricingConfig),
-      companionConfig:
-          Map<String, dynamic>.from(campaign.companionConfig),
-      paymentConfig:
-          Map<String, dynamic>.from(campaign.paymentConfig),
+      pricingConfig: Map<String, dynamic>.from(campaign.pricingConfig),
+      companionConfig: Map<String, dynamic>.from(campaign.companionConfig),
+      paymentConfig: Map<String, dynamic>.from(campaign.paymentConfig),
       notificationConfig:
           Map<String, dynamic>.from(campaign.notificationConfig),
-      popupConfig:
-          Map<String, dynamic>.from(campaign.popupConfig),
+      popupConfig: Map<String, dynamic>.from(campaign.popupConfig),
     );
     try {
       await service.saveCampaign(newCampaign);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Evento duplicado como borrador.')),
+          const SnackBar(content: Text('Evento duplicado como borrador.')),
         );
       }
     } catch (e) {
@@ -3580,6 +3573,7 @@ class _CampaignAdminCard extends StatelessWidget {
                   path: 'events/${campaign.id}/attachments',
                   bytes: file!.bytes!,
                   fileName: file.name,
+                  maxSizeBytes: 20 * 1024 * 1024 - 1,
                   customMetadata: {
                     'eventId': campaign.id,
                     'visibleToUsers': '$visibleToUsers',
