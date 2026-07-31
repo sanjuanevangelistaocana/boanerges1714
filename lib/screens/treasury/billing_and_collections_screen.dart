@@ -13,6 +13,7 @@ import 'package:boanerges1714/services/treasury/treasury_remittance_service.dart
 import 'package:boanerges1714/services/treasury/treasury_repository.dart';
 import 'package:boanerges1714/services/treasury/treasury_settings_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:boanerges1714/widgets/responsive_data_table.dart';
 
 class BillingAndCollectionsScreen extends StatefulWidget {
   const BillingAndCollectionsScreen({super.key});
@@ -1783,36 +1784,27 @@ class _RemittanceStepCard extends StatelessWidget {
             ),
             if (rows.isNotEmpty) ...[
               const SizedBox(height: 12),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 460),
-                child: SingleChildScrollView(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('Factura')),
-                        DataColumn(label: Text('Titular')),
-                        DataColumn(label: Text('IBAN')),
-                        DataColumn(label: Text('Importe')),
-                        DataColumn(label: Text('Concepto')),
+              ResponsiveDataTable(
+                columns: const [
+                  ResponsiveTableColumn(label: 'Factura', mobilePriority: 0),
+                  ResponsiveTableColumn(label: 'Titular', mobilePriority: 0),
+                  ResponsiveTableColumn(label: 'IBAN', mobilePriority: 2),
+                  ResponsiveTableColumn(
+                      label: 'Importe', mobilePriority: 1, numeric: true),
+                  ResponsiveTableColumn(label: 'Concepto', mobilePriority: 1),
+                ],
+                rows: [
+                  for (final row in rows)
+                    ResponsiveTableRow(
+                      cells: [
+                        Text(row.invoiceNumber),
+                        Text(row.holderName),
+                        Text(row.debtorIban),
+                        Text('${row.amount.toStringAsFixed(2)} €'),
+                        Text(row.concept),
                       ],
-                      rows: rows
-                          .map(
-                            (row) => DataRow(
-                              cells: [
-                                DataCell(Text(row.invoiceNumber)),
-                                DataCell(Text(row.holderName)),
-                                DataCell(Text(row.debtorIban)),
-                                DataCell(
-                                    Text('${row.amount.toStringAsFixed(2)} €')),
-                                DataCell(Text(row.concept)),
-                              ],
-                            ),
-                          )
-                          .toList(),
                     ),
-                  ),
-                ),
+                ],
               ),
             ],
             if (remittances.isNotEmpty) ...[
