@@ -126,6 +126,7 @@ function publicBirthdayData(cofradeId, data) {
 async function rebuildPublicBirthdayIndex() {
   const snapshot = await db.collection("cofrades").get();
   const existing = await db.collection("cumpleanos_publicos").get();
+  const existingIds = new Set(existing.docs.map((doc) => doc.id));
   const validIds = new Set();
   let batch = db.batch();
   let pending = 0;
@@ -139,7 +140,7 @@ async function rebuildPublicBirthdayIndex() {
     const birthday = publicBirthdayData(doc.id, data);
     if (!birthday) {
       batch.delete(ref);
-      deleted++;
+      if (existingIds.has(doc.id)) deleted++;
     } else {
       validIds.add(doc.id);
       batch.set(ref, birthday);

@@ -10,6 +10,7 @@ import 'package:boanerges1714/models/solicitud.dart';
 import 'package:boanerges1714/models/convocatoria.dart';
 import 'package:boanerges1714/widgets/app_surface_card.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/widgets/responsive_dialog.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
