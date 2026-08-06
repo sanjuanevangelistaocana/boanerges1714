@@ -26,6 +26,7 @@ import 'package:boanerges1714/services/treasury/treasury_invoice_service.dart';
 import 'package:boanerges1714/services/treasury/treasury_repository.dart';
 import 'package:boanerges1714/models/turno_andas.dart';
 import 'package:boanerges1714/services/turnos_andas_service.dart';
+import 'package:boanerges1714/config/responsive.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
 import 'package:boanerges1714/utils/madrid_date.dart';
 
@@ -2207,7 +2208,7 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
                           .map((entry) => (entry.mes, entry.dia))
                           .toSet()
                           .toList(),
-                      targetName: nextBirthday?.entry.nombre,
+                      targetName: nextBirthday?.nombre,
                       targetDate: nextBirthday?.date,
                     ),
                     const SizedBox(height: 12),
