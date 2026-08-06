@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 const {google} = require("googleapis");
 const APP_BASE_URL = (
   process.env.APP_BASE_URL || "https://sanjuanevangelistaocana.com"
@@ -8,6 +9,91 @@ const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 const db = admin.firestore();
+const galleryBucket = admin.storage().bucket();
+
+function galleryDownloadUrl(path, token) {
+  return "https://firebasestorage.googleapis.com/v0/b/" +
+      `${galleryBucket.name}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+}
+
+async function copyGalleryFile(sourcePath, destinationPath) {
+  if (!sourcePath || sourcePath === destinationPath) {
+    return {path: destinationPath, url: null};
+  }
+  const source = galleryBucket.file(sourcePath);
+  const destination = galleryBucket.file(destinationPath);
+  await source.copy(destination);
+  const [metadata] = await destination.getMetadata();
+  const token = metadata.metadata?.firebaseStorageDownloadTokens ||
+      crypto.randomUUID();
+  if (!metadata.metadata?.firebaseStorageDownloadTokens) {
+    await destination.setMetadata({
+      metadata: {firebaseStorageDownloadTokens: token},
+    });
+  }
+  return {path: destinationPath, url: galleryDownloadUrl(destinationPath, token)};
+}
+
+async function moveGalleryImageDocument(imageRef, image, folder) {
+  const imagePublic = folder.publica && image.publica && !image.solo_admin;
+  const prefix = folder.solo_admin ?
+    "admin" : (imagePublic ? "public" : "private");
+  const base = `gallery/${prefix}/${folder.id}`;
+  const originalName = image.storage_path.split("/").pop();
+  const thumbName = image.thumb_path ?
+    image.thumb_path.split("/").pop() : null;
+  const originalPath = `${base}/${originalName}`;
+  const thumbPath = thumbName ? `${base}/thumbs/${thumbName}` : null;
+  if (image.storage_path === originalPath &&
+      (!image.thumb_path || image.thumb_path === thumbPath) &&
+      image.publica === imagePublic &&
+      image.solo_admin === folder.solo_admin) {
+    await imageRef.update({
+      publica: image.publica === true,
+      solo_admin: folder.solo_admin,
+    });
+    return;
+  }
+
+  const original = await copyGalleryFile(image.storage_path, originalPath);
+  let thumbnail = null;
+  try {
+    thumbnail = thumbPath ?
+      await copyGalleryFile(image.thumb_path, thumbPath) : null;
+    const changes = {
+      storage_path: original.path,
+      url: original.url || image.url,
+      thumb_path: thumbnail?.path || null,
+      thumb_url: thumbnail?.url || null,
+      publica: image.publica === true,
+      solo_admin: folder.solo_admin,
+    };
+    await imageRef.update(changes);
+  } catch (error) {
+    await galleryBucket.file(originalPath).delete().catch(() => {});
+    if (thumbPath) await galleryBucket.file(thumbPath).delete().catch(() => {});
+    throw error;
+  }
+  if (image.storage_path !== originalPath) {
+    await galleryBucket.file(image.storage_path).delete();
+  }
+  if (image.thumb_path && image.thumb_path !== thumbPath) {
+    await galleryBucket.file(image.thumb_path).delete().catch(() => {});
+  }
+}
+
+async function requireGalleryAdmin(context) {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+        "unauthenticated", "Debes iniciar sesión.");
+  }
+  const adminDoc = await db.collection("admins").doc(context.auth.uid).get();
+  if (!(context.auth.token.admin === true ||
+      context.auth.token.superadmin === true || adminDoc.exists)) {
+    throw new functions.https.HttpsError(
+        "permission-denied", "No tienes permisos de administración.");
+  }
+}
 
 // ============================================================
 // Google Sheets Bidirectional Sync
@@ -1003,6 +1089,124 @@ exports.normalizeGalleryDocuments = functions
         console.error("Error normalizing gallery documents:", error);
         throw new functions.https.HttpsError(
             "internal", "No se pudo normalizar la galería.");
+      }
+    });
+
+exports.setGalleryImageVisibility = functions
+    .region("europe-west1")
+    .https.onCall(async (data, context) => {
+      await requireGalleryAdmin(context);
+      const imageId = String(data?.imageId || "");
+      if (!imageId || typeof data?.publica !== "boolean") {
+        throw new functions.https.HttpsError(
+            "invalid-argument", "Faltan datos de visibilidad.");
+      }
+      try {
+        const imageRef = db.collection("gallery_images").doc(imageId);
+        const imageSnapshot = await imageRef.get();
+        if (!imageSnapshot.exists) {
+          throw new functions.https.HttpsError(
+              "not-found", "La fotografía no existe.");
+        }
+        const image = imageSnapshot.data();
+        const folderSnapshot = await db.collection("gallery_folders")
+            .doc(image.folder_id).get();
+        if (!folderSnapshot.exists) {
+          throw new functions.https.HttpsError(
+              "failed-precondition", "La carpeta de la fotografía no existe.");
+        }
+        await moveGalleryImageDocument(
+            imageRef,
+            {...image, publica: data.publica},
+            {id: folderSnapshot.id, ...folderSnapshot.data()},
+        );
+        return {updated: 1};
+      } catch (error) {
+        if (error instanceof functions.https.HttpsError) throw error;
+        console.error("Error changing gallery image visibility:", error);
+        throw new functions.https.HttpsError(
+            "internal", "No se pudo cambiar la visibilidad.");
+      }
+    });
+
+exports.setGalleryFolderVisibility = functions
+    .runWith({timeoutSeconds: 540})
+    .region("europe-west1")
+    .https.onCall(async (data, context) => {
+      await requireGalleryAdmin(context);
+      const folderId = String(data?.folderId || "");
+      if (!folderId || typeof data?.publica !== "boolean") {
+        throw new functions.https.HttpsError(
+            "invalid-argument", "Faltan datos de visibilidad.");
+      }
+      let previousPublica = false;
+      let folder;
+      const movedImages = [];
+      try {
+        const folderRef = db.collection("gallery_folders").doc(folderId);
+        const folderSnapshot = await folderRef.get();
+        if (!folderSnapshot.exists) {
+          throw new functions.https.HttpsError(
+              "not-found", "La carpeta no existe.");
+        }
+        folder = {id: folderId, ...folderSnapshot.data()};
+        if (folder.sistema && folder.sistema !== "ninguno") {
+          throw new functions.https.HttpsError(
+              "failed-precondition",
+              "Las carpetas de sistema no cambian de visibilidad.");
+        }
+        previousPublica = folder.publica === true;
+        await folderRef.update({
+          publica: data.publica,
+          relocating: true,
+        });
+        const images = await db.collection("gallery_images")
+            .where("folder_id", "==", folderId)
+            .where("deleted", "==", false)
+            .get();
+        let updated = 0;
+        for (const imageSnapshot of images.docs) {
+          const image = imageSnapshot.data();
+          await moveGalleryImageDocument(
+              imageSnapshot.ref,
+              image,
+              {...folder, publica: data.publica},
+          );
+          movedImages.push({ref: imageSnapshot.ref, data: image});
+          updated++;
+        }
+        await folderRef.update({
+          relocating: false,
+          fecha_actualizacion: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return {updated};
+      } catch (error) {
+        console.error("Error changing gallery folder visibility:", error);
+        // A failed batch must not leave earlier files in the new prefix.
+        // The original document data is retained in movedImages when a move
+        // completes, allowing best-effort rollback before exposing the old
+        // folder visibility again.
+        for (const moved of [...movedImages].reverse()) {
+            try {
+              await moveGalleryImageDocument(
+                  moved.ref,
+                  moved.data,
+                  {...folder, publica: previousPublica},
+              );
+            } catch (rollbackError) {
+              console.error("Gallery visibility rollback failed:",
+                  rollbackError);
+            }
+        }
+        try {
+          await db.collection("gallery_folders").doc(folderId).update({
+            publica: previousPublica,
+            relocating: false,
+          });
+        } catch (_) {}
+        if (error instanceof functions.https.HttpsError) throw error;
+        throw new functions.https.HttpsError(
+            "internal", "No se pudo cambiar la visibilidad de la carpeta.");
       }
     });
 

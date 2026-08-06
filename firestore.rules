@@ -811,6 +811,7 @@ service cloud.firestore {
          resource.data.deleted == false) ||
         (resource.data.get('solo_admin', false) != true && isAuth()) ||
         (resource.data.publica == true &&
+         get(/databases/$(database)/documents/gallery_folders/$(resource.data.folder_id)).data.publica == true &&
          resource.data.estado == 'aprobada' &&
          resource.data.deleted == false);
       allow list: if isAdmin() ||
@@ -818,6 +819,7 @@ service cloud.firestore {
          resource.data.deleted == false) ||
         (resource.data.get('solo_admin', false) != true && isAuth()) ||
         (resource.data.publica == true &&
+         get(/databases/$(database)/documents/gallery_folders/$(resource.data.folder_id)).data.publica == true &&
          resource.data.estado == 'aprobada' &&
          resource.data.deleted == false);
       allow create, update, delete: if isAdmin();

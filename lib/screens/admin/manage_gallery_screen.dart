@@ -793,6 +793,43 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                               icon: const Icon(Icons.star_border,
                                   color: Colors.white),
                             ),
+                            IconButton(
+                              tooltip: image.publica
+                                  ? 'Hacer privada'
+                                  : 'Hacer pública',
+                              onPressed: _mutating
+                                  ? null
+                                  : () async {
+                                      try {
+                                        setState(() => _mutating = true);
+                                        await context
+                                            .read<GalleryService>()
+                                            .setImageVisibility(
+                                              imageId: image.id,
+                                              publica: !image.publica,
+                                            );
+                                        _showMessage(
+                                          image.publica
+                                              ? 'Fotografía marcada como privada.'
+                                              : 'Fotografía marcada como pública.',
+                                        );
+                                        await _reloadImages(folder);
+                                      } catch (error) {
+                                        _showMessage(_friendlyError(error),
+                                            error: true);
+                                      } finally {
+                                        if (mounted) {
+                                          setState(() => _mutating = false);
+                                        }
+                                      }
+                                    },
+                              icon: Icon(
+                                image.publica
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: Colors.white,
+                              ),
+                            ),
                           ],
                         ),
                       ),

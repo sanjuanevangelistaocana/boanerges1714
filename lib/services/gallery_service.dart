@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
@@ -47,6 +48,8 @@ class GalleryService {
   static const int maxZipImages = 1000;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions =
+      FirebaseFunctions.instanceFor(region: 'europe-west1');
   final StorageService _storage;
 
   GalleryService({StorageService? storage})
@@ -218,26 +221,20 @@ class GalleryService {
       throw StateError(
           'Las carpetas de sistema no pueden cambiar de visibilidad.');
     }
-    await _folders.doc(folderId).update({
+    await _functions.httpsCallable('setGalleryFolderVisibility').call({
+      'folderId': folderId,
       'publica': publica,
-      'relocating': true,
-      'fecha_actualizacion': FieldValue.serverTimestamp(),
     });
+  }
 
-    try {
-      final snapshot =
-          await _images.where('folder_id', isEqualTo: folderId).get();
-      await _commitInChunks(snapshot.docs, (batch, _, doc) {
-        // Hide while paths are being moved so public clients never receive
-        // an image whose Storage URL still belongs to the old privacy prefix.
-        batch.update(doc.reference, {'publica': false});
-      });
-
-      await relocateFolderFiles(folderId: folderId, publica: publica);
-    } catch (_) {
-      // Keep relocating=true so a later maintenance operation can retry it.
-      rethrow;
-    }
+  Future<void> setImageVisibility({
+    required String imageId,
+    required bool publica,
+  }) async {
+    await _functions.httpsCallable('setGalleryImageVisibility').call({
+      'imageId': imageId,
+      'publica': publica,
+    });
   }
 
   Future<List<GalleryImage>> fetchImagesPage({
