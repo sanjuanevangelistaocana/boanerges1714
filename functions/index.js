@@ -925,6 +925,88 @@ exports.rebuildPublicBirthdayIndex = functions
     });
 
 /**
+ * Normalize legacy gallery documents so visibility and lifecycle fields are
+ * always present for Firestore queries.
+ */
+exports.normalizeGalleryDocuments = functions
+    .region("europe-west1")
+    .https.onCall(async (data, context) => {
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
+            "unauthenticated", "Debes iniciar sesión.");
+      }
+      const adminDoc = await db.collection("admins").doc(context.auth.uid).get();
+      const isAdmin = context.auth.token.admin === true ||
+          context.auth.token.superadmin === true || adminDoc.exists;
+      if (!isAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied", "No tienes permisos de administración.");
+      }
+
+      const summary = {
+        foldersScanned: 0,
+        foldersUpdated: 0,
+        imagesScanned: 0,
+        imagesUpdated: 0,
+      };
+      try {
+        for (const collection of ["gallery_folders", "gallery_images"]) {
+          const snapshot = await db.collection(collection).get();
+          let batch = db.batch();
+          let pending = 0;
+          for (const doc of snapshot.docs) {
+            const current = doc.data();
+            const defaults = collection === "gallery_folders" ? {
+              publica: false,
+              solo_admin: false,
+              deleted: false,
+              relocating: false,
+              orden: 0,
+              num_fotos: 0,
+            } : {
+              publica: false,
+              solo_admin: false,
+              carrusel: false,
+              deleted: false,
+              estado: "aprobada",
+              orden: 0,
+            };
+            const changes = {};
+            for (const [field, value] of Object.entries(defaults)) {
+              if (!Object.prototype.hasOwnProperty.call(current, field)) {
+                changes[field] = value;
+              }
+            }
+            if (collection === "gallery_folders") {
+              summary.foldersScanned++;
+            } else {
+              summary.imagesScanned++;
+            }
+            if (Object.keys(changes).length === 0) continue;
+            batch.update(doc.ref, changes);
+            pending++;
+            if (collection === "gallery_folders") {
+              summary.foldersUpdated++;
+            } else {
+              summary.imagesUpdated++;
+            }
+            if (pending === 400) {
+              await batch.commit();
+              batch = db.batch();
+              pending = 0;
+            }
+          }
+          if (pending > 0) await batch.commit();
+        }
+        return summary;
+      } catch (error) {
+        console.error("Error normalizing gallery documents:", error);
+        throw new functions.https.HttpsError(
+            "internal", "No se pudo normalizar la galería.");
+      }
+    });
+
+/**
  * Rebuild identifiable lottery fractions for existing sheets/assignments.
  * Usage: POST /rebuildDecimosLoteria with body { "secret": "boanerges2024" }
  */

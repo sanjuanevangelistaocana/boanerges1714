@@ -270,6 +270,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     title: 'Herramientas y configuración',
                     children: [
                       const _BirthdayIndexMaintenance(),
+                      const _GalleryDocumentsMaintenance(),
                       _AdminActionCard(
                           icon: Icons.checkroom,
                           title: 'Túnicas',
@@ -393,6 +394,114 @@ class _BirthdayIndexMaintenanceState extends State<_BirthdayIndexMaintenance> {
       title: 'Índice de cumpleaños',
       subtitle: _isRunning ? 'Reconstruyendo…' : 'Reconstruir índice',
       onTap: _isRunning ? () {} : _rebuild,
+      loading: _isRunning,
+    );
+  }
+}
+
+class _GalleryDocumentsMaintenance extends StatefulWidget {
+  const _GalleryDocumentsMaintenance();
+
+  @override
+  State<_GalleryDocumentsMaintenance> createState() =>
+      _GalleryDocumentsMaintenanceState();
+}
+
+class _GalleryDocumentsMaintenanceState
+    extends State<_GalleryDocumentsMaintenance> {
+  bool _isRunning = false;
+
+  Future<void> _normalize() async {
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      title: 'Normalizar documentos de galería',
+      builder: (context) => const Text(
+        'Se completarán los campos de visibilidad y estado que falten '
+        'en las carpetas y fotografías antiguas. ¿Quieres continuar?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Normalizar'),
+        ),
+      ],
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRunning = true);
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('normalizeGalleryDocuments');
+      final result = await callable.call<Map<String, dynamic>>({});
+      final data = result.data;
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'Galería normalizada',
+        builder: (context) => Text(
+          'Carpetas revisadas: ${data['foldersScanned'] ?? 0}\n'
+          'Carpetas actualizadas: ${data['foldersUpdated'] ?? 0}\n'
+          'Fotografías revisadas: ${data['imagesScanned'] ?? 0}\n'
+          'Fotografías actualizadas: ${data['imagesUpdated'] ?? 0}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } on FirebaseFunctionsException catch (error) {
+      debugPrint(
+          'Error normalizing gallery documents: ${error.code} ${error.message}');
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'No se pudo normalizar la galería',
+        builder: (context) => const Text(
+          'No se ha podido completar la normalización. '
+          'Comprueba tus permisos e inténtalo de nuevo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Error normalizing gallery documents: $error\n$stackTrace');
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'No se pudo normalizar la galería',
+        builder: (context) => const Text(
+          'No se ha podido completar la normalización. '
+          'Inténtalo de nuevo más tarde.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _isRunning = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdminActionCard(
+      icon: _isRunning ? Icons.sync : Icons.photo_library_outlined,
+      title: 'Normalizar galería',
+      subtitle: _isRunning ? 'Normalizando…' : 'Completar campos legacy',
+      onTap: _isRunning ? () {} : _normalize,
       loading: _isRunning,
     );
   }
