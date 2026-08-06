@@ -82,6 +82,69 @@ function parseBirthDate(value) {
       date.getDate() === day ? date : null;
 }
 
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+}
+
+function parseAltaYear(value) {
+  if (value && typeof value.toDate === "function") value = value.toDate();
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.getFullYear();
+  }
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return value >= 1900 && value <= 2100 ? value : null;
+  }
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (/^\d{4}$/.test(text)) {
+    const year = Number(text);
+    return year >= 1900 && year <= 2100 ? year : null;
+  }
+  const date = parseBirthDate(text);
+  return date ? date.getFullYear() : null;
+}
+
+function birthdayGenderData(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (["H", "HOMBRE", "MASCULINO"].includes(normalized)) {
+    return {hero: "un héroe", sanJuanito: "SanJuanito"};
+  }
+  if (["M", "MUJER", "F", "FEMENINO"].includes(normalized)) {
+    return {hero: "una heroína", sanJuanito: "SanJuanita"};
+  }
+  return null;
+}
+
+function birthdayEmailData(cofrade, today) {
+  const birth = parseBirthDate(cofrade.fecha_nacimiento) ||
+      parseBirthDate(cofrade.fecha_nacimiento_str);
+  const age = birth ? today.year - birth.getFullYear() : null;
+  const altaYear = parseAltaYear(cofrade.anio_alta);
+  const yearsInCofradia = altaYear == null ? null : today.year - altaYear;
+  const gender = birthdayGenderData(cofrade.genero);
+  return {
+    plainFirstName: String(cofrade.nombre || "Cofrade"),
+    firstName: escapeHtml(cofrade.nombre || "Cofrade"),
+    age: Number.isInteger(age) && age >= 0 ? age : null,
+    yearsInCofradia: Number.isInteger(yearsInCofradia) &&
+        yearsInCofradia >= 0 ? yearsInCofradia : null,
+    gender,
+  };
+}
+
+function birthdayTenureText(years, gender) {
+  if (years == null) return null;
+  const role = gender ? ` como ${gender.sanJuanito}` : " en la Cofradía";
+  if (years === 0) return `Felicidades también por tus primeros meses${role} 🔴🦅`;
+  if (years === 1) return `Felicidades también por tu primer año${role} 🔴🦅`;
+  return `Felicidades también por tus ${years} años${role} 🔴🦅`;
+}
+
 function madridToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Madrid",
@@ -1498,20 +1561,58 @@ exports.sendBirthdayGreetings = withEmailSecret
             continue;
           }
           try {
+            const emailData = birthdayEmailData(c, today);
+            const greetingText = emailData.age == null
+              ? "Hoy celebras un día muy especial 🎉"
+              : emailData.gender
+              ? `Hoy ${emailData.gender.hero} de capa blanca celebra ` +
+                `${emailData.age} vueltas al Sol 🎉`
+              : `Hoy celebras ${emailData.age} vueltas al Sol 🎉`;
+            const tenureText = birthdayTenureText(
+                emailData.yearsInCofradia, emailData.gender);
+            const paragraphs = [
+              `¡Hola ${emailData.plainFirstName}!`,
+              greetingText,
+              "Te deseamos un día lleno de risas, de los tuyos y de " +
+                "momentos que merezca la pena recordar. Que este nuevo año " +
+                "de vida te traiga aventuras, salud y fuerzas para alcanzar " +
+                "todo lo que te propongas.",
+              "Disfrútalo al máximo. ¡Que cumplas muchos más!",
+              "Un abrazo fraternal,\n" +
+                "Cofradía de San Juan Evangelista · Ocaña · Desde 1714",
+            ];
+            if (tenureText) paragraphs.push(`P.D. ${tenureText}`);
+            const htmlParagraphs = [
+              `<p style="margin:0 0 18px;font-size:16px;">¡Hola ` +
+                `<strong>${emailData.firstName}</strong>!</p>`,
+              `<p style="margin:0 0 18px;">${escapeHtml(greetingText)}</p>`,
+              `<p style="margin:0 0 18px;">Te deseamos un día lleno de risas, ` +
+                `de los tuyos y de momentos que merezca la pena recordar. ` +
+                `Que este nuevo año de vida te traiga aventuras, salud y ` +
+                `fuerzas para alcanzar todo lo que te propongas.</p>`,
+              `<p style="margin:0 0 18px;">Disfrútalo al máximo. ` +
+                `¡Que cumplas muchos más!</p>`,
+              `<p style="margin:0 0 18px;">Un abrazo fraternal,<br/>` +
+                `<strong>Cofradía de San Juan Evangelista</strong><br/>` +
+                `Ocaña · Desde 1714</p>`,
+            ];
+            if (tenureText) {
+              htmlParagraphs.push(
+                  `<p style="margin:0;">P.D. ${escapeHtml(tenureText)}</p>`);
+            }
             await transporter.sendMail({
               from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
               to: c.email,
               subject: `¡Feliz cumpleaños, ${c.nombre || ""}! 🎂`,
+              text: paragraphs.join("\n\n"),
               html: `
-                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+                <div style="font-family:Arial,sans-serif;max-width:600px;` +
+                `margin:0 auto;color:#222;line-height:1.55;">
                   <div style="background:#6B1024;color:white;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
                     <h1 style="margin:0;">¡Feliz cumpleaños!</h1>
                   </div>
                   <div style="padding:24px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px;">
-                    <p style="font-size:16px;">Querido/a <strong>${c.nombre || ""} ${c.apellidos || ""}</strong>,</p>
-                    <p>La Cofradía de San Juan Evangelista de Ocaña te desea un muy feliz cumpleaños.</p>
-                    <p>Esperamos que pases un día maravilloso rodeado/a de los tuyos.</p>
-                    <p style="margin-top:20px;">Un abrazo fraternal,<br/><strong>Cofradía de San Juan Evangelista</strong><br/>Ocaña · Desde 1714</p>
+                    ${htmlParagraphs.join("\n                    ")}
                   </div>
                 </div>
               `,
