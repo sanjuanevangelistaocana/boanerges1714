@@ -95,6 +95,72 @@ async function requireGalleryAdmin(context) {
   }
 }
 
+function normalizedDiagnosticText(value) {
+  return value === null || value === undefined ?
+    "" : String(value).trim().toLowerCase();
+}
+
+function normalizedDiagnosticDni(value) {
+  return String(value || "").toUpperCase()
+      .replace(/[\s\-_.]/g, "").trim();
+}
+
+function diagnosticDateKey(value) {
+  if (value === null || value === undefined || value === "") return null;
+  let date = null;
+  if (value instanceof Date) {
+    date = value;
+  } else if (value && typeof value.toDate === "function") {
+    date = value.toDate();
+  } else if (typeof value === "string") {
+    const text = value.trim();
+    let match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      date = new Date(Date.UTC(
+          year, month - 1, day));
+      if (date.getUTCFullYear() !== year ||
+          date.getUTCMonth() + 1 !== month ||
+          date.getUTCDate() !== day) return null;
+    } else {
+      match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
+      if (match) {
+        const year = Number(match[3]);
+        const month = Number(match[2]);
+        const day = Number(match[1]);
+        date = new Date(Date.UTC(
+            year, month - 1, day));
+        if (date.getUTCFullYear() !== year ||
+            date.getUTCMonth() + 1 !== month ||
+            date.getUTCDate() !== day) return null;
+      }
+    }
+  }
+  if (!date || Number.isNaN(date.getTime())) return null;
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  const valid = new Date(Date.UTC(year, month - 1, day));
+  if (valid.getUTCFullYear() !== year ||
+      valid.getUTCMonth() + 1 !== month ||
+      valid.getUTCDate() !== day) {
+    return null;
+  }
+  return `${year.toString().padStart(4, "0")}-` +
+      `${month.toString().padStart(2, "0")}-` +
+      `${day.toString().padStart(2, "0")}`;
+}
+
+function diagnosticBoolean(value) {
+  if (typeof value === "boolean") return value;
+  const normalized = normalizedDiagnosticText(value);
+  if (["true", "1", "si", "sí", "yes"].includes(normalized)) return true;
+  if (["false", "0", "no"].includes(normalized)) return false;
+  return null;
+}
+
 // ============================================================
 // Google Sheets Bidirectional Sync
 // ============================================================
@@ -1110,6 +1176,151 @@ exports.normalizeGalleryDocuments = functions
         throw new functions.https.HttpsError(
             "internal", "No se pudo normalizar la galería.");
       }
+    });
+
+/**
+ * Report contradictory cofrade aliases without modifying any document.
+ */
+exports.diagnoseCofradeConflicts = functions
+    .region("europe-west1")
+    .https.onCall(async (data, context) => {
+      await requireGalleryAdmin(context);
+      const conflictTypes = [
+        "rol_role",
+        "auth_uid_authUid",
+        "fecha_nacimiento",
+        "tutor_requiere",
+        "tutor_email",
+        "tutor_dni",
+        "tutor_parentesco",
+        "tiene_cuota_cuotaActiva",
+        "fecha_baja",
+        "dni_normalizado",
+        "estado_actividad",
+      ];
+      const counts = Object.fromEntries(
+          conflictTypes.map((type) => [type, 0]),
+      );
+      const samples = Object.fromEntries(
+          conflictTypes.map((type) => [type, []]),
+      );
+      let scanned = 0;
+      let fichasConConflictos = 0;
+      const snapshot = await db.collection("cofrades").get();
+
+      const report = (type, id) => {
+        counts[type]++;
+        if (samples[type].length < 10) samples[type].push(id);
+      };
+
+      for (const doc of snapshot.docs) {
+        scanned++;
+        const value = doc.data();
+        let hasConflict = false;
+        const compareText = (type, first, second) => {
+          if (first === undefined || first === null ||
+              second === undefined || second === null) return;
+          if (normalizedDiagnosticText(first) === "" ||
+              normalizedDiagnosticText(second) === "") return;
+          if (normalizedDiagnosticText(first) !==
+              normalizedDiagnosticText(second)) {
+            report(type, doc.id);
+            hasConflict = true;
+          }
+        };
+        const compareDate = (type, first, second) => {
+          if (first === undefined || first === null ||
+              second === undefined || second === null) return;
+          const firstKey = diagnosticDateKey(first);
+          const secondKey = diagnosticDateKey(second);
+          if (firstKey && secondKey && firstKey !== secondKey) {
+            report(type, doc.id);
+            hasConflict = true;
+          }
+        };
+        const compareBoolean = (type, first, second) => {
+          const firstValue = diagnosticBoolean(first);
+          const secondValue = diagnosticBoolean(second);
+          if (firstValue !== null && secondValue !== null &&
+              firstValue !== secondValue) {
+            report(type, doc.id);
+            hasConflict = true;
+          }
+        };
+
+        compareText("rol_role", value.rol, value.role);
+        compareText("auth_uid_authUid", value.auth_uid, value.authUid);
+        compareDate(
+            "fecha_nacimiento",
+            value.fecha_nacimiento,
+            value.fecha_nacimiento_str,
+        );
+        compareBoolean(
+            "tutor_requiere",
+            value.requiresDigitalTutor,
+            value.tutelado_digital,
+        );
+        compareText(
+            "tutor_email",
+            value.digitalTutorEmail,
+            value.tutelado_digital_email,
+        );
+        compareText("tutor_dni", value.digitalTutorDni, value.dni_tutor);
+        compareText(
+            "tutor_parentesco",
+            value.digitalTutorRelationship,
+            value.parentesco_tutor,
+        );
+        compareBoolean(
+            "tiene_cuota_cuotaActiva",
+            value.tiene_cuota,
+            value.cuotaActiva,
+        );
+        compareDate("fecha_baja", value.fecha_baja, value.fecha_baja_str);
+        if (value.dni !== undefined && value.dni_normalizado !== undefined &&
+            normalizedDiagnosticDni(value.dni) !== "" &&
+            normalizedDiagnosticDni(value.dni_normalizado) !== "" &&
+            normalizedDiagnosticDni(value.dni) !==
+                normalizedDiagnosticDni(value.dni_normalizado)) {
+          report("dni_normalizado", doc.id);
+          hasConflict = true;
+        }
+
+        const estado = normalizedDiagnosticText(value.estado);
+        const status = normalizedDiagnosticText(value.status);
+        const active = typeof value.isActive === "boolean" ?
+          value.isActive : null;
+        const estadoBaja = estado === "baja";
+        const estadoActivo = estado === "activo" || estado === "activa";
+        const statusBaja = ["baja", "inactive", "inactivo"].includes(status);
+        const statusActivo = ["active", "activo", "activa"].includes(status);
+        const impossibleState =
+            (estadoBaja && active === true) ||
+            (estadoActivo && active === false) ||
+            (estadoBaja && statusActivo) ||
+            (estadoActivo && statusBaja) ||
+            (statusBaja && active === true) ||
+            (statusActivo && active === false);
+        if (impossibleState) {
+          report("estado_actividad", doc.id);
+          hasConflict = true;
+        }
+        if (hasConflict) fichasConConflictos++;
+      }
+
+      console.log("Cofrade conflict diagnosis completed", {
+        scanned,
+        fichasConConflictos,
+        counts,
+      });
+      return {
+        scanned,
+        fichasConConflictos,
+        counts,
+        samples,
+        sampleLimit: 10,
+        writesPerformed: 0,
+      };
     });
 
 exports.setGalleryImageVisibility = functions

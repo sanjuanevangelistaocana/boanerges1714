@@ -271,6 +271,7 @@ class AdminDashboardScreen extends StatelessWidget {
                     children: [
                       const _BirthdayIndexMaintenance(),
                       const _GalleryDocumentsMaintenance(),
+                      const _CofradeConflictsMaintenance(),
                       _AdminActionCard(
                           icon: Icons.checkroom,
                           title: 'Túnicas',
@@ -502,6 +503,149 @@ class _GalleryDocumentsMaintenanceState
       title: 'Normalizar galería',
       subtitle: _isRunning ? 'Normalizando…' : 'Completar campos legacy',
       onTap: _isRunning ? () {} : _normalize,
+      loading: _isRunning,
+    );
+  }
+}
+
+class _CofradeConflictsMaintenance extends StatefulWidget {
+  const _CofradeConflictsMaintenance();
+
+  @override
+  State<_CofradeConflictsMaintenance> createState() =>
+      _CofradeConflictsMaintenanceState();
+}
+
+class _CofradeConflictsMaintenanceState
+    extends State<_CofradeConflictsMaintenance> {
+  bool _isRunning = false;
+
+  Future<void> _diagnose() async {
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      title: 'Analizar conflictos de cofrades',
+      builder: (context) => const Text(
+        'Esta herramienta solo leerá las fichas de cofrades y analizará '
+        'posibles contradicciones entre aliases. No modificará ni borrará '
+        'ningún dato. ¿Quieres continuar?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Analizar'),
+        ),
+      ],
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRunning = true);
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('diagnoseCofradeConflicts');
+      final result = await callable.call<Map<String, dynamic>>({});
+      final data = result.data;
+      final counts = (data['counts'] as Map?)?.cast<String, dynamic>() ?? {};
+      final samples = (data['samples'] as Map?)?.map(
+            (key, value) => MapEntry(
+              '$key',
+              (value as List?)?.map((item) => '$item').toList() ?? const [],
+            ),
+          ) ??
+          <String, List<String>>{};
+      const labels = <String, String>{
+        'rol_role': 'Rol / role',
+        'auth_uid_authUid': 'UID de autenticación',
+        'fecha_nacimiento': 'Fecha de nacimiento',
+        'tutor_requiere': 'Requiere tutela',
+        'tutor_email': 'Email del tutor',
+        'tutor_dni': 'DNI del tutor',
+        'tutor_parentesco': 'Parentesco del tutor',
+        'tiene_cuota_cuotaActiva': 'Cuota',
+        'fecha_baja': 'Fecha de baja',
+        'dni_normalizado': 'DNI normalizado',
+        'estado_actividad': 'Estado / actividad',
+      };
+      final lines = labels.entries
+          .map((entry) => '${entry.value}: ${counts[entry.key] ?? 0}')
+          .join('\n');
+      final sampleLines = labels.entries
+          .map((entry) {
+            final ids = samples[entry.key] ?? const <String>[];
+            if (ids.isEmpty) return null;
+            return '${entry.value}: ${ids.join(', ')}';
+          })
+          .whereType<String>()
+          .join('\n');
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'Diagnóstico completado',
+        builder: (context) => Text(
+          'Fichas analizadas: ${data['scanned'] ?? 0}\n'
+          'Fichas con algún conflicto: '
+          '${data['fichasConConflictos'] ?? 0}\n\n'
+          '$lines\n\n'
+          '${sampleLines.isEmpty ? '' : 'Muestras de IDs afectados (máximo 10 por tipo):\n$sampleLines\n\n'}'
+          'La herramienta solo ha leído datos. No se ha modificado ninguna '
+          'ficha.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } on FirebaseFunctionsException catch (error) {
+      debugPrint(
+          'Error diagnosing cofrade conflicts: ${error.code} ${error.message}');
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'No se pudo completar el diagnóstico',
+        builder: (context) => const Text(
+          'No se ha podido analizar las fichas. Comprueba tus permisos '
+          'e inténtalo de nuevo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Error diagnosing cofrade conflicts: $error\n$stackTrace');
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'No se pudo completar el diagnóstico',
+        builder: (context) => const Text(
+          'No se ha podido analizar las fichas. Inténtalo de nuevo más tarde.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _isRunning = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdminActionCard(
+      icon: _isRunning ? Icons.sync : Icons.fact_check_outlined,
+      title: 'Diagnóstico de cofrades',
+      subtitle: _isRunning ? 'Analizando solo lectura…' : 'Solo lectura',
+      onTap: _isRunning ? () {} : _diagnose,
       loading: _isRunning,
     );
   }
