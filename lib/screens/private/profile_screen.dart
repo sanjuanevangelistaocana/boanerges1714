@@ -294,9 +294,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 cofrade.fechaNacimiento!.month == MadridDate.now().month &&
                 cofrade.fechaNacimiento!.day == MadridDate.now().day)
               Card(
-                color: Colors.amber.shade50,
+                color: AppTheme.accentColor.withAlpha(24),
                 child: const ListTile(
-                  leading: Text('🎂', style: TextStyle(fontSize: 30)),
+                  leading: Icon(Icons.cake_outlined,
+                      color: AppTheme.primaryColor, size: 30),
                   title: Text('¡Feliz cumpleaños!'),
                   subtitle: Text(
                       'La Cofradía de San Juan Evangelista te desea un maravilloso día.'),
@@ -877,9 +878,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       case 'date':
-        final currentDate = Cofrade.parseBirthDate(current);
+        final isBirthDate = field.fieldKey == 'fecha_nacimiento' ||
+            field.fieldKey == 'fecha_nacimiento_str';
+        final currentDate =
+            isBirthDate ? Cofrade.parseBirthDate(current) : null;
         final controller = TextEditingController(
-            text: Cofrade.birthDateString(currentDate) ?? '');
+            text: isBirthDate
+                ? Cofrade.birthDateString(currentDate) ?? ''
+                : _formatGenericDate(current));
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: TextFormField(
@@ -907,7 +913,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fields['fecha_nacimiento_str'] as String;
                       _dynamicFieldValues.addAll(fields);
                     } else {
-                      final value = Cofrade.birthDateString(picked) ?? '';
+                      final value = _formatGenericDate(picked);
                       controller.text = value;
                       _dynamicFieldValues[field.fieldKey] = value;
                     }
@@ -1106,6 +1112,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) setState(() => _isSaving = false);
     }
   }
+}
+
+String _formatGenericDate(Object? value) {
+  if (value is DateTime) {
+    return '${value.day.toString().padLeft(2, '0')}/'
+        '${value.month.toString().padLeft(2, '0')}/${value.year}';
+  }
+  return value == null ? '' : '$value';
 }
 
 class _UpperCaseTextFormatter extends TextInputFormatter {
