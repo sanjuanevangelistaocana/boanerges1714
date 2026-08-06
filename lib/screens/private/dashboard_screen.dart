@@ -2064,7 +2064,7 @@ class _BirthdaySection extends StatefulWidget {
 }
 
 class _BirthdaySectionState extends State<_BirthdaySection> {
-  static const _birthdayWindowDays = 30;
+  static const _birthdayWindowDays = 7;
   static const _initialBirthdayLimit = 5;
   bool _showAllBirthdays = false;
 
@@ -2171,7 +2171,7 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
                       Text(
                           '${upcoming.length} cofrade${upcoming.length == 1 ? '' : 's'} '
                           'cumple${upcoming.length == 1 ? '' : 'n'} '
-                          'en el próximo mes'),
+                          'en los próximos 7 días'),
                       ...upcoming
                           .take(_showAllBirthdays
                               ? upcoming.length
