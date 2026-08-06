@@ -2183,8 +2183,8 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.cake_outlined),
                           title: Text(item.entry.nombre),
-                          subtitle: Text(
-                              '${DateFormat('dd/MM').format(date)} · en ${item.days} día${item.days == 1 ? '' : 's'}'),
+                          subtitle: Text('${DateFormat('dd/MM').format(date)}'
+                              ' · ${_relativeBirthdayLabel(item.days)}'),
                         );
                       }),
                       if (upcoming.length > _initialBirthdayLimit)
@@ -2212,6 +2212,12 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
       },
     );
   }
+}
+
+String _relativeBirthdayLabel(int days) {
+  if (days == 0) return 'hoy';
+  if (days == 1) return 'mañana';
+  return 'en $days días';
 }
 
 DateTime _birthdayDate(DateTime now, int month, int day) {
