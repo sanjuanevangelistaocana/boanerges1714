@@ -15,6 +15,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SDK = Path('/home/ubuntu/tools/flutter/packages/flutter/lib/src')
 
+EXTERNAL_EXTENSION_MEMBERS: dict[str, dict[str, set[str]]] = {
+    'package:go_router/go_router.dart': {
+        'context': {
+            'canPop',
+            'go',
+            'goNamed',
+            'pop',
+            'push',
+            'pushNamed',
+            'pushReplacement',
+            'pushReplacementNamed',
+            'replace',
+            'replaceNamed',
+        },
+    },
+    'package:provider/provider.dart': {
+        'context': {'read', 'select', 'watch'},
+    },
+}
+
 
 @dataclass
 class Parameter:
@@ -88,6 +108,15 @@ def imported_paths(path: Path, source: str) -> list[Path]:
         elif uri.startswith('.'):
             result.append((path.parent / uri).resolve())
     return result
+
+
+def imported_uris(source: str) -> set[str]:
+    return {
+        match.group(1)
+        for match in re.finditer(
+            r'''^\s*import\s+['"]([^'"]+)['"]''', source, re.MULTILINE
+        )
+    }
 
 
 def exported_paths(path: Path, source: str) -> list[Path]:
@@ -592,6 +621,7 @@ def import_errors(
 ) -> list[str]:
     cleaned = strip_comments_and_strings(source)
     imported = imported_paths(path, source)
+    imported_external_uris = imported_uris(source)
     cache: dict[Path, set[str]] = {}
     visible: set[str] = set()
     for imported_path in imported:
@@ -621,6 +651,23 @@ def import_errors(
                 f'{path.relative_to(ROOT)}: extension member .{member} '
                 'used without importing its defining library'
             )
+
+    for uri, receivers in EXTERNAL_EXTENSION_MEMBERS.items():
+        if uri in imported_external_uris:
+            continue
+        for receiver, members in receivers.items():
+            for member in members:
+                if re.search(
+                    rf'\b{re.escape(receiver)}\s*\?\.\s*'
+                    rf'{re.escape(member)}\b|'
+                    rf'\b{re.escape(receiver)}\s*\.\s*'
+                    rf'{re.escape(member)}\b',
+                    cleaned,
+                ):
+                    errors.append(
+                        f'{path.relative_to(ROOT)}: external extension member '
+                        f'.{member} used without importing {uri}'
+                    )
 
     for class_name in classes:
         if class_name in local or class_name in visible:
