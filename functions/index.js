@@ -99,20 +99,75 @@ function madridToday() {
 
 async function syncPublicBirthday(cofradeId, data) {
   const ref = db.collection("cumpleanos_publicos").doc(cofradeId);
+  const birthday = publicBirthdayData(cofradeId, data);
+  if (!birthday) {
+    await ref.delete().catch(() => {});
+    return;
+  }
+  await ref.set(birthday);
+}
+
+function publicBirthdayData(cofradeId, data) {
   const birth = parseBirthDate(data.fecha_nacimiento) ||
       parseBirthDate(data.fecha_nacimiento_str);
   const active = data.estado === "Activo" && data.isActive !== false;
   if (!birth || !active || data.cumpleanos_visible === false) {
-    await ref.delete().catch(() => {});
-    return;
+    return null;
   }
-  await ref.set({
+  return {
     id: cofradeId,
     nombre: `${data.nombre || ""} ${data.apellidos || ""}`.trim(),
     dia: birth.getDate(),
     mes: birth.getMonth() + 1,
     visible: true,
-  });
+  };
+}
+
+async function rebuildPublicBirthdayIndex() {
+  const snapshot = await db.collection("cofrades").get();
+  const existing = await db.collection("cumpleanos_publicos").get();
+  const validIds = new Set();
+  let batch = db.batch();
+  let pending = 0;
+  let indexed = 0;
+  let deleted = 0;
+  const cofradeIds = new Set(snapshot.docs.map((doc) => doc.id));
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    const ref = db.collection("cumpleanos_publicos").doc(doc.id);
+    const birthday = publicBirthdayData(doc.id, data);
+    if (!birthday) {
+      batch.delete(ref);
+      deleted++;
+    } else {
+      validIds.add(doc.id);
+      batch.set(ref, birthday);
+      indexed++;
+    }
+    pending++;
+    if (pending === 450) {
+      await batch.commit();
+      batch = db.batch();
+      pending = 0;
+    }
+  }
+
+  for (const doc of existing.docs) {
+    if (!validIds.has(doc.id) &&
+        !cofradeIds.has(doc.id)) {
+      batch.delete(doc.ref);
+      deleted++;
+      pending++;
+      if (pending === 450) {
+        await batch.commit();
+        batch = db.batch();
+        pending = 0;
+      }
+    }
+  }
+  if (pending > 0) await batch.commit();
+  return {indexed, deleted};
 }
 
 exports.syncCofradePublicBirthday = functions
@@ -781,52 +836,27 @@ exports.rebuildCofradeSearchIndex = functions
 
 /**
  * Rebuild public birthday documents after migration or rule changes.
- * Usage: POST with an authenticated admin Bearer token.
  */
 exports.rebuildPublicBirthdayIndex = functions
     .region("europe-west1")
-    .https.onRequest(async (req, res) => {
+    .https.onCall(async (data, context) => {
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
+            "unauthenticated", "Debes iniciar sesión.");
+      }
+      const adminDoc = await db.collection("admins").doc(context.auth.uid).get();
+      const isAdmin = context.auth.token.admin === true ||
+          context.auth.token.superadmin === true || adminDoc.exists;
+      if (!isAdmin) {
+        throw new functions.https.HttpsError(
+            "permission-denied", "No tienes permisos de administración.");
+      }
       try {
-        const header = req.get("Authorization") || "";
-        const token = header.startsWith("Bearer ") ?
-          await admin.auth().verifyIdToken(header.substring(7)) : null;
-        if (!token || token.admin !== true && token.role !== "admin") {
-          return res.status(403).json({status: "error", message: "Forbidden"});
-        }
-        const snapshot = await db.collection("cofrades").get();
-        let batch = db.batch();
-        let pending = 0;
-        let indexed = 0;
-        for (const doc of snapshot.docs) {
-          const ref = db.collection("cumpleanos_publicos").doc(doc.id);
-          const data = doc.data();
-          const birth = parseBirthDate(data.fecha_nacimiento) ||
-              parseBirthDate(data.fecha_nacimiento_str);
-          const active = data.estado === "Activo" && data.isActive !== false;
-          if (!birth || !active || data.cumpleanos_visible === false) {
-            batch.delete(ref);
-          } else {
-            batch.set(ref, {
-              id: doc.id,
-              nombre: `${data.nombre || ""} ${data.apellidos || ""}`.trim(),
-              dia: birth.getDate(),
-              mes: birth.getMonth() + 1,
-              visible: true,
-            });
-            indexed++;
-          }
-          pending++;
-          if (pending === 450) {
-            await batch.commit();
-            batch = db.batch();
-            pending = 0;
-          }
-        }
-        if (pending > 0) await batch.commit();
-        return res.json({status: "success", indexed});
+        return await rebuildPublicBirthdayIndex();
       } catch (error) {
         console.error("Error rebuilding public birthday index:", error);
-        return res.status(500).json({status: "error", message: error.message});
+        throw new functions.https.HttpsError(
+            "internal", "No se pudo reconstruir el índice de cumpleaños.");
       }
     });
 

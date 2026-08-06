@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -267,6 +268,7 @@ class AdminDashboardScreen extends StatelessWidget {
                   _AdminActionGroup(
                     title: 'Herramientas y configuración',
                     children: [
+                      const _BirthdayIndexMaintenance(),
                       _AdminActionCard(
                           icon: Icons.checkroom,
                           title: 'Túnicas',
@@ -285,6 +287,112 @@ class AdminDashboardScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BirthdayIndexMaintenance extends StatefulWidget {
+  const _BirthdayIndexMaintenance();
+
+  @override
+  State<_BirthdayIndexMaintenance> createState() =>
+      _BirthdayIndexMaintenanceState();
+}
+
+class _BirthdayIndexMaintenanceState extends State<_BirthdayIndexMaintenance> {
+  bool _isRunning = false;
+
+  Future<void> _rebuild() async {
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      title: 'Reconstruir índice de cumpleaños',
+      builder: (context) => const Text(
+        'Se recalcularán los cumpleaños visibles y se eliminarán '
+        'las entradas obsoletas. ¿Quieres continuar?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Reconstruir'),
+        ),
+      ],
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRunning = true);
+    try {
+      final callable = FirebaseFunctions.instanceFor(region: 'europe-west1')
+          .httpsCallable('rebuildPublicBirthdayIndex');
+      final result = await callable.call<Map<String, dynamic>>({});
+      final indexed = result.data['indexed'] ?? 0;
+      final deleted = result.data['deleted'] ?? 0;
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'Índice reconstruido',
+        builder: (context) => Text(
+          'Documentos indexados: $indexed\n'
+          'Documentos eliminados: $deleted',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } on FirebaseFunctionsException catch (error) {
+      debugPrint(
+          'Error rebuilding public birthday index: ${error.code} ${error.message}');
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'No se pudo reconstruir el índice',
+        builder: (context) => const Text(
+          'No se ha podido completar la reconstrucción. '
+          'Comprueba tus permisos e inténtalo de nuevo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Error rebuilding public birthday index: $error\n$stackTrace');
+      if (!mounted) return;
+      await showAppDialog<void>(
+        context: context,
+        title: 'No se pudo reconstruir el índice',
+        builder: (context) => const Text(
+          'No se ha podido completar la reconstrucción. '
+          'Inténtalo de nuevo más tarde.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _isRunning = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AdminActionCard(
+      icon: _isRunning ? Icons.sync : Icons.cake_outlined,
+      title: 'Índice de cumpleaños',
+      subtitle: _isRunning ? 'Reconstruyendo…' : 'Reconstruir índice',
+      onTap: _isRunning ? () {} : _rebuild,
+      loading: _isRunning,
     );
   }
 }
@@ -673,6 +781,7 @@ class _AdminActionCard extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final int badgeCount;
+  final bool loading;
 
   const _AdminActionCard({
     required this.icon,
@@ -680,6 +789,7 @@ class _AdminActionCard extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.badgeCount = 0,
+    this.loading = false,
   });
 
   @override
@@ -691,27 +801,37 @@ class _AdminActionCard extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          badgeCount > 0
-              ? Badge(
-                  label:
-                      Text('$badgeCount', style: const TextStyle(fontSize: 11)),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withAlpha(15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, size: 28, color: AppTheme.primaryColor),
+          loading
+              ? const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Padding(
+                    padding: EdgeInsets.all(10),
+                    child: CircularProgressIndicator(strokeWidth: 3),
                   ),
                 )
-              : Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, size: 28, color: AppTheme.primaryColor),
-                ),
+              : badgeCount > 0
+                  ? Badge(
+                      label: Text('$badgeCount',
+                          style: const TextStyle(fontSize: 11)),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withAlpha(15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child:
+                            Icon(icon, size: 28, color: AppTheme.primaryColor),
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withAlpha(15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, size: 28, color: AppTheme.primaryColor),
+                    ),
           const SizedBox(height: 10),
           Text(title,
               style:
