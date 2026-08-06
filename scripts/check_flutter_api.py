@@ -39,6 +39,21 @@ class Property:
     nullable: bool
 
 
+@dataclass
+class ProjectClass:
+    name: str
+    members: set[str] = field(default_factory=set)
+
+
+@dataclass
+class ProjectLibrary:
+    path: Path
+    declarations: set[str] = field(default_factory=set)
+    constants: set[str] = field(default_factory=set)
+    exports: list[Path] = field(default_factory=list)
+    extensions: dict[str, set[str]] = field(default_factory=dict)
+
+
 def changed_files() -> list[Path]:
     result = subprocess.check_output(
         ['git', 'diff', '362cf3e..HEAD', '--name-only'], cwd=ROOT, text=True
@@ -47,6 +62,182 @@ def changed_files() -> list[Path]:
         ['git', 'diff', '--name-only'], cwd=ROOT, text=True
     ).splitlines()
     return list(dict.fromkeys(ROOT / x for x in result if x.endswith('.dart')))
+
+
+def dart_files() -> list[Path]:
+    return list((ROOT / 'lib').rglob('*.dart'))
+
+
+def package_path(uri: str) -> Path | None:
+    prefix = 'package:boanerges1714/'
+    if uri.startswith(prefix):
+        return ROOT / 'lib' / uri[len(prefix):]
+    return None
+
+
+def imported_paths(path: Path, source: str) -> list[Path]:
+    result: list[Path] = []
+    for match in re.finditer(
+        r'''^\s*import\s+['"]([^'"]+)['"]''', source, re.MULTILINE
+    ):
+        uri = match.group(1)
+        imported = package_path(uri)
+        if imported is not None:
+            result.append(imported)
+        elif uri.startswith('.'):
+            result.append((path.parent / uri).resolve())
+    return result
+
+
+def exported_paths(path: Path, source: str) -> list[Path]:
+    result: list[Path] = []
+    for match in re.finditer(
+        r'''^\s*export\s+['"]([^'"]+)['"]''', source, re.MULTILINE
+    ):
+        uri = match.group(1)
+        imported = package_path(uri)
+        if imported is not None:
+            result.append(imported)
+        elif uri.startswith('.'):
+            result.append((path.parent / uri).resolve())
+    return result
+
+
+def parse_named_fields(text: str) -> set[str]:
+    fields: set[str] = set()
+    for item in split_top_level(text):
+        item = re.sub(r'\s+', ' ', item.strip())
+        item = re.sub(r'^(?:required\s+)?', '', item)
+        match = re.search(r'\b([a-z_]\w*)\s*$', item)
+        if match:
+            fields.add(match.group(1))
+    return fields
+
+
+def project_index() -> tuple[
+    dict[Path, ProjectLibrary],
+    dict[str, ProjectClass],
+    dict[str, set[str]],
+    dict[str, set[str]],
+]:
+    libraries: dict[Path, ProjectLibrary] = {}
+    classes: dict[str, ProjectClass] = {}
+    records: dict[str, set[str]] = {}
+    functions: dict[str, set[str]] = {}
+    for path in dart_files():
+        raw = path.read_text(errors='ignore')
+        source = strip_comments_and_strings(raw)
+        library = ProjectLibrary(path)
+        libraries[path] = library
+        class_ranges: list[tuple[int, int]] = []
+        for declaration in re.finditer(
+            r'\b(?:class|enum|mixin|typedef)\s+([A-Za-z_]\w*)', raw
+        ):
+            library.declarations.add(declaration.group(1))
+        for match in re.finditer(
+            r'\b(?:class|enum|mixin|typedef)\s+([A-Za-z_]\w*)', source
+        ):
+            name = match.group(1)
+            library.declarations.add(name)
+            if source[match.start():].startswith('typedef'):
+                opening = source.find('(', match.end())
+                if opening >= 0 and source.find('=', match.end(), opening) >= 0:
+                    body = matching(source, opening)
+                    if body is not None:
+                        body = body.strip()
+                        if body.startswith('{') and body.endswith('}'):
+                            body = body[1:-1]
+                        records[name] = parse_named_fields(body)
+        for match in re.finditer(
+            r'\bclass\s+(_?[A-Z][A-Za-z0-9_]*)\b', source
+        ):
+            class_name = match.group(1)
+            body_start = source.find('{', match.end())
+            body = matching(source, body_start, '{', '}') if body_start >= 0 else None
+            if body is None:
+                continue
+            class_ranges.append((body_start, body_start + len(body) + 2))
+            project_class = classes.setdefault(class_name, ProjectClass(class_name))
+            for prop in re.finditer(
+                r'\b(?:final|late\s+final|static\s+const|static\s+final)\s+'
+                r'(?:[A-Za-z][A-Za-z0-9_<>,.? ()]*\s+)?([a-z_]\w*)\s*(?:[=;({])',
+                body,
+            ):
+                project_class.members.add(prop.group(1))
+            for method in re.finditer(r'\b([a-z_]\w*)\s*\(', body):
+                project_class.members.add(method.group(1))
+        for match in re.finditer(
+            r'(?m)^[ \t]*(?:[A-Za-z_<>,.?()\[\] ]+)\s+'
+            r'([a-z_]\w*)\s*\([^;{}]*\)\s*(?:async\s*)?(?:\{|=>)',
+            source,
+        ):
+            in_class = any(start < match.start() < end for start, end in class_ranges)
+            if not in_class and source[:match.start()].count('{') == source[:match.start()].count('}'):
+                function_name = match.group(1)
+                functions.setdefault(function_name, set()).add(str(path))
+                library.declarations.add(function_name)
+        for match in re.finditer(
+            r'(?m)^[ \t]*(?:const|final)\s+'
+            r'(?:[A-Za-z_<>,.?()\[\] ]+\s+)?([a-z_]\w*)\s*=',
+            source,
+        ):
+            if source[:match.start()].count('{') == source[:match.start()].count('}'):
+                library.constants.add(match.group(1))
+        for match in re.finditer(
+            r'\bextension(?:\s+\w+)?\s+on\s+([A-Za-z_]\w*)\s*\{',
+            source,
+        ):
+            body = matching(source, source.find('{', match.start()), '{', '}')
+            if body is not None:
+                members = set(
+                    re.findall(r'\b(?:get\s+)?([a-z_]\w*)\s*(?:\([^)]*\))?\s*(?:=>|\{)',
+                               body)
+                )
+                library.extensions.setdefault(match.group(1), set()).update(members)
+        library.exports.extend(exported_paths(path, source))
+    return libraries, classes, records, functions
+
+
+def library_visible_declarations(
+    path: Path,
+    libraries: dict[Path, ProjectLibrary],
+    cache: dict[Path, set[str]] | None = None,
+) -> set[str]:
+    cache = cache if cache is not None else {}
+    if path in cache:
+        return cache[path]
+    library = libraries.get(path)
+    if library is None:
+        return set()
+    visible = set(library.declarations) | set(library.constants)
+    cache[path] = visible
+    for exported in library.exports:
+        visible.update(library_visible_declarations(exported, libraries, cache))
+    return visible
+
+
+def library_visible_extensions(
+    path: Path,
+    libraries: dict[Path, ProjectLibrary],
+    cache: dict[Path, dict[str, set[str]]] | None = None,
+) -> dict[str, set[str]]:
+    cache = cache if cache is not None else {}
+    if path in cache:
+        return cache[path]
+    library = libraries.get(path)
+    if library is None:
+        return {}
+    visible = {
+        receiver: set(members)
+        for receiver, members in library.extensions.items()
+    }
+    cache[path] = visible
+    for exported in library.exports:
+        for receiver, members in library_visible_extensions(
+            exported, libraries, cache
+        ).items():
+            visible.setdefault(receiver, set()).update(members)
+    return visible
 
 
 def strip_comments_and_strings(source: str) -> str:
@@ -247,9 +438,171 @@ def nullable_expression(expression: str, properties: dict[tuple[str, str], Prope
     return None
 
 
+def record_return_fields(source: str) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    pattern = re.compile(
+        r'\(\s*\{([^{}]*)\}\s*\)\s*\??\s*'
+        r'(?:async\s+)?([a-z_]\w*)\s*\(',
+        re.S,
+    )
+    for match in pattern.finditer(source):
+        result[match.group(2)] = parse_named_fields(match.group(1))
+    return result
+
+
+def inferred_local_members(
+    source: str,
+    records: dict[str, set[str]],
+    classes: dict[str, ProjectClass],
+) -> dict[str, tuple[str, set[str]]]:
+    inferred: dict[str, tuple[str, set[str]]] = {}
+    returns = record_return_fields(source)
+    for match in re.finditer(
+        r'\b(?:final|late\s+final)\s+([A-Za-z_]\w*)\s+([a-z_]\w*)\s*=',
+        source,
+    ):
+        type_name, variable = match.groups()
+        if type_name in records:
+            inferred[variable] = ('record', records[type_name])
+    for match in re.finditer(
+        r'\b(?:final|var|late\s+final)\s+([A-Za-z_]\w*)\s*=\s*'
+        r'([A-Za-z_]\w*)\s*\(',
+        source,
+    ):
+        variable, function = match.groups()
+        if function in returns:
+            inferred[variable] = ('record', returns[function])
+    for match in re.finditer(
+        r'\b(?:final|var|late\s+final)\s+([A-Z]\w*)\s+([a-z_]\w*)\s*=',
+        source,
+    ):
+        class_name, variable = match.groups()
+        if class_name in classes:
+            inferred[variable] = ('class', {class_name})
+    for match in re.finditer(
+        r'\b(?:final|var|late\s+final)\s+([a-z_]\w*)\s*=\s*\(([^()]*)\)',
+        source,
+    ):
+        variable, body = match.groups()
+        if ':' not in body:
+            continue
+        fields = parse_named_fields(body)
+        if fields:
+            inferred[variable] = ('record', fields)
+    return inferred
+
+
+def member_errors(
+    path: Path,
+    source: str,
+    records: dict[str, set[str]],
+    classes: dict[str, ProjectClass],
+) -> list[str]:
+    inferred = inferred_local_members(source, records, classes)
+    errors: list[str] = []
+    pattern = re.compile(r'\b([a-z_]\w*)\s*(\?|)\.([a-z_]\w*)')
+    for match in pattern.finditer(strip_comments_and_strings(source)):
+        variable, member = match.group(1), match.group(3)
+        info = inferred.get(variable)
+        if info is None:
+            continue
+        kind, values = info
+        if kind == 'record':
+            if member not in values:
+                errors.append(
+                    f'{path.relative_to(ROOT)} {variable}: '
+                    f'unknown record member {member}'
+                )
+        else:
+            class_name = next(iter(values))
+            if member not in classes[class_name].members:
+                errors.append(
+                    f'{path.relative_to(ROOT)} {class_name}.{member}: '
+                    'unknown project class member'
+                )
+    return errors
+
+
+def import_errors(
+    path: Path,
+    source: str,
+    libraries: dict[Path, ProjectLibrary],
+    classes: dict[str, ProjectClass],
+    functions: dict[str, set[str]],
+) -> list[str]:
+    cleaned = strip_comments_and_strings(source)
+    imported = imported_paths(path, source)
+    cache: dict[Path, set[str]] = {}
+    visible: set[str] = set()
+    for imported_path in imported:
+        visible.update(library_visible_declarations(imported_path, libraries, cache))
+    current_library = libraries.get(path, ProjectLibrary(path))
+    local = current_library.declarations | current_library.constants
+    errors: list[str] = []
+
+    extension_members: dict[str, set[Path]] = {}
+    for library_path, library in libraries.items():
+        for members in library.extensions.values():
+            for member in members:
+                extension_members.setdefault(member, set()).add(library_path)
+    for member, sources in extension_members.items():
+        if not re.search(rf'\b[a-z_]\w*\s*\?\?\.{re.escape(member)}\b|\b'
+                         rf'[a-z_]\w*\s*\.{re.escape(member)}\b', cleaned):
+            continue
+        imported_extensions = any(
+            member in members
+            for imported_path in imported
+            for members in library_visible_extensions(
+                imported_path, libraries
+            ).values()
+        )
+        if not imported_extensions:
+            errors.append(
+                f'{path.relative_to(ROOT)}: extension member .{member} '
+                'used without importing its defining library'
+            )
+
+    for class_name in classes:
+        if class_name in local or class_name in visible:
+            continue
+        if re.search(rf'\b{re.escape(class_name)}\s*(?:<[^;{{}}>]+>)?\s*'
+                     r'(?:\(|\.)', cleaned):
+            errors.append(
+                f'{path.relative_to(ROOT)}: symbol {class_name} '
+                'used without an import'
+            )
+    for function_name, locations in functions.items():
+        if (
+            function_name.startswith('_')
+            or len(locations) != 1
+            or function_name in local
+            or function_name in visible
+        ):
+            continue
+        if re.search(rf'\b{re.escape(function_name)}\s*\(', cleaned):
+            errors.append(
+                f'{path.relative_to(ROOT)}: function {function_name} '
+                'used without an import'
+            )
+    constants: dict[str, set[Path]] = {}
+    for library_path, library in libraries.items():
+        for constant in library.constants:
+            constants.setdefault(constant, set()).add(library_path)
+    for constant, locations in constants.items():
+        if len(locations) != 1 or constant in local or constant in visible:
+            continue
+        if re.search(rf'\b{re.escape(constant)}\b', cleaned):
+            errors.append(
+                f'{path.relative_to(ROOT)}: constant {constant} '
+                'used without an import'
+            )
+    return errors
+
+
 def main() -> int:
     constructors, properties, class_count = index_framework()
     class_names = {class_name for class_name, _ in constructors}
+    libraries, project_classes, project_records, project_functions = project_index()
     errors: list[str] = []
     reviews: list[str] = []
     files = changed_files()
@@ -259,6 +612,12 @@ def main() -> int:
         if not path.exists():
             continue
         source = path.read_text(errors='ignore')
+        errors.extend(member_errors(
+            path, source, project_records, project_classes
+        ))
+        errors.extend(import_errors(
+            path, source, libraries, project_classes, project_functions
+        ))
         for class_name, constructor_name, args in invocations(source, class_names):
             constructor = constructors.get((class_name, constructor_name))
             if constructor is None:
