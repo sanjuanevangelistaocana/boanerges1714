@@ -1513,6 +1513,7 @@ class FirestoreService {
         'gdprDigitalConsentHash': hash,
         if (documentId != null) 'gdprDigitalDocumentId': documentId,
         'gdprDigitalRevoked': false,
+        'communications_consent': checkboxes['communications'] == true,
         'gdprDigitalStatus': 'accepted',
         'gdprDigitalReacceptanceRequired': false,
       },
@@ -1624,6 +1625,7 @@ class FirestoreService {
       cofrade.id,
       {
         'gdprDigitalStatus': 'revocation_requested',
+        'communications_consent': false,
         'gdprDigitalRevocationRequestedAt': FieldValue.serverTimestamp(),
         'gdprDigitalRevocationRequestedBy': performedBy,
       },
