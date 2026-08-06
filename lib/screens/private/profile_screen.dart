@@ -900,9 +900,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       initialDate: DateTime.now(),
                     );
                     if (picked == null) return;
-                    final fields = Cofrade.birthDateFields(picked);
-                    controller.text = fields['fecha_nacimiento_str'] as String;
-                    _dynamicFieldValues.addAll(fields);
+                    if (field.fieldKey == 'fecha_nacimiento' ||
+                        field.fieldKey == 'fecha_nacimiento_str') {
+                      final fields = Cofrade.birthDateFields(picked);
+                      controller.text =
+                          fields['fecha_nacimiento_str'] as String;
+                      _dynamicFieldValues.addAll(fields);
+                    } else {
+                      final value = Cofrade.birthDateString(picked) ?? '';
+                      controller.text = value;
+                      _dynamicFieldValues[field.fieldKey] = value;
+                    }
                   }
                 : null,
           ),
