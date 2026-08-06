@@ -2064,6 +2064,10 @@ class _BirthdaySection extends StatefulWidget {
 }
 
 class _BirthdaySectionState extends State<_BirthdaySection> {
+  static const _birthdayWindowDays = 30;
+  static const _initialBirthdayLimit = 5;
+  bool _showAllBirthdays = false;
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -2115,7 +2119,7 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
                   entry: entry,
                   days: daysUntil(entry.mes, entry.dia),
                 ))
-            .where((item) => item.days <= 7)
+            .where((item) => item.days <= _birthdayWindowDays)
             .toList()
           ..sort((a, b) => a.days.compareTo(b.days));
         final today = upcoming.where((item) => item.days == 0).toList();
@@ -2166,10 +2170,15 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
                     else ...[
                       Text(
                           '${upcoming.length} cofrade${upcoming.length == 1 ? '' : 's'} '
-                          'cumple${upcoming.length == 1 ? '' : 'n'} en los próximos 7 días'),
-                      ...upcoming.map((item) {
+                          'cumple${upcoming.length == 1 ? '' : 'n'} '
+                          'en el próximo mes'),
+                      ...upcoming
+                          .take(_showAllBirthdays
+                              ? upcoming.length
+                              : _initialBirthdayLimit)
+                          .map((item) {
                         final date =
-                            DateTime(now.year, item.entry.mes, item.entry.dia);
+                            _birthdayDate(now, item.entry.mes, item.entry.dia);
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: const Icon(Icons.cake_outlined),
@@ -2178,6 +2187,21 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
                               '${DateFormat('dd/MM').format(date)} · en ${item.days} día${item.days == 1 ? '' : 's'}'),
                         );
                       }),
+                      if (upcoming.length > _initialBirthdayLimit)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => setState(() {
+                              _showAllBirthdays = !_showAllBirthdays;
+                            }),
+                            icon: Icon(_showAllBirthdays
+                                ? Icons.expand_less
+                                : Icons.expand_more),
+                            label: Text(_showAllBirthdays
+                                ? 'Mostrar menos'
+                                : 'Ver todos (${upcoming.length})'),
+                          ),
+                        ),
                     ],
                   ],
                 ),
@@ -2190,11 +2214,19 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
   }
 }
 
+DateTime _birthdayDate(DateTime now, int month, int day) {
+  var date = DateTime(now.year, month, day);
+  if (date.isBefore(DateTime(now.year, now.month, now.day))) {
+    date = DateTime(now.year + 1, month, day);
+  }
+  return date;
+}
+
 String _nextBirthdayLabel(
     List<({String id, String nombre, int dia, int mes})> entries,
     DateTime now) {
   final dates = entries.map((entry) {
-    var date = DateTime(now.year, entry.mes, entry.dia);
+    var date = _birthdayDate(now, entry.mes, entry.dia);
     if (!date.isAfter(DateTime(now.year, now.month, now.day))) {
       date = DateTime(now.year + 1, entry.mes, entry.dia);
     }
