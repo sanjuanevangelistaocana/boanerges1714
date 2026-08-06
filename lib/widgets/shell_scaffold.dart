@@ -814,9 +814,13 @@ class _InstitutionalFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = context.responsive.isMobile;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 10 : 16,
+      ),
       decoration: const BoxDecoration(
         color: AppTheme.surfaceContainerLowColor,
         border: Border(top: BorderSide(color: AppTheme.borderColor)),
@@ -824,8 +828,8 @@ class _InstitutionalFooter extends StatelessWidget {
       child: Wrap(
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 16,
-        runSpacing: 8,
+        spacing: isMobile ? 4 : 16,
+        runSpacing: isMobile ? 0 : 8,
         children: [
           Text(
             '© ${DateTime.now().year} Cofradía San Juan Evangelista de Ocaña. '
@@ -838,14 +842,35 @@ class _InstitutionalFooter extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => context.go('/aviso-legal'),
+            style: isMobile
+                ? TextButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  )
+                : null,
             child: const Text('Aviso Legal'),
           ),
           TextButton(
             onPressed: () => context.go('/politica-privacidad'),
+            style: isMobile
+                ? TextButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  )
+                : null,
             child: const Text('Política de Privacidad'),
           ),
           TextButton(
             onPressed: () => context.go('/politica-cookies'),
+            style: isMobile
+                ? TextButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  )
+                : null,
             child: const Text('Política de Cookies'),
           ),
         ],

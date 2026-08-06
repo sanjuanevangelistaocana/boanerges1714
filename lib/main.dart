@@ -221,7 +221,7 @@ class _BoanergesAppState extends State<BoanergesApp> {
         Provider.value(value: _turnosAndasService),
       ],
       child: MaterialApp.router(
-        title: 'Cofradía San Juan Evangelista - Ocaña',
+        title: 'Boanerges',
         theme: AppTheme.lightTheme,
         builder: _responsiveThemeBuilder,
         routerConfig: goRouter,
