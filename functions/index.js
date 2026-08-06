@@ -1708,6 +1708,96 @@ exports.fetchEvangelioDelDia = functions
       return null;
     });
 
+/**
+ * Removes evangelios outside the seven-day retention window.
+ * Documents without a trustworthy, matching fecha are preserved.
+ */
+exports.cleanupOldEvangelios = functions
+    .region("europe-west1")
+    .pubsub.schedule("30 3 * * *")
+    .timeZone("Europe/Madrid")
+    .onRun(async () => {
+      const todayKey = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Madrid",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      const todayUtc = new Date(`${todayKey}T00:00:00Z`);
+      const firstRetained = new Date(todayUtc);
+      firstRetained.setUTCDate(firstRetained.getUTCDate() - 6);
+      const firstRetainedKey = firstRetained.toISOString().slice(0, 10);
+      const snapshot = await db.collection("evangelio_dia").get();
+      const omitted = {};
+      const deletions = [];
+
+      const omit = (reason) => {
+        omitted[reason] = (omitted[reason] || 0) + 1;
+      };
+      const parseFecha = (value) => {
+        if (value && typeof value.toDate === "function") {
+          return new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Europe/Madrid",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(value.toDate());
+        }
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+          return new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Europe/Madrid",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(value);
+        }
+        if (typeof value !== "string" ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return null;
+        }
+        const parsed = new Date(`${value}T00:00:00Z`);
+        return parsed.toISOString().slice(0, 10) === value ? value : null;
+      };
+
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        const fecha = parseFecha(data.fecha);
+        if (!fecha) {
+          omit("fecha_ausente_o_formato_no interpretable");
+          continue;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(doc.id)) {
+          omit("id_no_es_fecha");
+          continue;
+        }
+        if (fecha !== doc.id) {
+          omit("fecha_no_coincide_con_id");
+          continue;
+        }
+        if (fecha >= firstRetainedKey) {
+          omit("dentro_de_retencion");
+          continue;
+        }
+        deletions.push(doc.ref);
+      }
+
+      let deleted = 0;
+      for (let index = 0; index < deletions.length; index += 400) {
+        const batch = db.batch();
+        deletions.slice(index, index + 400).forEach((ref) => batch.delete(ref));
+        await batch.commit();
+        deleted += Math.min(400, deletions.length - index);
+      }
+      console.log("Evangelio cleanup complete:", {
+        todayKey,
+        firstRetainedKey,
+        scanned: snapshot.size,
+        deleted,
+        omitted,
+      });
+      return null;
+    });
+
 // ============================================================
 // Manual Evangelio Trigger (for admins)
 // ============================================================
