@@ -1426,7 +1426,7 @@ exports.sendBirthdayGreetings = withEmailSecret
               c.gdpr_digital_revoked === true ||
               c.gdprDigitalStatus === "revoked" ||
               c.gdpr_digital_status === "revoked" ||
-              c.communications_consent === false) {
+              c.communications_consent !== true) {
             skipped++;
             console.log(`Birthday skipped ${doc.id}: notifications/consent`);
             continue;
