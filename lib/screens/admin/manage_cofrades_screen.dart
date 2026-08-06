@@ -1596,6 +1596,19 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final telefonoC = TextEditingController();
     final dniC = TextEditingController();
     final nacimientoC = TextEditingController();
+    final fixedTextControllers = <String, TextEditingController>{
+      'nombre': nombreC,
+      'apellidos': apellidosC,
+      'dni': dniC,
+      'email': emailC,
+      'telefono_movil': telefonoC,
+      'fecha_nacimiento_str': nacimientoC,
+    };
+    final fixedFieldKeys = <String>{
+      ...fixedTextControllers.keys,
+      'estado',
+      'rol',
+    };
     DateTime? nacimiento;
     var estado = 'Activo';
     var rol = 'cofrade';
@@ -1695,7 +1708,8 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                               .where((field) =>
                                   field.active &&
                                   field.visibleInAdmin &&
-                                  field.editableByAdmin)
+                                  field.editableByAdmin &&
+                                  !fixedFieldKeys.contains(field.fieldKey))
                               .toList();
                       if (latestFields.isEmpty) {
                         return const Text(
@@ -3526,6 +3540,11 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
         TextEditingController(text: cofrade.digitalTutorRelationship);
     final causaBajaC = TextEditingController(text: cofrade.causaBaja ?? '');
     DateTime? nacimiento = cofrade.fechaNacimiento;
+    if (cofrade.anioAlta != null) {
+      aniosHermandadC.text = '${DateTime.now().year - cofrade.anioAlta!}';
+    } else {
+      aniosHermandadC.clear();
+    }
 
     String estado = ['Activo', 'Pendiente', 'Baja'].contains(cofrade.estado)
         ? cofrade.estado
@@ -3768,13 +3787,19 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                       controller: anioAltaC,
                       decoration:
                           const InputDecoration(labelText: 'A\u00f1o de alta'),
-                      keyboardType: TextInputType.number),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) {
+                        final year = int.tryParse(value.trim());
+                        aniosHermandadC.text =
+                            year == null ? '' : '${DateTime.now().year - year}';
+                      }),
                   const SizedBox(height: 8),
                   TextField(
                       controller: aniosHermandadC,
                       decoration: const InputDecoration(
                           labelText: 'A\u00f1os de hermandad'),
-                      keyboardType: TextInputType.number),
+                      readOnly: true,
+                      enabled: false),
                   const SizedBox(height: 8),
                   TextField(
                       controller: anioMayordomiaC,
