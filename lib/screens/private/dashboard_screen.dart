@@ -2216,19 +2216,19 @@ class _BirthdayCountdown extends StatefulWidget {
 
 class _BirthdayCountdownState extends State<_BirthdayCountdown> {
   Timer? _timer;
+  Duration? _period;
   Duration _remaining = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    _refresh();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _refresh());
+    _refresh(notify: false);
   }
 
   @override
   void didUpdateWidget(covariant _BirthdayCountdown oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.dates != widget.dates) _refresh();
+    if (oldWidget.dates != widget.dates) _refresh(notify: false);
   }
 
   @override
@@ -2237,7 +2237,7 @@ class _BirthdayCountdownState extends State<_BirthdayCountdown> {
     super.dispose();
   }
 
-  void _refresh() {
+  void _refresh({bool notify = true}) {
     final now = MadridDate.now();
     if (widget.dates.isEmpty) return;
     final targets = widget.dates.map((date) {
@@ -2249,6 +2249,18 @@ class _BirthdayCountdownState extends State<_BirthdayCountdown> {
     }).toList()
       ..sort();
     final remaining = targets.first.difference(now);
+    final period = remaining.inHours >= 1
+        ? const Duration(minutes: 1)
+        : const Duration(seconds: 1);
+    if (_timer == null || _period != period) {
+      _period = period;
+      _timer?.cancel();
+      _timer = Timer.periodic(period, (_) => _refresh());
+    }
+    if (!notify) {
+      _remaining = remaining;
+      return;
+    }
     if (mounted) setState(() => _remaining = remaining);
   }
 
@@ -2260,14 +2272,16 @@ class _BirthdayCountdownState extends State<_BirthdayCountdown> {
     final hours = rest.inHours;
     final minutes = rest.inMinutes % 60;
     final seconds = rest.inSeconds % 60;
-    final label = days > 0
-        ? 'Cuenta atrás: $days día${days == 1 ? '' : 's'} y '
-            '${hours.toString().padLeft(2, '0')}:'
-            '${minutes.toString().padLeft(2, '0')}:'
-            '${seconds.toString().padLeft(2, '0')}'
-        : 'Cuenta atrás: ${hours.toString().padLeft(2, '0')}:'
-            '${minutes.toString().padLeft(2, '0')}:'
-            '${seconds.toString().padLeft(2, '0')}';
+    final String label;
+    if (days > 0) {
+      label = 'Cuenta atrás: $days día${days == 1 ? '' : 's'} y ${hours}h '
+          '${minutes.toString().padLeft(2, '0')}m';
+    } else if (hours >= 1) {
+      label = 'Cuenta atrás: ${hours}h ${minutes.toString().padLeft(2, '0')}m';
+    } else {
+      label = 'Cuenta atrás: ${minutes.toString().padLeft(2, '0')}:'
+          '${seconds.toString().padLeft(2, '0')}';
+    }
     return Text(label);
   }
 }
