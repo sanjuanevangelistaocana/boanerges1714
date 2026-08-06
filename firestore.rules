@@ -250,6 +250,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /cumpleanos_publicos/{cofradeId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
     match /tags_config/{tagId} {
       allow read: if isAuth();
       allow create, update, delete: if isAdmin();

@@ -18,7 +18,8 @@ const SPREADSHEET_ID = "1YoQh6kcRU7VVg4bbz4pUfEyqPSXgqpT9Lfq6VLfhGCQ";
 
 // Gmail SMTP configuration
 const GMAIL_EMAIL = "sanjuanevangelistaocana@gmail.com";
-const GMAIL_APP_PASSWORD = "kjsuqnypocxblgtn";
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const withEmailSecret = functions.runWith({secrets: ["GMAIL_APP_PASSWORD"]});
 const SHEET_NAME = "Relación Cofrades";
 // Column indices matching the actual Google Sheet structure:
 // 0:Nº 1:Nombre 2:Apellidos 3:Tutelado Digital 4:Fecha Nacimiento
@@ -45,6 +46,85 @@ function normalizeDni(value) {
       .replace(/[\s\-_.]/g, "")
       .trim();
 }
+
+function createEmailTransport() {
+  if (!GMAIL_APP_PASSWORD) return null;
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {user: GMAIL_EMAIL, pass: GMAIL_APP_PASSWORD},
+  });
+}
+
+function parseBirthDate(value) {
+  if (value && typeof value.toDate === "function") value = value.toDate();
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return parseBirthDate(new Date(value));
+  }
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{1,4})[\/-](\d{1,2})[\/-](\d{1,4})$/);
+  if (!match) return null;
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+  const third = Number(match[3]);
+  const year = first > 31 ? first : third;
+  const month = second;
+  const day = first > 31 ? third : first;
+  if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day ? date : null;
+}
+
+function madridToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+  };
+}
+
+async function syncPublicBirthday(cofradeId, data) {
+  const ref = db.collection("cumpleanos_publicos").doc(cofradeId);
+  const birth = parseBirthDate(data.fecha_nacimiento) ||
+      parseBirthDate(data.fecha_nacimiento_str);
+  const active = data.estado === "Activo" && data.isActive !== false;
+  if (!birth || !active || data.cumpleanos_visible === false) {
+    await ref.delete().catch(() => {});
+    return;
+  }
+  await ref.set({
+    id: cofradeId,
+    nombre: `${data.nombre || ""} ${data.apellidos || ""}`.trim(),
+    dia: birth.getDate(),
+    mes: birth.getMonth() + 1,
+    visible: true,
+  });
+}
+
+exports.syncCofradePublicBirthday = functions
+    .region("europe-west1")
+    .firestore.document("cofrades/{cofradeId}")
+    .onWrite(async (change, context) => {
+      await syncPublicBirthday(
+          context.params.cofradeId,
+          change.after.exists ? change.after.data() : {},
+      );
+      return null;
+    });
 
 /**
  * Convert a column index to a letter (0=A, 25=Z, 26=AA, etc.).
@@ -460,7 +540,7 @@ exports.sendNotification = functions
 /**
  * Notify admins when a new solicitud de alta is created.
  */
-exports.onNewSolicitud = functions
+exports.onNewSolicitud = withEmailSecret
     .region("europe-west1")
     .firestore.document("solicitudes/{solicitudId}")
     .onCreate(async (snap, context) => {
@@ -494,13 +574,7 @@ exports.onNewSolicitud = functions
       }
 
       try {
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: {
-            user: GMAIL_EMAIL,
-            pass: GMAIL_APP_PASSWORD,
-          },
-        });
+        const transporter = createEmailTransport();
 
         const bodyParts = [];
         bodyParts.push(`<p><strong>Nombre:</strong> ${data.nombre} ${data.apellidos}</p>`);
@@ -576,7 +650,7 @@ exports.onNewConvocatoria = functions
 /**
  * Send email notification when a new contact message is submitted.
  */
-exports.onNewContactMessage = functions
+exports.onNewContactMessage = withEmailSecret
     .region("europe-west1")
     .firestore.document("contacto/{messageId}")
     .onCreate(async (snap, context) => {
@@ -588,13 +662,7 @@ exports.onNewContactMessage = functions
         return null;
       }
 
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: GMAIL_EMAIL,
-          pass: GMAIL_APP_PASSWORD,
-        },
-      });
+      const transporter = createEmailTransport();
 
       const bodyParts = [];
       if (data.nombre) bodyParts.push(`<p><strong>Nombre:</strong> ${data.nombre}</p>`);
@@ -708,6 +776,57 @@ exports.rebuildCofradeSearchIndex = functions
         return res.json({status: "success", indexed: count});
       } catch (error) {
         console.error("Error rebuilding cofrade search index:", error);
+        return res.status(500).json({status: "error", message: error.message});
+      }
+    });
+
+/**
+ * Rebuild public birthday documents after migration or rule changes.
+ * Usage: POST with an authenticated admin Bearer token.
+ */
+exports.rebuildPublicBirthdayIndex = functions
+    .region("europe-west1")
+    .https.onRequest(async (req, res) => {
+      try {
+        const header = req.get("Authorization") || "";
+        const token = header.startsWith("Bearer ") ?
+          await admin.auth().verifyIdToken(header.substring(7)) : null;
+        if (!token || token.admin !== true && token.role !== "admin") {
+          return res.status(403).json({status: "error", message: "Forbidden"});
+        }
+        const snapshot = await db.collection("cofrades").get();
+        let batch = db.batch();
+        let pending = 0;
+        let indexed = 0;
+        for (const doc of snapshot.docs) {
+          const ref = db.collection("cumpleanos_publicos").doc(doc.id);
+          const data = doc.data();
+          const birth = parseBirthDate(data.fecha_nacimiento) ||
+              parseBirthDate(data.fecha_nacimiento_str);
+          const active = data.estado === "Activo" && data.isActive !== false;
+          if (!birth || !active || data.cumpleanos_visible === false) {
+            batch.delete(ref);
+          } else {
+            batch.set(ref, {
+              id: doc.id,
+              nombre: `${data.nombre || ""} ${data.apellidos || ""}`.trim(),
+              dia: birth.getDate(),
+              mes: birth.getMonth() + 1,
+              visible: true,
+            });
+            indexed++;
+          }
+          pending++;
+          if (pending === 450) {
+            await batch.commit();
+            batch = db.batch();
+            pending = 0;
+          }
+        }
+        if (pending > 0) await batch.commit();
+        return res.json({status: "success", indexed});
+      } catch (error) {
+        console.error("Error rebuilding public birthday index:", error);
         return res.status(500).json({status: "error", message: error.message});
       }
     });
@@ -1268,76 +1387,103 @@ exports.triggerFetchEvangelio = functions
 /**
  * Sends birthday greeting emails to cofrades whose birthday is today.
  */
-exports.sendBirthdayGreetings = functions
+exports.sendBirthdayGreetings = withEmailSecret
     .region("europe-west1")
     .pubsub.schedule("0 8 * * *")
     .timeZone("Europe/Madrid")
     .onRun(async () => {
-      const today = new Date();
-      const mm = today.getMonth() + 1;
-      const dd = today.getDate();
-
+      const today = madridToday();
       const cofradesSnap = await db.collection("cofrades")
-          .where("estado", "==", "Activo")
-          .get();
+          .where("estado", "==", "Activo").get();
+      const transporter = createEmailTransport();
+      let sent = 0;
+      let skipped = 0;
+      let failed = 0;
 
-      const birthdayCofrades = [];
-      cofradesSnap.docs.forEach((doc) => {
-        const data = doc.data();
-        if (data.fecha_nacimiento) {
-          const fn = data.fecha_nacimiento.toDate();
-          if (fn.getMonth() + 1 === mm && fn.getDate() === dd) {
-            birthdayCofrades.push({...data, id: doc.id});
-          }
-        }
-      });
-
-      if (birthdayCofrades.length === 0) {
-        console.log("No birthdays today.");
-        return null;
-      }
-
-      if (!GMAIL_APP_PASSWORD) {
-        console.log("Gmail not configured. Skipping birthday emails.");
-        return null;
-      }
-
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {user: GMAIL_EMAIL, pass: GMAIL_APP_PASSWORD},
-      });
-
-      for (const c of birthdayCofrades) {
-        if (!c.email) continue;
-        const age = today.getFullYear() - c.fecha_nacimiento.toDate()
-            .getFullYear();
+      for (const doc of cofradesSnap.docs) {
+        const c = doc.data();
         try {
-          await transporter.sendMail({
-            from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
-            to: c.email,
-            subject: `¡Feliz cumpleaños, ${c.nombre}! 🎂`,
-            html: `
-              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-                <div style="background:#6B1024;color:white;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
-                  <h1 style="margin:0;">🎂 ¡Feliz Cumpleaños!</h1>
-                </div>
-                <div style="padding:24px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px;">
-                  <p style="font-size:16px;">Querido/a <strong>${c.nombre} ${c.apellidos || ""}</strong>,</p>
-                  <p>La Cofradía de San Juan Evangelista de Ocaña te desea un muy feliz cumpleaños.</p>
-                  <p>Hoy cumples <strong>${age} años</strong>. Esperamos que pases un día maravilloso rodeado/a de los tuyos.</p>
-                  <p style="margin-top:20px;">Un abrazo fraternal,<br/><strong>Cofradía de San Juan Evangelista</strong><br/>Ocaña · Desde 1714</p>
-                </div>
-              </div>
-            `,
+          const birth = parseBirthDate(c.fecha_nacimiento) ||
+              parseBirthDate(c.fecha_nacimiento_str);
+          if (!birth || birth.getMonth() + 1 !== today.month ||
+              birth.getDate() !== today.day) {
+            skipped++;
+            console.log(`Birthday skipped ${doc.id}: not today or invalid date`);
+            continue;
+          }
+          if (c.isActive === false) {
+            skipped++;
+            console.log(`Birthday skipped ${doc.id}: inactive`);
+            continue;
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(c.email || ""))) {
+            skipped++;
+            console.log(`Birthday skipped ${doc.id}: invalid email`);
+            continue;
+          }
+          if (c.notificaciones_activas === false ||
+              c.gdprDigitalRevoked === true ||
+              c.gdpr_digital_revoked === true ||
+              c.gdprDigitalStatus === "revoked" ||
+              c.gdpr_digital_status === "revoked" ||
+              c.communications_consent === false) {
+            skipped++;
+            console.log(`Birthday skipped ${doc.id}: notifications/consent`);
+            continue;
+          }
+          if (!transporter) {
+            throw new Error("Gmail secret is not configured");
+          }
+          const sendRef = db.collection("birthday_email_sends")
+              .doc(`${doc.id}_${today.year}`);
+          const sendResult = await db.runTransaction(async (tx) => {
+            const existing = await tx.get(sendRef);
+            if (existing.exists && existing.data().status === "sent") {
+              return false;
+            }
+            tx.set(sendRef, {
+              cofrade_id: doc.id,
+              year: today.year,
+              status: "pending",
+              updated_at: admin.firestore.FieldValue.serverTimestamp(),
+              error: null,
+            }, {merge: true});
+            return true;
           });
-          console.log(`Birthday email sent to ${c.nombre} (${c.email})`);
+          if (!sendResult) {
+            skipped++;
+            console.log(`Birthday skipped ${doc.id}: already sent`);
+            continue;
+          }
+          try {
+            await transporter.sendMail({
+              from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
+              to: c.email,
+              subject: `¡Feliz cumpleaños, ${c.nombre || ""}! 🎂`,
+              html: `<p>La Cofradía de San Juan Evangelista de Ocaña te desea un muy feliz cumpleaños.</p>`,
+            });
+            await sendRef.update({
+              status: "sent",
+              sent_at: admin.firestore.FieldValue.serverTimestamp(),
+              error: null,
+            });
+            sent++;
+            console.log(`Birthday email sent to ${doc.id} (${c.email})`);
+          } catch (err) {
+            failed++;
+            await sendRef.set({
+              status: "failed",
+              updated_at: admin.firestore.FieldValue.serverTimestamp(),
+              error: err.message,
+            }, {merge: true});
+            console.error(`Birthday email failed ${doc.id}:`, err.message);
+          }
         } catch (err) {
-          console.error(`Error sending birthday email to ${c.email}:`,
-              err.message);
+          failed++;
+          console.error(`Birthday processing failed ${doc.id}:`, err.message);
         }
       }
-
-      console.log(`Sent ${birthdayCofrades.length} birthday greetings.`);
+      console.log(`Birthday summary: sent=${sent}, skipped=${skipped}, failed=${failed}`);
       return null;
     });
 
@@ -1348,7 +1494,7 @@ exports.sendBirthdayGreetings = functions
 /**
  * Send email notification to admin when a new sugerencia is created.
  */
-exports.onNewSugerencia = functions
+exports.onNewSugerencia = withEmailSecret
     .region("europe-west1")
     .firestore.document("sugerencias/{sugerenciaId}")
     .onCreate(async (snap, context) => {
@@ -1360,13 +1506,7 @@ exports.onNewSugerencia = functions
         return null;
       }
 
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: GMAIL_EMAIL,
-          pass: GMAIL_APP_PASSWORD,
-        },
-      });
+      const transporter = createEmailTransport();
 
       const tipoLabel = data.tipo === "peticion" ? "Petición" : "Sugerencia";
       const mailOptions = {
