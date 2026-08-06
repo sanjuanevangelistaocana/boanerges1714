@@ -80,6 +80,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         children: [
           _DashboardHeader(cofrade: cofrade, authService: authService),
+          _BirthdaySection(
+              firestoreService: firestoreService, currentCofrade: cofrade),
           Padding(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
@@ -137,10 +139,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _NovedadesSection(
                       firestoreService: firestoreService,
                       cofradeId: cofrade?.id),
-                  const SizedBox(height: 24),
-                  _BirthdaySection(
-                      firestoreService: firestoreService,
-                      currentCofrade: cofrade),
                   const SizedBox(height: 24),
                   _QuickActions(
                       authService: authService,
@@ -2141,111 +2139,121 @@ class _BirthdaySectionState extends State<_BirthdaySection> {
           );
         }
         final nextBirthday = _nextFutureBirthday(entries, now);
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primaryDark, AppTheme.primaryColor],
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.cake_outlined,
-                        color: Colors.white, size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Cumpleaños de la semana',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+        return Column(
+          children: [
+            if (upcoming.isNotEmpty)
+              _BirthdayMarquee(birthdays: upcoming, now: now),
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppTheme.primaryDark, AppTheme.primaryColor],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _BirthdayCountdown(
-                      dates: entries
-                          .map((entry) => (entry.mes, entry.dia))
-                          .toSet()
-                          .toList(),
-                      targetName: nextBirthday?.entry.nombre,
-                      targetDate: nextBirthday?.date,
-                    ),
-                    const SizedBox(height: 12),
-                    if (upcoming.isEmpty)
-                      Text('No hay cumpleaños en los próximos 7 días. '
-                          'El siguiente es ${_nextBirthdayLabel(entries, now)}.')
-                    else ...[
-                      Text(
-                        '${upcoming.length} cumpleaños en los próximos 7 días',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 12),
-                      if (isMine)
-                        _BirthdayHighlight(
-                          icon: Icons.cake,
-                          title:
-                              '¡Feliz cumpleaños, ${widget.currentCofrade?.nombre ?? 'Cofrade'}!',
-                          subtitle: 'La Cofradía te desea un maravilloso día.',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cake_outlined,
+                            color: Colors.white, size: 28),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Cumpleaños de la semana',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
                         ),
-                      if (today.isNotEmpty) ...[
-                        _BirthdaySectionLabel(
-                            label: 'Hoy', color: AppTheme.primaryColor),
-                        ...today.map((item) => _BirthdayListTile(
-                              item: item,
-                              now: now,
-                              highlighted: true,
-                            )),
                       ],
-                      if (futureBirthdays.isNotEmpty) ...[
-                        _BirthdaySectionLabel(
-                            label: today.isEmpty
-                                ? 'Próximos cumpleaños'
-                                : 'Después',
-                            color: AppTheme.textSecondary),
-                        ...futureBirthdays
-                            .take(_showAllBirthdays
-                                ? futureBirthdays.length
-                                : _initialBirthdayLimit)
-                            .map((item) => _BirthdayListTile(
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _BirthdayCountdown(
+                          dates: entries
+                              .map((entry) => (entry.mes, entry.dia))
+                              .toSet()
+                              .toList(),
+                          targetName: nextBirthday?.entry.nombre,
+                          targetDate: nextBirthday?.date,
+                        ),
+                        const SizedBox(height: 12),
+                        if (upcoming.isEmpty)
+                          Text('No hay cumpleaños en los próximos 7 días. '
+                              'El siguiente es ${_nextBirthdayLabel(entries, now)}.')
+                        else ...[
+                          Text(
+                            '${upcoming.length} cumpleaños en los próximos 7 días',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 12),
+                          if (isMine)
+                            _BirthdayHighlight(
+                              icon: Icons.cake,
+                              title:
+                                  '¡Feliz cumpleaños, ${widget.currentCofrade?.nombre ?? 'Cofrade'}!',
+                              subtitle:
+                                  'La Cofradía te desea un maravilloso día.',
+                            ),
+                          if (today.isNotEmpty) ...[
+                            _BirthdaySectionLabel(
+                                label: 'Hoy', color: AppTheme.primaryColor),
+                            ...today.map((item) => _BirthdayListTile(
                                   item: item,
                                   now: now,
+                                  highlighted: true,
                                 )),
-                        if (futureBirthdays.length > _initialBirthdayLimit)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: () => setState(() {
-                                _showAllBirthdays = !_showAllBirthdays;
-                              }),
-                              icon: Icon(_showAllBirthdays
-                                  ? Icons.expand_less
-                                  : Icons.expand_more),
-                              label: Text(_showAllBirthdays
-                                  ? 'Mostrar menos'
-                                  : 'Ver todos (${futureBirthdays.length})'),
-                            ),
-                          ),
+                          ],
+                          if (futureBirthdays.isNotEmpty) ...[
+                            _BirthdaySectionLabel(
+                                label: today.isEmpty
+                                    ? 'Próximos cumpleaños'
+                                    : 'Después',
+                                color: AppTheme.textSecondary),
+                            ...futureBirthdays
+                                .take(_showAllBirthdays
+                                    ? futureBirthdays.length
+                                    : _initialBirthdayLimit)
+                                .map((item) => _BirthdayListTile(
+                                      item: item,
+                                      now: now,
+                                    )),
+                            if (futureBirthdays.length > _initialBirthdayLimit)
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  onPressed: () => setState(() {
+                                    _showAllBirthdays = !_showAllBirthdays;
+                                  }),
+                                  icon: Icon(_showAllBirthdays
+                                      ? Icons.expand_less
+                                      : Icons.expand_more),
+                                  label: Text(_showAllBirthdays
+                                      ? 'Mostrar menos'
+                                      : 'Ver todos (${futureBirthdays.length})'),
+                                ),
+                              ),
+                          ],
+                        ],
                       ],
-                    ],
-                  ],
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -2256,6 +2264,192 @@ String _relativeBirthdayLabel(int days) {
   if (days == 0) return 'hoy';
   if (days == 1) return 'mañana';
   return 'en $days días';
+}
+
+class _BirthdayMarquee extends StatefulWidget {
+  final List<_BirthdayOccurrence> birthdays;
+  final DateTime now;
+
+  const _BirthdayMarquee({
+    required this.birthdays,
+    required this.now,
+  });
+
+  @override
+  State<_BirthdayMarquee> createState() => _BirthdayMarqueeState();
+}
+
+class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
+  static const _initialPage = 10000;
+  static const _rotationPeriod = Duration(seconds: 4);
+
+  late final PageController _pageController;
+  Timer? _timer;
+  int _index = 0;
+  bool _paused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(
+      initialPage: _initialPage - (_initialPage % widget.birthdays.length),
+    );
+    _startRotation();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BirthdayMarquee oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.birthdays.length != widget.birthdays.length) {
+      _index = 0;
+      _startRotation();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients) {
+          _pageController.jumpToPage(
+            _initialPage - (_initialPage % widget.birthdays.length),
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startRotation() {
+    _timer?.cancel();
+    if (widget.birthdays.length < 2) return;
+    _timer = Timer.periodic(_rotationPeriod, (_) {
+      if (_paused || !mounted || !_pageController.hasClients) return;
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _setPaused(bool paused) {
+    if (_paused == paused) return;
+    setState(() => _paused = paused);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.birthdays.isEmpty) return const SizedBox.shrink();
+    final multiple = widget.birthdays.length > 1;
+    final height = context.responsive.isMobile ? 72.0 : 78.0;
+    return MouseRegion(
+      onEnter: (_) => _setPaused(true),
+      onExit: (_) => _setPaused(false),
+      child: Semantics(
+        container: true,
+        label: 'Cumpleaños próximos',
+        child: Container(
+          width: double.infinity,
+          height: height,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
+            ),
+          ),
+          child: Stack(
+            children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollStartNotification) {
+                    _setPaused(true);
+                  } else if (notification is ScrollEndNotification) {
+                    _setPaused(false);
+                  }
+                  return false;
+                },
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemBuilder: (context, index) {
+                    final birthday =
+                        widget.birthdays[index % widget.birthdays.length];
+                    final isToday = birthday.days == 0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 8),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor:
+                                isToday ? AppTheme.accentColor : Colors.white24,
+                            foregroundColor: Colors.white,
+                            child: Icon(
+                              isToday ? Icons.cake : Icons.cake_outlined,
+                              size: 21,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  birthday.entry.nombre,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${DateFormat('dd/MM').format(_birthdayDate(widget.now, birthday.entry.mes, birthday.entry.dia))} · '
+                                  '${_relativeBirthdayLabel(birthday.days)}',
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  onPageChanged: (page) {
+                    if (!mounted) return;
+                    setState(() => _index = page % widget.birthdays.length);
+                  },
+                ),
+              ),
+              if (multiple)
+                Positioned(
+                  bottom: 5,
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      widget.birthdays.length,
+                      (index) => Container(
+                        width: index == _index ? 16 : 5,
+                        height: 4,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          color:
+                              index == _index ? Colors.white : Colors.white38,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _BirthdayHighlight extends StatelessWidget {
