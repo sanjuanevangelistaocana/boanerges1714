@@ -2176,7 +2176,7 @@ class _BirthdayMarqueeSection extends StatelessWidget {
               .map((entry) => (entry.mes, entry.dia))
               .toSet()
               .toList(),
-          targetName: nextBirthday?.nombre,
+          targetId: nextBirthday?.id,
           targetDate: nextBirthday?.date,
         );
       },
@@ -2206,7 +2206,7 @@ class _BirthdayMarquee extends StatefulWidget {
   final DateTime now;
   final Cofrade? currentCofrade;
   final List<(int month, int day)> dates;
-  final String? targetName;
+  final String? targetId;
   final DateTime? targetDate;
 
   const _BirthdayMarquee({
@@ -2214,7 +2214,7 @@ class _BirthdayMarquee extends StatefulWidget {
     required this.now,
     required this.dates,
     this.currentCofrade,
-    this.targetName,
+    this.targetId,
     this.targetDate,
   });
 
@@ -2228,6 +2228,9 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
 
   late final PageController _pageController;
   Timer? _timer;
+  Timer? _countdownTimer;
+  Duration? _countdownPeriod;
+  Duration _remaining = Duration.zero;
   int _index = 0;
   bool _paused = false;
 
@@ -2237,14 +2240,18 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
     _pageController = PageController(
       initialPage: _initialPage - (_initialPage % widget.birthdays.length),
     );
+    _refreshCountdown(notify: false);
     _startRotation();
   }
 
   @override
   void didUpdateWidget(covariant _BirthdayMarquee oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_sameBirthdayLists(oldWidget.birthdays, widget.birthdays)) {
+    if (!_sameBirthdayLists(oldWidget.birthdays, widget.birthdays) ||
+        oldWidget.targetId != widget.targetId ||
+        oldWidget.targetDate != widget.targetDate) {
       _index = 0;
+      _refreshCountdown(notify: false);
       _startRotation();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _pageController.hasClients) {
@@ -2259,6 +2266,7 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
   @override
   void dispose() {
     _timer?.cancel();
+    _countdownTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -2278,6 +2286,50 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
   void _setPaused(bool paused) {
     if (_paused == paused) return;
     setState(() => _paused = paused);
+  }
+
+  void _refreshCountdown({bool notify = true}) {
+    final now = MadridDate.now();
+    if (widget.dates.isEmpty) return;
+    final targets = widget.dates.map((date) {
+      var target = DateTime(now.year, date.$1, date.$2);
+      if (!target.isAfter(now)) {
+        target = DateTime(now.year + 1, date.$1, date.$2);
+      }
+      return target;
+    }).toList()
+      ..sort();
+    final remaining = targets.first.difference(now);
+    final period = remaining.inHours >= 1
+        ? const Duration(minutes: 1)
+        : const Duration(seconds: 1);
+    if (_countdownTimer == null || _countdownPeriod != period) {
+      _countdownPeriod = period;
+      _countdownTimer?.cancel();
+      _countdownTimer = Timer.periodic(period, (_) => _refreshCountdown());
+    }
+    if (!notify) {
+      _remaining = remaining;
+      return;
+    }
+    if (mounted) setState(() => _remaining = remaining);
+  }
+
+  String _countdownLabel() {
+    final days = _remaining.inDays;
+    final rest = _remaining - Duration(days: days);
+    final hours = rest.inHours;
+    final minutes = rest.inMinutes % 60;
+    final seconds = rest.inSeconds % 60;
+    if (days > 0) {
+      return '$days día${days == 1 ? '' : 's'} y ${hours}h '
+          '${minutes.toString().padLeft(2, '0')}m';
+    }
+    if (hours >= 1) {
+      return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -2322,8 +2374,15 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
                     final isToday = birthday.days == 0;
                     final isMine = isToday &&
                         birthday.entry.id == widget.currentCofrade?.id;
+                    final isNextBirthday =
+                        birthday.entry.id == widget.targetId &&
+                            widget.targetDate != null &&
+                            _birthdayDate(widget.now, birthday.entry.mes,
+                                    birthday.entry.dia) ==
+                                widget.targetDate;
                     return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 110, 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 8),
                       child: Row(
                         children: [
                           CircleAvatar(
@@ -2356,7 +2415,8 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
                                 const SizedBox(height: 2),
                                 Text(
                                   '${DateFormat('dd/MM').format(_birthdayDate(widget.now, birthday.entry.mes, birthday.entry.dia))} · '
-                                  '${_relativeBirthdayLabel(birthday.days)}',
+                                  '${_relativeBirthdayLabel(birthday.days)}'
+                                  '${isNextBirthday ? ' · faltan ${_countdownLabel()}' : ''}',
                                   style: const TextStyle(color: Colors.white70),
                                 ),
                               ],
@@ -2370,19 +2430,6 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
                     if (!mounted) return;
                     setState(() => _index = page % widget.birthdays.length);
                   },
-                ),
-              ),
-              Positioned(
-                top: 4,
-                right: 16,
-                child: SizedBox(
-                  width: 150,
-                  child: _BirthdayCountdown(
-                    dates: widget.dates,
-                    targetName: widget.targetName,
-                    targetDate: widget.targetDate,
-                    compact: true,
-                  ),
                 ),
               ),
               if (multiple)
@@ -2412,105 +2459,6 @@ class _BirthdayMarqueeState extends State<_BirthdayMarquee> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _BirthdayCountdown extends StatefulWidget {
-  final List<(int month, int day)> dates;
-  final String? targetName;
-  final DateTime? targetDate;
-  final bool compact;
-
-  const _BirthdayCountdown({
-    required this.dates,
-    this.targetName,
-    this.targetDate,
-    this.compact = false,
-  });
-
-  @override
-  State<_BirthdayCountdown> createState() => _BirthdayCountdownState();
-}
-
-class _BirthdayCountdownState extends State<_BirthdayCountdown> {
-  Timer? _timer;
-  Duration? _period;
-  Duration _remaining = Duration.zero;
-
-  @override
-  void initState() {
-    super.initState();
-    _refresh(notify: false);
-  }
-
-  @override
-  void didUpdateWidget(covariant _BirthdayCountdown oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.dates != widget.dates) _refresh(notify: false);
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _refresh({bool notify = true}) {
-    final now = MadridDate.now();
-    if (widget.dates.isEmpty) return;
-    final targets = widget.dates.map((date) {
-      var target = DateTime(now.year, date.$1, date.$2);
-      if (!target.isAfter(now)) {
-        target = DateTime(now.year + 1, date.$1, date.$2);
-      }
-      return target;
-    }).toList()
-      ..sort();
-    final remaining = targets.first.difference(now);
-    final period = remaining.inHours >= 1
-        ? const Duration(minutes: 1)
-        : const Duration(seconds: 1);
-    if (_timer == null || _period != period) {
-      _period = period;
-      _timer?.cancel();
-      _timer = Timer.periodic(period, (_) => _refresh());
-    }
-    if (!notify) {
-      _remaining = remaining;
-      return;
-    }
-    if (mounted) setState(() => _remaining = remaining);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.dates.isEmpty) return const SizedBox.shrink();
-    final days = _remaining.inDays;
-    final rest = _remaining - Duration(days: days);
-    final hours = rest.inHours;
-    final minutes = rest.inMinutes % 60;
-    final seconds = rest.inSeconds % 60;
-    final String label;
-    if (days > 0) {
-      label = 'Cuenta atrás: $days día${days == 1 ? '' : 's'} y ${hours}h '
-          '${minutes.toString().padLeft(2, '0')}m';
-    } else if (hours >= 1) {
-      label = 'Cuenta atrás: ${hours}h ${minutes.toString().padLeft(2, '0')}m';
-    } else {
-      label = 'Cuenta atrás: ${minutes.toString().padLeft(2, '0')}:'
-          '${seconds.toString().padLeft(2, '0')}';
-    }
-    final target = widget.targetName == null || widget.targetDate == null
-        ? ''
-        : 'Próximo: ${widget.targetName} · '
-            '${DateFormat('dd/MM').format(widget.targetDate!)} · ';
-    return Text(
-      '$target$label',
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style:
-          compact ? const TextStyle(color: Colors.white70, fontSize: 10) : null,
     );
   }
 }

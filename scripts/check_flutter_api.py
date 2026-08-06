@@ -43,6 +43,7 @@ class Property:
 class ProjectClass:
     name: str
     members: set[str] = field(default_factory=set)
+    fields: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -164,6 +165,7 @@ def project_index() -> tuple[
                 body,
             ):
                 project_class.members.add(prop.group(1))
+                project_class.fields.add(prop.group(1))
             for method in re.finditer(r'\b([a-z_]\w*)\s*\(', body):
                 project_class.members.add(method.group(1))
         for match in re.finditer(
@@ -523,6 +525,64 @@ def member_errors(
     return errors
 
 
+def state_widget_field_errors(
+    path: Path,
+    source: str,
+    classes: dict[str, ProjectClass],
+    libraries: dict[Path, ProjectLibrary],
+) -> list[str]:
+    cleaned = strip_comments_and_strings(source)
+    errors: list[str] = []
+    for state_match in re.finditer(
+        r'\bclass\s+(_?[A-Z]\w*State)\s+extends\s+State<(_?[A-Z]\w*)>',
+        cleaned,
+    ):
+        state_name, widget_name = state_match.groups()
+        widget = classes.get(widget_name)
+        if widget is None or not widget.fields:
+            continue
+        opening = cleaned.find('{', state_match.end())
+        body = matching(cleaned, opening, '{', '}') if opening >= 0 else None
+        if body is None:
+            continue
+        local_names = set(
+            re.findall(
+                r'\b(?:final|var|late\s+final|const)\s+'
+                r'(?:[A-Za-z_<>,.?()\[\] ]+\s+)?([a-z_]\w*)',
+                body,
+            )
+        )
+        local_names.update(re.findall(r'\b(?:void|Widget|Future<[^>]+>|'
+                                      r'[A-Za-z_]\w*)\s+([a-z_]\w*)\s*\(',
+                                      body))
+        for parameter_list in re.findall(
+            r'\b[a-z_]\w*\s*\(([^()]*)\)\s*\{',
+            body,
+        ):
+            for parameter in split_top_level(parameter_list):
+                match = re.search(r'\b([a-z_]\w*)\s*$', parameter.strip())
+                if match:
+                    local_names.add(match.group(1))
+        global_names = set()
+        for library in libraries.values():
+            global_names.update(library.declarations)
+            global_names.update(library.constants)
+        for field in sorted(widget.fields):
+            if field in local_names or field in global_names:
+                continue
+            for use in re.finditer(rf'\b{re.escape(field)}\b', body):
+                before = body[max(0, use.start() - 1):use.start()]
+                after = body[use.end():use.end() + 1]
+                if before == '.' or after == ':':
+                    continue
+                errors.append(
+                    f'{path.relative_to(ROOT)} {state_name}: '
+                    f'widget field {field} used without widget.'
+                )
+                break
+    return errors
+
+
 def import_errors(
     path: Path,
     source: str,
@@ -614,6 +674,9 @@ def main() -> int:
         source = path.read_text(errors='ignore')
         errors.extend(member_errors(
             path, source, project_records, project_classes
+        ))
+        errors.extend(state_widget_field_errors(
+            path, source, project_classes, libraries
         ))
         errors.extend(import_errors(
             path, source, libraries, project_classes, project_functions
