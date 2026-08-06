@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +27,7 @@ import 'package:boanerges1714/services/treasury/treasury_repository.dart';
 import 'package:boanerges1714/models/turno_andas.dart';
 import 'package:boanerges1714/services/turnos_andas_service.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
+import 'package:boanerges1714/utils/madrid_date.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -130,15 +132,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   if (cofrade != null)
                     _DashboardEncuestaResultsBanner(cofrade: cofrade),
-                  if (cofrade != null)
-                    _TurnosAndasCard(cofradeId: cofrade.id),
-                  if (cofrade != null)
-                    _UrgentNewsBanners(cofrade: cofrade),
+                  if (cofrade != null) _TurnosAndasCard(cofradeId: cofrade.id),
+                  if (cofrade != null) _UrgentNewsBanners(cofrade: cofrade),
                   _NovedadesSection(
                       firestoreService: firestoreService,
                       cofradeId: cofrade?.id),
                   const SizedBox(height: 24),
-                  _BirthdaySection(
+                  _BirthdaySectionV2(
                       firestoreService: firestoreService,
                       currentCofrade: cofrade),
                   const SizedBox(height: 24),
@@ -1524,9 +1524,8 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
     if (widget.cofradeId == null) return;
     try {
       final eventsService = context.read<EventsService>();
-      final registrations = await eventsService
-          .watchMyRegistrations(widget.cofradeId!)
-          .first;
+      final registrations =
+          await eventsService.watchMyRegistrations(widget.cofradeId!).first;
       final responded = <String>{};
       for (final reg in registrations) {
         responded.add(reg.campaignId);
@@ -1654,352 +1653,370 @@ class _NovedadesSectionState extends State<_NovedadesSection> {
                           : const Stream.empty(),
                       builder: (context, sugSnap) {
                         return StreamBuilder<List<EventCampaign>>(
-                          stream: context
-                              .read<EventsService>()
-                              .watchCampaigns(),
+                          stream:
+                              context.read<EventsService>().watchCampaigns(),
                           builder: (context, campaignSnap) {
-                        final now = DateTime.now();
-                        final sevenDaysAgo =
-                            now.subtract(const Duration(days: 7));
-                        final List<_NovedadItem> items = [];
+                            final now = DateTime.now();
+                            final sevenDaysAgo =
+                                now.subtract(const Duration(days: 7));
+                            final List<_NovedadItem> items = [];
 
-                        // Novedades from Firestore collection (centralized system)
-                        for (final nov in (novedadesSnap.data ??
-                            <Map<String, dynamic>>[])) {
-                          final visiblePara =
-                              nov['visible_para'] as String? ?? 'todos';
-                          final targetCofradeId = nov['cofrade_id'] as String?;
-                          if (visiblePara == 'cofrade' &&
-                              targetCofradeId != widget.cofradeId) {
-                            continue;
-                          }
-                          final tipo = nov['tipo'] as String? ?? '';
-                          final ruta = nov['ruta'] as String? ?? '/dashboard';
-                          // Skip event novedades the cofrade already responded to
-                          if (tipo == 'evento') {
-                            final campaignIdMatch = RegExp(r'campaignId=([^&]+)').firstMatch(ruta);
-                            if (campaignIdMatch != null &&
-                                _respondedEventCampaignIds.contains(
-                                    Uri.decodeComponent(campaignIdMatch.group(1)!))) {
-                              continue;
+                            // Novedades from Firestore collection (centralized system)
+                            for (final nov in (novedadesSnap.data ??
+                                <Map<String, dynamic>>[])) {
+                              final visiblePara =
+                                  nov['visible_para'] as String? ?? 'todos';
+                              final targetCofradeId =
+                                  nov['cofrade_id'] as String?;
+                              if (visiblePara == 'cofrade' &&
+                                  targetCofradeId != widget.cofradeId) {
+                                continue;
+                              }
+                              final tipo = nov['tipo'] as String? ?? '';
+                              final ruta =
+                                  nov['ruta'] as String? ?? '/dashboard';
+                              // Skip event novedades the cofrade already responded to
+                              if (tipo == 'evento') {
+                                final campaignIdMatch =
+                                    RegExp(r'campaignId=([^&]+)')
+                                        .firstMatch(ruta);
+                                if (campaignIdMatch != null &&
+                                    _respondedEventCampaignIds.contains(
+                                        Uri.decodeComponent(
+                                            campaignIdMatch.group(1)!))) {
+                                  continue;
+                                }
+                              }
+                              items.add(_NovedadItem(
+                                id: 'nov_${nov['id']}',
+                                icon: _iconForNovedadTipo(tipo),
+                                color: _colorForNovedadTipo(tipo),
+                                title: nov['titulo'] as String? ?? '',
+                                subtitle: nov['descripcion'] as String? ?? '',
+                                route: ruta,
+                              ));
                             }
-                          }
-                          items.add(_NovedadItem(
-                            id: 'nov_${nov['id']}',
-                            icon: _iconForNovedadTipo(tipo),
-                            color: _colorForNovedadTipo(tipo),
-                            title: nov['titulo'] as String? ?? '',
-                            subtitle: nov['descripcion'] as String? ?? '',
-                            route: ruta,
-                          ));
-                        }
 
-                        for (final e in (eventSnap.data ?? <Evento>[])) {
-                          if (!e.fecha.isBefore(now)) {
-                            final dias = e.fecha.difference(now).inDays;
-                            items.add(_NovedadItem(
-                              id: 'evento_${e.id}',
-                              icon: Icons.event,
-                              color: AppTheme.accentColor,
-                              title: e.titulo,
-                              subtitle: dias == 0
-                                  ? '\u00a1Hoy!'
-                                  : dias == 1
-                                      ? 'Ma\u00f1ana'
-                                      : 'En $dias d\u00edas \u00b7 ${DateFormat("dd/MM").format(e.fecha)}',
-                              route: '/eventos',
-                            ));
-                          }
-                        }
-                        for (final enc in (convoSnap.data ?? <Encuesta>[])) {
-                          if (enc.estado == EncuestaEstado.activa &&
-                              !enc.isDeleted &&
-                              !_respondedSurveyIds.contains(enc.id)) {
-                            final dias = enc.fechaLimite != null
-                                ? enc.fechaLimite!.difference(now).inDays
-                                : 999;
-                            items.add(_NovedadItem(
-                              id: 'convo_${enc.id}',
-                              icon: Icons.how_to_vote,
-                              color: Colors.orange.shade700,
-                              title: enc.titulo,
-                              subtitle: dias <= 0
-                                  ? '\u00a1\u00daltimo d\u00eda para responder!'
-                                  : dias > 900
-                                      ? 'Encuesta activa'
-                                      : 'Quedan $dias d\u00edas para responder',
-                              route: '/encuestas?surveyId=${enc.id}',
-                            ));
-                          }
-                        }
-                        for (final n in (newsSnap.data ?? <Noticia>[])) {
-                          if (n.fecha.isAfter(sevenDaysAgo)) {
-                            items.add(_NovedadItem(
-                              id: 'noticia_${n.id}',
-                              icon: Icons.article,
-                              color: AppTheme.primaryColor,
-                              title: n.titulo,
-                              subtitle:
-                                  'Nueva noticia \u00b7 ${DateFormat("dd/MM").format(n.fecha)}',
-                              route: '/news',
-                            ));
-                          }
-                        }
-                        for (final s in (sugSnap.data ?? <Sugerencia>[])) {
-                          items.add(_NovedadItem(
-                            id: 'sug_${s.id}',
-                            icon: Icons.reply,
-                            color: AppTheme.accentColor,
-                            title: 'Respuesta: ${s.titulo}',
-                            subtitle:
-                                'Tu ${s.tipo} ha sido respondida por la Junta',
-                            route: '/sugerencias',
-                            isPriority: true,
-                          ));
-                        }
+                            for (final e in (eventSnap.data ?? <Evento>[])) {
+                              if (!e.fecha.isBefore(now)) {
+                                final dias = e.fecha.difference(now).inDays;
+                                items.add(_NovedadItem(
+                                  id: 'evento_${e.id}',
+                                  icon: Icons.event,
+                                  color: AppTheme.accentColor,
+                                  title: e.titulo,
+                                  subtitle: dias == 0
+                                      ? '\u00a1Hoy!'
+                                      : dias == 1
+                                          ? 'Ma\u00f1ana'
+                                          : 'En $dias d\u00edas \u00b7 ${DateFormat("dd/MM").format(e.fecha)}',
+                                  route: '/eventos',
+                                ));
+                              }
+                            }
+                            for (final enc
+                                in (convoSnap.data ?? <Encuesta>[])) {
+                              if (enc.estado == EncuestaEstado.activa &&
+                                  !enc.isDeleted &&
+                                  !_respondedSurveyIds.contains(enc.id)) {
+                                final dias = enc.fechaLimite != null
+                                    ? enc.fechaLimite!.difference(now).inDays
+                                    : 999;
+                                items.add(_NovedadItem(
+                                  id: 'convo_${enc.id}',
+                                  icon: Icons.how_to_vote,
+                                  color: Colors.orange.shade700,
+                                  title: enc.titulo,
+                                  subtitle: dias <= 0
+                                      ? '\u00a1\u00daltimo d\u00eda para responder!'
+                                      : dias > 900
+                                          ? 'Encuesta activa'
+                                          : 'Quedan $dias d\u00edas para responder',
+                                  route: '/encuestas?surveyId=${enc.id}',
+                                ));
+                              }
+                            }
+                            for (final n in (newsSnap.data ?? <Noticia>[])) {
+                              if (n.fecha.isAfter(sevenDaysAgo)) {
+                                items.add(_NovedadItem(
+                                  id: 'noticia_${n.id}',
+                                  icon: Icons.article,
+                                  color: AppTheme.primaryColor,
+                                  title: n.titulo,
+                                  subtitle:
+                                      'Nueva noticia \u00b7 ${DateFormat("dd/MM").format(n.fecha)}',
+                                  route: '/news',
+                                ));
+                              }
+                            }
+                            for (final s in (sugSnap.data ?? <Sugerencia>[])) {
+                              items.add(_NovedadItem(
+                                id: 'sug_${s.id}',
+                                icon: Icons.reply,
+                                color: AppTheme.accentColor,
+                                title: 'Respuesta: ${s.titulo}',
+                                subtitle:
+                                    'Tu ${s.tipo} ha sido respondida por la Junta',
+                                route: '/sugerencias',
+                                isPriority: true,
+                              ));
+                            }
 
-                        // Event campaigns requiring action
-                        for (final campaign
-                            in (campaignSnap.data ?? <EventCampaign>[])) {
-                          if (!campaign.isOpen) continue;
-                          if (_respondedEventCampaignIds
-                              .contains(campaign.id)) {
-                            continue;
-                          }
-                          final definition =
-                              EventsService.definitionFor(campaign.type);
-                          final deadlineDays = campaign.endDate != null
-                              ? campaign.endDate!
-                                  .difference(now)
-                                  .inDays
-                              : 999;
-                          if (deadlineDays < 0) continue;
-                          items.add(_NovedadItem(
-                            id: 'campaign_${campaign.id}',
-                            icon: Icons.event,
-                            color: deadlineDays <= 3
-                                ? Colors.red.shade700
-                                : AppTheme.accentColor,
-                            title: campaign.name,
-                            subtitle: deadlineDays <= 0
-                                ? '\u00a1\u00daltimo d\u00eda! ${definition.shortTitle}'
-                                : deadlineDays <= 3
-                                    ? 'Quedan $deadlineDays d\u00edas \u00b7 ${definition.shortTitle}'
-                                    : '${definition.shortTitle} \u00b7 Requiere tu respuesta',
-                            route: EventsService.routeForCampaign(campaign),
-                          ));
-                        }
+                            // Event campaigns requiring action
+                            for (final campaign
+                                in (campaignSnap.data ?? <EventCampaign>[])) {
+                              if (!campaign.isOpen) continue;
+                              if (_respondedEventCampaignIds
+                                  .contains(campaign.id)) {
+                                continue;
+                              }
+                              final definition =
+                                  EventsService.definitionFor(campaign.type);
+                              final deadlineDays = campaign.endDate != null
+                                  ? campaign.endDate!.difference(now).inDays
+                                  : 999;
+                              if (deadlineDays < 0) continue;
+                              items.add(_NovedadItem(
+                                id: 'campaign_${campaign.id}',
+                                icon: Icons.event,
+                                color: deadlineDays <= 3
+                                    ? Colors.red.shade700
+                                    : AppTheme.accentColor,
+                                title: campaign.name,
+                                subtitle: deadlineDays <= 0
+                                    ? '\u00a1\u00daltimo d\u00eda! ${definition.shortTitle}'
+                                    : deadlineDays <= 3
+                                        ? 'Quedan $deadlineDays d\u00edas \u00b7 ${definition.shortTitle}'
+                                        : '${definition.shortTitle} \u00b7 Requiere tu respuesta',
+                                route: EventsService.routeForCampaign(campaign),
+                              ));
+                            }
 
-                        // Sort: priority items first (sugerencia responses), then rest
-                        items.sort((a, b) {
-                          if (a.isPriority && !b.isPriority) return -1;
-                          if (!a.isPriority && b.isPriority) return 1;
-                          return 0;
-                        });
+                            // Sort: priority items first (sugerencia responses), then rest
+                            items.sort((a, b) {
+                              if (a.isPriority && !b.isPriority) return -1;
+                              if (!a.isPriority && b.isPriority) return 1;
+                              return 0;
+                            });
 
-                        // Filter out read items
-                        final unread = items
-                            .where((i) => !_leidas.contains(i.id))
-                            .toList();
-                        final allIds = items.map((i) => i.id).toList();
+                            // Filter out read items
+                            final unread = items
+                                .where((i) => !_leidas.contains(i.id))
+                                .toList();
+                            final allIds = items.map((i) => i.id).toList();
 
-                        if (items.isEmpty) return const SizedBox.shrink();
+                            if (items.isEmpty) return const SizedBox.shrink();
 
-                        return Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.accentColor.withAlpha(15),
-                                AppTheme.primaryColor.withAlpha(10)
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: AppTheme.accentColor.withAlpha(40)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.notifications_active,
-                                      color: AppTheme.primaryColor, size: 22),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        const Text('Novedades',
-                                            style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.primaryColor)),
-                                        if (unread.isNotEmpty &&
-                                            _leidasLoaded) ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              '${unread.length}',
-                                              style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                  if (unread.isNotEmpty && _leidasLoaded)
-                                    TextButton.icon(
-                                      onPressed: () =>
-                                          _marcarTodasLeidas(allIds),
-                                      icon:
-                                          const Icon(Icons.done_all, size: 16),
-                                      label: const Text(
-                                          'Marcar todo le\u00eddo',
-                                          style: TextStyle(fontSize: 12)),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 8),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                    ),
-                                ],
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppTheme.accentColor.withAlpha(15),
+                                    AppTheme.primaryColor.withAlpha(10)
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: AppTheme.accentColor.withAlpha(40)),
                               ),
-                              if (unread.isEmpty && _leidasLoaded) ...[
-                                const SizedBox(height: 12),
-                                const Text('No tienes novedades pendientes.',
-                                    style: TextStyle(
-                                        color: AppTheme.textSecondary,
-                                        fontSize: 13)),
-                              ],
-                              if (unread.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                ...unread.take(8).map((item) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 8),
-                                      child: InkWell(
-                                        onTap: () => context.go(item.route),
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 6, horizontal: 4),
-                                          child: Row(
-                                            children: [
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.notifications_active,
+                                          color: AppTheme.primaryColor,
+                                          size: 22),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Row(
+                                          children: [
+                                            const Text('Novedades',
+                                                style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        AppTheme.primaryColor)),
+                                            if (unread.isNotEmpty &&
+                                                _leidasLoaded) ...[
+                                              const SizedBox(width: 8),
                                               Container(
                                                 padding:
-                                                    const EdgeInsets.all(8),
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color:
-                                                      item.color.withAlpha(20),
+                                                  color: Colors.red,
                                                   borderRadius:
-                                                      BorderRadius.circular(8),
+                                                      BorderRadius.circular(12),
                                                 ),
-                                                child: Icon(item.icon,
-                                                    size: 20,
-                                                    color: item.color),
+                                                child: Text(
+                                                  '${unread.length}',
+                                                  style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                                ),
                                               ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      if (unread.isNotEmpty && _leidasLoaded)
+                                        TextButton.icon(
+                                          onPressed: () =>
+                                              _marcarTodasLeidas(allIds),
+                                          icon: const Icon(Icons.done_all,
+                                              size: 16),
+                                          label: const Text(
+                                              'Marcar todo le\u00eddo',
+                                              style: TextStyle(fontSize: 12)),
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  if (unread.isEmpty && _leidasLoaded) ...[
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                        'No tienes novedades pendientes.',
+                                        style: TextStyle(
+                                            color: AppTheme.textSecondary,
+                                            fontSize: 13)),
+                                  ],
+                                  if (unread.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    ...unread.take(8).map((item) => Padding(
+                                          padding:
+                                              const EdgeInsets.only(bottom: 8),
+                                          child: InkWell(
+                                            onTap: () => context.go(item.route),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 6,
+                                                      horizontal: 4),
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      color: item.color
+                                                          .withAlpha(20),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                    ),
+                                                    child: Icon(item.icon,
+                                                        size: 20,
+                                                        color: item.color),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
                                                       children: [
-                                                        if (item.isPriority)
-                                                          Container(
-                                                            margin:
-                                                                const EdgeInsets
-                                                                    .only(
-                                                                    right: 6),
-                                                            padding:
-                                                                const EdgeInsets
+                                                        Row(
+                                                          children: [
+                                                            if (item.isPriority)
+                                                              Container(
+                                                                margin:
+                                                                    const EdgeInsets
+                                                                        .only(
+                                                                        right:
+                                                                            6),
+                                                                padding: const EdgeInsets
                                                                     .symmetric(
                                                                     horizontal:
                                                                         6,
                                                                     vertical:
                                                                         1),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: AppTheme
-                                                                  .accentColor
-                                                                  .withAlpha(
-                                                                      30),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          4),
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                  color: AppTheme
+                                                                      .accentColor
+                                                                      .withAlpha(
+                                                                          30),
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              4),
+                                                                ),
+                                                                child: const Text(
+                                                                    'Respuesta',
+                                                                    style: TextStyle(
+                                                                        fontSize:
+                                                                            10,
+                                                                        fontWeight:
+                                                                            FontWeight
+                                                                                .bold,
+                                                                        color: AppTheme
+                                                                            .accentColor)),
+                                                              ),
+                                                            Expanded(
+                                                              child: Text(
+                                                                  item.title,
+                                                                  style: const TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                      fontSize:
+                                                                          14),
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis),
                                                             ),
-                                                            child: const Text(
-                                                                'Respuesta',
-                                                                style: TextStyle(
-                                                                    fontSize:
-                                                                        10,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                    color: AppTheme
-                                                                        .accentColor)),
-                                                          ),
-                                                        Expanded(
-                                                          child: Text(
-                                                              item.title,
-                                                              style: const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                  fontSize: 14),
-                                                              maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis),
+                                                          ],
                                                         ),
+                                                        Text(item.subtitle,
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                color:
+                                                                    item.color,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500)),
                                                       ],
                                                     ),
-                                                    Text(item.subtitle,
-                                                        style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: item.color,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w500)),
-                                                  ],
-                                                ),
+                                                  ),
+                                                  IconButton(
+                                                    icon: Icon(
+                                                        Icons
+                                                            .check_circle_outline,
+                                                        size: 20,
+                                                        color: Colors
+                                                            .grey.shade400),
+                                                    tooltip:
+                                                        'Marcar como le\u00eddo',
+                                                    onPressed: () =>
+                                                        _marcarLeida(item.id),
+                                                    padding: EdgeInsets.zero,
+                                                    constraints:
+                                                        const BoxConstraints(),
+                                                  ),
+                                                ],
                                               ),
-                                              IconButton(
-                                                icon: Icon(
-                                                    Icons.check_circle_outline,
-                                                    size: 20,
-                                                    color:
-                                                        Colors.grey.shade400),
-                                                tooltip:
-                                                    'Marcar como le\u00eddo',
-                                                onPressed: () =>
-                                                    _marcarLeida(item.id),
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints(),
-                                              ),
-                                            ],
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                    )),
-                              ],
-                            ],
-                          ),
-                        );
+                                        )),
+                                  ],
+                                ],
+                              ),
+                            );
                           },
                         );
                       },
@@ -2209,6 +2226,179 @@ class _BirthdaySection extends StatelessWidget {
                     }),
                   ],
                 ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BirthdaySectionV2 extends StatefulWidget {
+  final FirestoreService firestoreService;
+  final Cofrade? currentCofrade;
+
+  const _BirthdaySectionV2({
+    required this.firestoreService,
+    this.currentCofrade,
+  });
+
+  @override
+  State<_BirthdaySectionV2> createState() => _BirthdaySectionV2State();
+}
+
+class _BirthdaySectionV2State extends State<_BirthdaySectionV2> {
+  final ValueNotifier<Duration> _countdown = ValueNotifier(Duration.zero);
+  List<(int month, int day)> _birthdayDates = const [];
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateCountdown();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _updateCountdown();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _countdown.dispose();
+    super.dispose();
+  }
+
+  void _updateCountdown() {
+    final now = MadridDate.now();
+    if (_birthdayDates.isEmpty) return;
+    final targets = _birthdayDates.map((birthday) {
+      var target = DateTime(now.year, birthday.$1, birthday.$2);
+      if (!target.isAfter(now)) {
+        target = DateTime(now.year + 1, birthday.$1, birthday.$2);
+      }
+      return target;
+    }).toList()
+      ..sort();
+    _countdown.value = targets.first.difference(now);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: widget.firestoreService.watchPublicBirthdays(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text('No se pueden cargar los cumpleaños: '
+                  '${snapshot.error}'),
+            ),
+          );
+        }
+        final now = MadridDate.now();
+        final List<({String id, String nombre, int dia, int mes})> entries =
+            snapshot.data?.docs
+                    .map((doc) {
+                      final data = doc.data();
+                      return (
+                        id: doc.id,
+                        nombre: '${data['nombre'] ?? ''}',
+                        dia: (data['dia'] as num?)?.toInt() ?? 0,
+                        mes: (data['mes'] as num?)?.toInt() ?? 0,
+                      );
+                    })
+                    .where((entry) => entry.dia > 0 && entry.mes > 0)
+                    .toList() ??
+                const [];
+        _birthdayDates =
+            entries.map((entry) => (entry.mes, entry.dia)).toList();
+        _updateCountdown();
+        int daysUntil(int month, int day) {
+          var date = DateTime(now.year, month, day);
+          if (date.isBefore(DateTime(now.year, now.month, now.day))) {
+            date = DateTime(now.year + 1, month, day);
+          }
+          return date.difference(DateTime(now.year, now.month, now.day)).inDays;
+        }
+
+        final upcoming = entries
+            .map((entry) => (
+                  entry: entry,
+                  days: daysUntil(entry.mes, entry.dia),
+                ))
+            .where((item) => item.days <= 7)
+            .toList()
+          ..sort((a, b) => a.days.compareTo(b.days));
+        final today = upcoming.where((item) => item.days == 0).toList();
+        final isMine =
+            today.any((item) => item.entry.id == widget.currentCofrade?.id);
+        if (entries.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text('Aún no hay cumpleaños visibles.'),
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isMine)
+              Card(
+                color: Colors.amber.shade50,
+                child: ListTile(
+                  leading: const Text('🎂', style: TextStyle(fontSize: 32)),
+                  title: Text(
+                      '¡Feliz cumpleaños, ${widget.currentCofrade?.nombre ?? 'Cofrade'}!'),
+                  subtitle:
+                      const Text('La Cofradía te desea un maravilloso día.'),
+                ),
+              ),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Cumpleaños',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ValueListenableBuilder<Duration>(
+                      valueListenable: _countdown,
+                      builder: (context, value, _) => Text(
+                        'Cuenta atrás: ${value.inHours.toString().padLeft(2, '0')}:'
+                        '${(value.inMinutes % 60).toString().padLeft(2, '0')}:'
+                        '${(value.inSeconds % 60).toString().padLeft(2, '0')}',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                        '${upcoming.length} cofrade${upcoming.length == 1 ? '' : 's'} '
+                        'cumple${upcoming.length == 1 ? '' : 'n'} en los próximos 7 días'),
+                    ...upcoming.map((item) {
+                      final date =
+                          DateTime(now.year, item.entry.mes, item.entry.dia);
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.cake_outlined),
+                        title: Text(item.entry.nombre),
+                        subtitle: Text(
+                            '${DateFormat('dd/MM').format(date)} · en ${item.days} día${item.days == 1 ? '' : 's'}'),
+                      );
+                    }),
+                  ],
+                ),
               ),
             ),
           ],
@@ -3471,8 +3661,7 @@ class _ActiveEncuestasSection extends StatelessWidget {
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios,
                         size: 16, color: AppTheme.textSecondary),
-                    onTap: () =>
-                        context.go('/encuestas?surveyId=${enc.id}'),
+                    onTap: () => context.go('/encuestas?surveyId=${enc.id}'),
                   ),
                 );
               }).toList(),
@@ -3503,8 +3692,8 @@ class _DashboardEncuestaResultsBanner extends StatelessWidget {
         // Show up to 3 with results
         return Column(
           children: [
-            ...encuestas.take(3).map((enc) =>
-                _DashboardResultCard(encuesta: enc, cofrade: cofrade)),
+            ...encuestas.take(3).map(
+                (enc) => _DashboardResultCard(encuesta: enc, cofrade: cofrade)),
             if (encuestas.length > 3)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -3526,8 +3715,7 @@ class _DashboardEncuestaResultsBanner extends StatelessWidget {
 class _DashboardResultCard extends StatelessWidget {
   final Encuesta encuesta;
   final Cofrade cofrade;
-  const _DashboardResultCard(
-      {required this.encuesta, required this.cofrade});
+  const _DashboardResultCard({required this.encuesta, required this.cofrade});
 
   @override
   Widget build(BuildContext context) {
@@ -3571,8 +3759,7 @@ class _DashboardResultCard extends StatelessWidget {
           color: AppTheme.primaryColor.withAlpha(8),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: () =>
-                context.go('/encuestas?surveyId=${encuesta.id}'),
+            onTap: () => context.go('/encuestas?surveyId=${encuesta.id}'),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -3650,13 +3837,15 @@ class _UrgentNewsBanners extends StatelessWidget {
         if (urgent.isEmpty) return const SizedBox.shrink();
 
         return Column(
-          children: urgent.map((n) => _UrgentBannerCard(
-            noticia: n,
-            onDismiss: () {
-              service.dismissBanner(n.id);
-              (context as Element).markNeedsBuild();
-            },
-          )).toList(),
+          children: urgent
+              .map((n) => _UrgentBannerCard(
+                    noticia: n,
+                    onDismiss: () {
+                      service.dismissBanner(n.id);
+                      (context as Element).markNeedsBuild();
+                    },
+                  ))
+              .toList(),
         );
       },
     );
@@ -3840,7 +4029,8 @@ class _PrivateNewsSectionV2 extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                                  color: AppTheme.primaryColor
+                                      .withValues(alpha: 0.06),
                                   borderRadius: BorderRadius.circular(8)),
                               child: const Icon(Icons.article,
                                   color: AppTheme.primaryColor),
@@ -4207,7 +4397,8 @@ class _TurnosAndasCard extends StatelessWidget {
                                             horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: estadoColor.withAlpha(20),
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
                                           border: Border.all(
                                               color: estadoColor.withAlpha(80)),
                                         ),
@@ -4274,12 +4465,12 @@ class _TurnosAndasCard extends StatelessWidget {
                               Text(
                                 'Turno ${inscripcion.asignacion!.turno} · Posición ${inscripcion.asignacion!.posicion}',
                                 style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600),
+                                    fontSize: 12, fontWeight: FontWeight.w600),
                               ),
                               const Spacer(),
                               InkWell(
-                                onTap: () => GoRouter.of(context).go('/turnos-andas'),
+                                onTap: () =>
+                                    GoRouter.of(context).go('/turnos-andas'),
                                 child: Text('Ver anda',
                                     style: TextStyle(
                                         fontSize: 12,
