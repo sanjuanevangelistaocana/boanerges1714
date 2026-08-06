@@ -1596,6 +1596,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final telefonoC = TextEditingController();
     final dniC = TextEditingController();
     final nacimientoC = TextEditingController();
+    DateTime? nacimiento;
     var estado = 'Activo';
     var rol = 'cofrade';
     final dynamicValues = <String, dynamic>{};
@@ -1639,8 +1640,25 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: nacimientoC,
+                    readOnly: true,
                     decoration: const InputDecoration(
-                        labelText: 'Fecha nacimiento dd/MM/yyyy'),
+                      labelText: 'Fecha de nacimiento',
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                        initialDate: nacimiento ?? DateTime(1990),
+                      );
+                      if (picked == null) return;
+                      setDialogState(() {
+                        nacimiento = picked;
+                        nacimientoC.text =
+                            Cofrade.birthDateString(picked) ?? '';
+                      });
+                    },
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
@@ -1791,7 +1809,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                         .replaceAll(RegExp(r'[\s\-_.]'), ''),
                     'email': emailC.text.trim(),
                     'telefono_movil': telefonoC.text.trim(),
-                    'fecha_nacimiento_str': nacimientoC.text.trim(),
+                    ...Cofrade.birthDateFields(nacimiento),
                     'estado': estado,
                     'rol': rol,
                     'role': rol,
@@ -3478,6 +3496,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final emailSecC =
         TextEditingController(text: cofrade.emailSecundario ?? '');
     final dniC = TextEditingController(text: cofrade.dni ?? '');
+    final nacimientoC = TextEditingController(text: cofrade.fechaNacimientoStr);
     final telefonoMovilC = TextEditingController(text: cofrade.telefonoMovil);
     final telefonoFijoC = TextEditingController(text: cofrade.telefonoFijo);
     final telefonoSecC =
@@ -3506,6 +3525,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
     final parentescoTutorC =
         TextEditingController(text: cofrade.digitalTutorRelationship);
     final causaBajaC = TextEditingController(text: cofrade.causaBaja ?? '');
+    DateTime? nacimiento = cofrade.fechaNacimiento;
 
     String estado = ['Activo', 'Pendiente', 'Baja'].contains(cofrade.estado)
         ? cofrade.estado
@@ -3598,6 +3618,29 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                   TextField(
                       controller: dniC,
                       decoration: const InputDecoration(labelText: 'DNI')),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: nacimientoC,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Fecha de nacimiento',
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                        initialDate: nacimiento ?? DateTime(1990),
+                      );
+                      if (picked == null) return;
+                      setDialogState(() {
+                        nacimiento = picked;
+                        nacimientoC.text =
+                            Cofrade.birthDateString(picked) ?? '';
+                      });
+                    },
+                  ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue:
@@ -3939,6 +3982,7 @@ class _ManageCofradesScreenState extends State<ManageCofradesScreen> {
                     'email': emailC.text.trim(),
                     'email_secundario': emailSecC.text.trim(),
                     'dni': dniC.text.trim().toUpperCase(),
+                    ...Cofrade.birthDateFields(nacimiento),
                     'genero': genero,
                     'estatura': int.tryParse(estaturaC.text.trim()),
                     'talla': talla,

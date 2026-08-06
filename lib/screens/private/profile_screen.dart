@@ -8,6 +8,8 @@ import 'package:boanerges1714/services/firestore_service.dart';
 import 'package:boanerges1714/services/storage_service.dart';
 import 'package:boanerges1714/widgets/responsive_layout.dart';
 import 'package:boanerges1714/models/cofrade_field_config.dart';
+import 'package:boanerges1714/models/cofrade.dart';
+import 'package:boanerges1714/utils/madrid_date.dart';
 
 class ProfileScreen extends StatefulWidget {
   final bool startEditing;
@@ -35,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late bool _isEditing;
   bool _isSaving = false;
   late bool _tieneTunicaPropia;
+  late bool _cumpleanosVisible;
   final Map<String, dynamic> _dynamicFieldValues = {};
 
   @override
@@ -43,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _isEditing = widget.startEditing;
     final cofrade = context.read<AuthService>().cofrade;
     _tieneTunicaPropia = cofrade?.tieneTunicaPropia ?? false;
+    _cumpleanosVisible = cofrade?.cumpleanosVisible ?? true;
     _telefonoFijoController =
         TextEditingController(text: cofrade?.telefonoFijo ?? '');
     _telefonoMovilController =
@@ -285,6 +289,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ],
+            if (cofrade != null &&
+                cofrade.fechaNacimiento != null &&
+                cofrade.fechaNacimiento!.month == MadridDate.now().month &&
+                cofrade.fechaNacimiento!.day == MadridDate.now().day)
+              Card(
+                color: Colors.amber.shade50,
+                child: const ListTile(
+                  leading: Text('🎂', style: TextStyle(fontSize: 30)),
+                  title: Text('¡Feliz cumpleaños!'),
+                  subtitle: Text(
+                      'La Cofradía de San Juan Evangelista te desea un maravilloso día.'),
+                ),
+              ),
             const SizedBox(height: 24),
             Card(
               child: Padding(
@@ -360,6 +377,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           },
                         ),
                       if (_isEditing) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: SwitchListTile(
+                            title: const Text('Mostrar mi cumpleaños'),
+                            subtitle: const Text(
+                                'Otros cofrades verán sólo mi nombre y día/mes'),
+                            value: _cumpleanosVisible,
+                            onChanged: (value) =>
+                                setState(() => _cumpleanosVisible = value),
+                            secondary: const Icon(Icons.cake_outlined),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: SwitchListTile(
@@ -847,8 +877,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       case 'date':
-        final controller =
-            TextEditingController(text: current == null ? '' : '$current');
+        final currentDate = Cofrade.parseBirthDate(current);
+        final controller = TextEditingController(
+            text: Cofrade.birthDateString(currentDate) ?? '');
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: TextFormField(
@@ -869,10 +900,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       initialDate: DateTime.now(),
                     );
                     if (picked == null) return;
-                    final value =
-                        '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
-                    controller.text = value;
-                    _dynamicFieldValues[field.fieldKey] = value;
+                    final fields = Cofrade.birthDateFields(picked);
+                    controller.text = fields['fecha_nacimiento_str'] as String;
+                    _dynamicFieldValues.addAll(fields);
                   }
                 : null,
           ),
@@ -1003,6 +1033,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _ibanController.text = cofrade?.iban ?? '';
     _titularIbanController.text = cofrade?.titularIban ?? '';
     _tieneTunicaPropia = cofrade?.tieneTunicaPropia ?? false;
+    _cumpleanosVisible = cofrade?.cumpleanosVisible ?? true;
     _dynamicFieldValues.clear();
   }
 
@@ -1029,6 +1060,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'email_secundario': _emailSecundarioController.text,
         'telefono_secundario': _telefonoSecundarioController.text,
         'tiene_tunica_propia': _tieneTunicaPropia,
+        'cumpleanos_visible': _cumpleanosVisible,
         'iban': _ibanController.text.trim(),
         'titular_iban': _titularIbanController.text.trim(),
         'email': _emailController.text.trim(),

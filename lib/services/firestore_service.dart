@@ -79,6 +79,14 @@ class FirestoreService {
     if (data.containsKey('dni')) {
       data['dni_normalizado'] = _normalizeDni(data['dni']?.toString() ?? '');
     }
+    final hasBirthDateUpdate = data.containsKey('fecha_nacimiento') ||
+        data.containsKey('fecha_nacimiento_str');
+    if (hasBirthDateUpdate) {
+      final birth = Cofrade.parseBirthDate(
+        data['fecha_nacimiento'] ?? data['fecha_nacimiento_str'],
+      );
+      data.addAll(Cofrade.birthDateFields(birth));
+    }
     final actorRole = (changedByRole ?? '').toLowerCase();
     final isSelfProfileEdit =
         markPendingReview && changedBy == id && !actorRole.contains('admin');
@@ -95,6 +103,15 @@ class FirestoreService {
     for (final entry in data.entries) {
       if (entry.value != null) {
         cleaned[entry.key] = entry.value;
+      }
+    }
+    if (hasBirthDateUpdate) {
+      final birth = Cofrade.parseBirthDate(
+        data['fecha_nacimiento'] ?? data['fecha_nacimiento_str'],
+      );
+      if (birth == null) {
+        cleaned['fecha_nacimiento'] = FieldValue.delete();
+        cleaned['fecha_nacimiento_str'] = '';
       }
     }
     debugPrint('[Firestore] updateCofrade($id): ${cleaned.keys.join(', ')}');
@@ -633,6 +650,13 @@ class FirestoreService {
   }
 
   Future<String> createCofradeForAdmin(Map<String, dynamic> data) async {
+    if (data.containsKey('fecha_nacimiento') ||
+        data.containsKey('fecha_nacimiento_str')) {
+      final birth = Cofrade.parseBirthDate(
+        data['fecha_nacimiento'] ?? data['fecha_nacimiento_str'],
+      );
+      data.addAll(Cofrade.birthDateFields(birth));
+    }
     if (data['numero'] == null) {
       final active = await _db
           .collection('cofrades')
@@ -2369,6 +2393,10 @@ class FirestoreService {
   Stream<List<Cofrade>> getAllCofradesStream() {
     return _db.collection('cofrades').snapshots().map((snapshot) =>
         snapshot.docs.map((doc) => Cofrade.fromFirestore(doc)).toList());
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchPublicBirthdays() {
+    return _db.collection('cumpleanos_publicos').snapshots();
   }
 
   // --- Noticias privadas (solo cofrades) ---

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:boanerges1714/utils/madrid_date.dart';
 
 class Cofrade {
   final String id;
@@ -58,6 +59,7 @@ class Cofrade {
   // Communication
   final String? fcmToken;
   final bool notificacionesActivas;
+  final bool cumpleanosVisible;
   final String? emailSecundario;
   final String? telefonoSecundario;
   // Profile extras
@@ -149,6 +151,7 @@ class Cofrade {
     this.reactivatedBy,
     this.fcmToken,
     this.notificacionesActivas = true,
+    this.cumpleanosVisible = true,
     this.emailSecundario,
     this.telefonoSecundario,
     this.dni,
@@ -186,6 +189,8 @@ class Cofrade {
 
   factory Cofrade.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final birthDate = parseBirthDate(data['fecha_nacimiento']) ??
+        parseBirthDate(data['fecha_nacimiento_str']);
     return Cofrade(
       id: doc.id,
       numero: (data['numero'] as num?)?.toInt(),
@@ -195,8 +200,9 @@ class Cofrade {
       tuteladoDigital: _parseLegacyTutorValue(data['tutelado_digital'])
           ? '${data['digitalTutorEmail'] ?? data['tutelado_digital'] ?? ''}'
           : '',
-      fechaNacimiento: (data['fecha_nacimiento'] as Timestamp?)?.toDate(),
-      fechaNacimientoStr: data['fecha_nacimiento_str'] ?? '',
+      fechaNacimiento: birthDate,
+      fechaNacimientoStr:
+          birthDateString(birthDate) ?? '${data['fecha_nacimiento_str'] ?? ''}',
       edad: (data['edad'] as num?)?.toInt(),
       genero: data['genero'] as String?,
       anioAlta: (data['anio_alta'] as num?)?.toInt(),
@@ -257,6 +263,7 @@ class Cofrade {
       reactivatedBy: data['reactivatedBy'] as String?,
       fcmToken: data['fcm_token'] as String?,
       notificacionesActivas: data['notificaciones_activas'] ?? true,
+      cumpleanosVisible: data['cumpleanos_visible'] != false,
       emailSecundario: data['email_secundario'] as String?,
       telefonoSecundario: data['telefono_secundario'] as String?,
       dni: data['dni'] as String?,
@@ -313,9 +320,7 @@ class Cofrade {
       'nombre': nombre,
       'apellidos': apellidos,
       'tutelado_digital': tuteladoDigital,
-      'fecha_nacimiento':
-          fechaNacimiento != null ? Timestamp.fromDate(fechaNacimiento!) : null,
-      'fecha_nacimiento_str': fechaNacimientoStr,
+      ...birthDateFields(fechaNacimiento),
       'edad': edad,
       'genero': genero,
       'anio_alta': anioAlta,
@@ -375,6 +380,7 @@ class Cofrade {
           : null,
       'fcm_token': fcmToken,
       'notificaciones_activas': notificacionesActivas,
+      'cumpleanos_visible': cumpleanosVisible,
       'email_secundario': emailSecundario,
       'telefono_secundario': telefonoSecundario,
       'dni': dni,
@@ -415,6 +421,63 @@ class Cofrade {
           ? Timestamp.fromDate(profileReviewedAt!)
           : null,
       'profileReviewedBy': profileReviewedBy,
+    };
+  }
+
+  static DateTime? parseBirthDate(Object? value) {
+    DateTime? parsed;
+    if (value is Timestamp) {
+      parsed = value.toDate();
+    } else if (value is DateTime) {
+      parsed = value;
+    } else if (value is int) {
+      parsed = DateTime.fromMillisecondsSinceEpoch(value);
+    } else if (value is num && value == value.roundToDouble()) {
+      parsed = DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    } else if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty) return null;
+      final parts = text.split(RegExp(r'[/\-]'));
+      if (parts.length == 3 &&
+          RegExp(r'^\d{1,4}[/\-]\d{1,2}[/\-]\d{1,4}$').hasMatch(text)) {
+        final first = int.tryParse(parts[0]);
+        final second = int.tryParse(parts[1]);
+        final third = int.tryParse(parts[2]);
+        if (first != null && second != null && third != null) {
+          final year = first > 31 ? first : third;
+          final month = second;
+          final day = first > 31 ? third : first;
+          parsed = DateTime(year, month, day);
+          if (parsed.year != year ||
+              parsed.month != month ||
+              parsed.day != day) {
+            return null;
+          }
+        }
+      }
+    }
+    if (parsed == null) return null;
+    final date = DateTime(parsed.year, parsed.month, parsed.day);
+    final today = MadridDate.now();
+    if (date.year < 1900 ||
+        date.isAfter(DateTime(today.year, today.month, today.day))) {
+      return null;
+    }
+    return date;
+  }
+
+  static String? birthDateString(DateTime? value) {
+    final date = parseBirthDate(value);
+    if (date == null) return null;
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  static Map<String, dynamic> birthDateFields(DateTime? value) {
+    final date = parseBirthDate(value);
+    return {
+      'fecha_nacimiento': date == null ? null : Timestamp.fromDate(date),
+      'fecha_nacimiento_str': birthDateString(date) ?? '',
     };
   }
 
@@ -470,6 +533,7 @@ class Cofrade {
     String? reactivatedBy,
     String? fcmToken,
     bool? notificacionesActivas,
+    bool? cumpleanosVisible,
     String? emailSecundario,
     String? telefonoSecundario,
     String? dni,
@@ -564,6 +628,7 @@ class Cofrade {
       fcmToken: fcmToken ?? this.fcmToken,
       notificacionesActivas:
           notificacionesActivas ?? this.notificacionesActivas,
+      cumpleanosVisible: cumpleanosVisible ?? this.cumpleanosVisible,
       emailSecundario: emailSecundario ?? this.emailSecundario,
       telefonoSecundario: telefonoSecundario ?? this.telefonoSecundario,
       dni: dni ?? this.dni,
