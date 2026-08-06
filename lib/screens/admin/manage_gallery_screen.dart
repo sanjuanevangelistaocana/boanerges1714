@@ -772,24 +772,25 @@ class _ManageGalleryScreenState extends State<ManageGalleryScreen> {
                             ),
                             IconButton(
                               tooltip: 'Usar como portada',
-                              onPressed: _mutating
-                                  ? null
-                                  : () async {
-                                      try {
-                                        await context
-                                            .read<GalleryService>()
-                                            .setFolderCover(
-                                              folderId: folder.id,
-                                              imageId: image.id,
-                                              imageUrl: image.url,
-                                            );
-                                        _showMessage(
-                                            'Portada de carpeta actualizada.');
-                                      } catch (error) {
-                                        _showMessage(_friendlyError(error),
-                                            error: true);
-                                      }
-                                    },
+                              onPressed:
+                                  _mutating || !folder.publica || !image.publica
+                                      ? null
+                                      : () async {
+                                          try {
+                                            await context
+                                                .read<GalleryService>()
+                                                .setFolderCover(
+                                                  folderId: folder.id,
+                                                  imageId: image.id,
+                                                  imageUrl: image.url,
+                                                );
+                                            _showMessage(
+                                                'Portada de carpeta actualizada.');
+                                          } catch (error) {
+                                            _showMessage(_friendlyError(error),
+                                                error: true);
+                                          }
+                                        },
                               icon: const Icon(Icons.star_border,
                                   color: Colors.white),
                             ),
