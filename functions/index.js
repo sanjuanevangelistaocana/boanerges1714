@@ -18,7 +18,6 @@ const SPREADSHEET_ID = "1YoQh6kcRU7VVg4bbz4pUfEyqPSXgqpT9Lfq6VLfhGCQ";
 
 // Gmail SMTP configuration
 const GMAIL_EMAIL = "sanjuanevangelistaocana@gmail.com";
-const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
 const withEmailSecret = functions.runWith({secrets: ["GMAIL_APP_PASSWORD"]});
 const SHEET_NAME = "Relación Cofrades";
 // Column indices matching the actual Google Sheet structure:
@@ -48,10 +47,11 @@ function normalizeDni(value) {
 }
 
 function createEmailTransport() {
-  if (!GMAIL_APP_PASSWORD) return null;
+  const password = process.env.GMAIL_APP_PASSWORD;
+  if (!password) return null;
   return nodemailer.createTransport({
     service: "gmail",
-    auth: {user: GMAIL_EMAIL, pass: GMAIL_APP_PASSWORD},
+    auth: {user: GMAIL_EMAIL, pass: password},
   });
 }
 
@@ -568,13 +568,13 @@ exports.onNewSolicitud = withEmailSecret
       }
 
       // 2. Send email notification to cofradía gmail
-      if (!GMAIL_APP_PASSWORD) {
-        console.log("Gmail app password not configured. Skipping solicitud email.");
+      const transporter = createEmailTransport();
+      if (!transporter) {
+        console.warn("Gmail secret not configured. Skipping solicitud email.");
         return null;
       }
 
       try {
-        const transporter = createEmailTransport();
 
         const bodyParts = [];
         bodyParts.push(`<p><strong>Nombre:</strong> ${data.nombre} ${data.apellidos}</p>`);
@@ -657,12 +657,11 @@ exports.onNewContactMessage = withEmailSecret
       const data = snap.data();
       console.log(`New contact message from ${data.nombre} (${data.email})`);
 
-      if (!GMAIL_APP_PASSWORD) {
-        console.log("Gmail app password not configured. Skipping email.");
+      const transporter = createEmailTransport();
+      if (!transporter) {
+        console.warn("Gmail secret not configured. Skipping contact email.");
         return null;
       }
-
-      const transporter = createEmailTransport();
 
       const bodyParts = [];
       if (data.nombre) bodyParts.push(`<p><strong>Nombre:</strong> ${data.nombre}</p>`);
@@ -1396,6 +1395,10 @@ exports.sendBirthdayGreetings = withEmailSecret
       const cofradesSnap = await db.collection("cofrades")
           .where("estado", "==", "Activo").get();
       const transporter = createEmailTransport();
+      if (!transporter) {
+        console.warn("Gmail secret not configured. Skipping birthday emails.");
+        return null;
+      }
       let sent = 0;
       let skipped = 0;
       let failed = 0;
@@ -1421,18 +1424,26 @@ exports.sendBirthdayGreetings = withEmailSecret
             console.log(`Birthday skipped ${doc.id}: invalid email`);
             continue;
           }
-          if (c.notificaciones_activas === false ||
-              c.gdprDigitalRevoked === true ||
-              c.gdpr_digital_revoked === true ||
-              c.gdprDigitalStatus === "revoked" ||
-              c.gdpr_digital_status === "revoked" ||
-              c.communications_consent !== true) {
+          if (c.notificaciones_activas === false) {
             skipped++;
-            console.log(`Birthday skipped ${doc.id}: notifications/consent`);
+            console.log(`Birthday skipped ${doc.id}: notifications disabled`);
             continue;
           }
-          if (!transporter) {
-            throw new Error("Gmail secret is not configured");
+          if (c.gdprDigitalRevoked === true ||
+              c.gdpr_digital_revoked === true ||
+              c.gdprDigitalStatus === "revoked" ||
+              c.gdpr_digital_status === "revoked") {
+            skipped++;
+            console.log(`Birthday skipped ${doc.id}: GDPR revoked`);
+            continue;
+          }
+          if (c.communications_consent === false) {
+            skipped++;
+            console.log(`Birthday skipped ${doc.id}: explicit communication refusal`);
+            continue;
+          }
+          if (c.communications_consent == null) {
+            console.log(`Birthday consent absent ${doc.id}: legacy record; continuing`);
           }
           const sendRef = db.collection("birthday_email_sends")
               .doc(`${doc.id}_${today.year}`);
@@ -1460,7 +1471,19 @@ exports.sendBirthdayGreetings = withEmailSecret
               from: `"Cofradía San Juan Evangelista" <${GMAIL_EMAIL}>`,
               to: c.email,
               subject: `¡Feliz cumpleaños, ${c.nombre || ""}! 🎂`,
-              html: `<p>La Cofradía de San Juan Evangelista de Ocaña te desea un muy feliz cumpleaños.</p>`,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+                  <div style="background:#6B1024;color:white;padding:24px;border-radius:8px 8px 0 0;text-align:center;">
+                    <h1 style="margin:0;">¡Feliz cumpleaños!</h1>
+                  </div>
+                  <div style="padding:24px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px;">
+                    <p style="font-size:16px;">Querido/a <strong>${c.nombre || ""} ${c.apellidos || ""}</strong>,</p>
+                    <p>La Cofradía de San Juan Evangelista de Ocaña te desea un muy feliz cumpleaños.</p>
+                    <p>Esperamos que pases un día maravilloso rodeado/a de los tuyos.</p>
+                    <p style="margin-top:20px;">Un abrazo fraternal,<br/><strong>Cofradía de San Juan Evangelista</strong><br/>Ocaña · Desde 1714</p>
+                  </div>
+                </div>
+              `,
             });
             await sendRef.update({
               status: "sent",
@@ -1501,12 +1524,11 @@ exports.onNewSugerencia = withEmailSecret
       const data = snap.data();
       console.log(`New sugerencia from ${data.cofrade_nombre}: ${data.titulo}`);
 
-      if (!GMAIL_APP_PASSWORD) {
-        console.log("Gmail app password not configured. Skipping email.");
+      const transporter = createEmailTransport();
+      if (!transporter) {
+        console.warn("Gmail secret not configured. Skipping sugerencia email.");
         return null;
       }
-
-      const transporter = createEmailTransport();
 
       const tipoLabel = data.tipo === "peticion" ? "Petición" : "Sugerencia";
       const mailOptions = {
