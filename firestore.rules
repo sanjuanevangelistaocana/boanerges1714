@@ -805,6 +805,8 @@ service cloud.firestore {
     }
 
     match /gallery_images/{imageId} {
+      // Carrusel: las imágenes son públicas por diseño aunque la carpeta de
+      // sistema permanezca oculta de los listados y marcada como solo_admin.
       allow get: if (resource.data.get('solo_admin', false) == true &&
         resource.data.get('carrusel', false) != true && isAdmin()) ||
         (resource.data.get('carrusel', false) == true &&

@@ -1032,10 +1032,15 @@ exports.normalizeGalleryDocuments = functions
       const summary = {
         foldersScanned: 0,
         foldersUpdated: 0,
+        coversCleared: 0,
         imagesScanned: 0,
         imagesUpdated: 0,
       };
       try {
+        const galleryImages = await db.collection("gallery_images").get();
+        const imagesById = new Map(
+            galleryImages.docs.map((doc) => [doc.id, doc.data()]),
+        );
         for (const collection of ["gallery_folders", "gallery_images"]) {
           const snapshot = await db.collection(collection).get();
           let batch = db.batch();
@@ -1061,6 +1066,21 @@ exports.normalizeGalleryDocuments = functions
             for (const [field, value] of Object.entries(defaults)) {
               if (!Object.prototype.hasOwnProperty.call(current, field)) {
                 changes[field] = value;
+              }
+            }
+            if (collection === "gallery_folders" &&
+                current.publica === true &&
+                current.cover_image_id) {
+              const cover = imagesById.get(current.cover_image_id);
+              const safeCover = cover &&
+                  cover.publica === true &&
+                  cover.solo_admin !== true &&
+                  cover.deleted !== true &&
+                  cover.estado === "aprobada";
+              if (!safeCover) {
+                changes.cover_image_id = null;
+                changes.cover_image_url = null;
+                summary.coversCleared++;
               }
             }
             if (collection === "gallery_folders") {
