@@ -13,7 +13,12 @@ import 'package:boanerges1714/services/storage_service.dart';
 import 'package:boanerges1714/widgets/content_block_editor.dart';
 
 class ContentAdminScreen extends StatefulWidget {
-  const ContentAdminScreen({super.key});
+  final String? initialSectionId;
+
+  const ContentAdminScreen({
+    super.key,
+    this.initialSectionId,
+  });
 
   @override
   State<ContentAdminScreen> createState() => _ContentAdminScreenState();
@@ -30,6 +35,7 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
   void initState() {
     super.initState();
     _content = context.read<ContentService>();
+    _selectedId = widget.initialSectionId;
     _seed();
   }
 
@@ -344,7 +350,8 @@ class _ContentAdminScreenState extends State<ContentAdminScreen> {
           ),
           IconButton(
             tooltip: 'Gestionar contenido',
-            onPressed: () => setState(() => _selectedId = section.id),
+            onPressed: () =>
+                context.go('/admin/contenido?section=${section.id}'),
             icon: const Icon(Icons.open_in_new),
           ),
           if (!section.system)

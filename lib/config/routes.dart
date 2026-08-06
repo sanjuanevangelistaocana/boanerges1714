@@ -368,7 +368,9 @@ GoRouter createRouter(AuthService authService) {
           ),
           GoRoute(
               path: '/admin/contenido',
-              builder: (context, state) => const ContentAdminScreen()),
+              builder: (context, state) => ContentAdminScreen(
+                    initialSectionId: state.uri.queryParameters['section'],
+                  )),
           GoRoute(
               path: '/admin/turnos-andas',
               builder: (context, state) => const TurnosAndasAdminScreen()),
